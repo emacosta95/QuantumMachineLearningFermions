@@ -3,59 +3,138 @@ from itertools import combinations
 import numpy as np
 from scipy.sparse import lil_matrix
 import scipy.sparse as sparse
-from typing import List
-from scipy.sparse.linalg import eigsh,lobpcg
+from typing import List, Dict, Callable
+from scipy.sparse.linalg import eigsh, lobpcg
+from itertools import product
+import multiprocessing
+from tqdm import tqdm, trange
 
 
-def single_particle_potential(ndim:int,nparticles:int,size:float,ngrid:int,peaks:List,amplitudes:List,deviations:List):
-        
-        if ndim==2 and nparticles==2:
-            x,y=np.mgrid[0:size:ngrid*1j,0:size:ngrid*1j]
-            v:np.ndarray=0.     
-            for i,peak in enumerate(peaks):
-                gaussian=-1*amplitudes[i]*np.exp(-1*( ((size/2-x)**2)+((size/2-y)**2))/deviations[i])
-                shift_mean_x=int((ngrid*(peak[0])/size))
-                shift_mean_y=int((ngrid*(peak[1])/size))
-                gaussian=np.roll(gaussian,shift=(shift_mean_x,shift_mean_y),axis=(0,1))
-                v=v+gaussian
-            
-        return v
+def single_particle_potential(
+    ndim: int,
+    nparticles: int,
+    size: float,
+    ngrid: int,
+    peaks: List,
+    amplitudes: List,
+    deviations: List,
+):
+
+    if ndim == 2 and nparticles == 2:
+        x, y = np.mgrid[0 : size : ngrid * 1j, 0 : size : ngrid * 1j]
+        v: np.ndarray = 0.0
+        for i, peak in enumerate(peaks):
+            gaussian = (
+                -1
+                * amplitudes[i]
+                * np.exp(
+                    -1 * (((size / 2 - x) ** 2) + ((size / 2 - y) ** 2)) / deviations[i]
+                )
+            )
+            shift_mean_x = int((ngrid * (peak[0]) / size))
+            shift_mean_y = int((ngrid * (peak[1]) / size))
+            gaussian = np.roll(
+                gaussian, shift=(shift_mean_x, shift_mean_y), axis=(0, 1)
+            )
+            v = v + gaussian
+
+    return v
 
 
-def coulomb_function(idx:int,jdx:int,size:float,ngrid:int,ndim:int):
-    dx=size/ngrid
-    
-    if ndim==2:
-        i1=idx % ngrid
-        j1=idx // ngrid
-        
-        i2=jdx % ngrid
-        j2=jdx // ngrid
-        
-        boxes=[-1,0,1]
-        v=0.
+def coulomb_function(idx: int, jdx: int, size: float, ngrid: int, ndim: int):
+    dx = size / ngrid
+
+    if ndim == 2:
+        i1 = idx % ngrid
+        j1 = idx // ngrid
+
+        i2 = jdx % ngrid
+        j2 = jdx // ngrid
+
+        boxes = [-1, 0, 1]
+        v = 0.0
         for b1x in boxes:
             for b2x in boxes:
                 for b1y in boxes:
                     for b2y in boxes:
-                        r=dx*np.sqrt(1+((i1+b1x*ngrid)-(i2+b2x*ngrid))**2+((j1+b1y*ngrid)-(j2+b2y*ngrid))**2)
-                        v=v+0.5*1/r
-                
+                        r = dx * np.sqrt(
+                            1
+                            + ((i1 + b1x * ngrid) - (i2 + b2x * ngrid)) ** 2
+                            + ((j1 + b1y * ngrid) - (j2 + b2y * ngrid)) ** 2
+                        )
+                        v = v + 0.5 * 1 / r
+
     return v
+
+
+def unique_combinations(lists):
+    seen_values = set()
+    for combination in product(*lists):
+        if len(set(combination)) == len(combination) and combination not in seen_values:
+            seen_values.add(combination)
+            yield combination
+
+
+def define_kinetic_element(
+    sigma: np.ndarray,
+    indices: int,
+    nparticles: int,
+    ngrid: int,
+    cost: float,
+    get_index: Callable,
+    operator: sparse.csr_matrix,
+):
+
+    indices_and_variations = []
+    for idx in indices:
+        x = idx % ngrid
+        y = idx // ngrid
+        # print('x=',x)
+        # print('y=',y)
+        idx_x = (x + 1) % ngrid + ngrid * y
+        idx_y = x + ngrid * ((y + 1) % ngrid)
+        indices_and_variations.append([(idx, -2 * cost), (idx_x, cost), (idx_y, cost)])
+
+    # permutation of all the combinations
+    combinations = unique_combinations(indices_and_variations)
+
+    for combo in combinations:
+        operator_value = 0.0
+        new_sigma = np.zeros_like(sigma)
+        for element in combo:
+            combo_index = element[0]
+            value = element[1]
+            operator_value = operator_value + value
+            new_sigma[combo_index] = 1.0
+        if int(np.sum(new_sigma)) == nparticles:
+            old_index = get_index(sigma)
+            new_index = get_index(new_sigma)
+
+            # for jdx in np.nonzero(new_sigma)[0]:
+            #     print('x_new=',jdx % ngrid)
+            #     print('y_new=',jdx // ngrid)
+
+            operator[old_index, new_index] = operator_value
+
+    return operator
 
 
 class FemionicBasis:
 
-    def __init__(self,size:float,ngrid:int,dim:int,nparticles) -> None:
-        
-        self.dx=size/ngrid
-        self.size=size
-        self.ngrid=ngrid
-        self.dim=dim
-        self.nparticles=nparticles
-        self.basis=self.generate_fermi_hubbard_basis()
-        
-    def generate_fermi_hubbard_basis(self):
+    def __init__(
+        self, size_a: int, size_b: int, nparticles_a: int, nparticles_b: int
+    ) -> None:
+
+        self.size_a = size_a
+        self.size_b = size_b
+        self.nparticles_a = nparticles_a
+        self.nparticles_b = nparticles_b
+
+        self.basis = self.generate_fermi_hubbard_basis()
+
+        self.encode = self._get_the_encode()
+
+    def generate_fermi_hubbard_basis_old(self):
         """
         Generate the basis states for the Fermi-Hubbard model with a given number
         of lattice sites (L) and particles (N_particles).
@@ -69,130 +148,296 @@ class FemionicBasis:
         """
 
         basis_states = []
-        state0=np.zeros(self.ngrid**self.dim)
+        state0 = np.zeros(self.size)
         # Generate all possible combinations of particle positions
-        particle_positions = list(itertools.combinations(range(self.ngrid**self.dim), self.nparticles))
+        particle_positions = list(
+            itertools.combinations(range(self.size), self.nparticles)
+        )
         # Combine particle positions and empty sites to form basis states
         for tuple in particle_positions:
-            state=state0.copy()
+            state = state0.copy()
             for i in tuple:
-                state[i]=1
+                state[i] = 1
             basis_states.append(state)
-            
+
         return np.asarray(basis_states)
-    
-    def adag_a(self,i: int, j: int) -> np.ndarray:
-        operator=lil_matrix((self.basis.shape[0],self.basis.shape[0]))
-        for index,psi in enumerate(self.basis):
+
+    def generate_fermi_hubbard_basis(self):
+        combinations_list = []
+        print(combinations(range(self.nparticles_a), self.size_a))
+        for indices_part1 in list(combinations(range(self.size_a), self.nparticles_a)):
+            for indices_part2 in list(
+                combinations(range(self.size_b), self.nparticles_b)
+            ):
+                base = [0] * (self.size_a + self.size_b)
+                for idx in indices_part1:
+                    base[idx] = 1
+                for idx in indices_part2:
+                    # because the second subsystem is related to the other species
+                    base[idx + self.size_a] = 1
+                combinations_list.append(base)
+        return np.asarray(combinations_list)
+
+    def adag_a_matrix(self, i: int, j: int) -> np.ndarray:
+
+        charge_conservation = self.__charge_computation([i], [j])
+        if charge_conservation:
+            operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
+            for index, psi in enumerate(self.basis):
+                new_psi = np.zeros_like(psi)
+                if self.basis[index, j] != 0:
+                    new_basis = self.basis[index].copy()
+                    new_basis[j] = self.basis[index, j] - 1
+                    phase_j = np.sum(new_basis[0:j])
+                    if new_basis[i] != 1:
+                        new_basis[i] = new_basis[i] + 1
+                        phase_i = np.sum(new_basis[0:i])
+                        new_index = self._get_index(new_basis)
+                        operator[new_index, index] = (-1) ** (phase_i + phase_j)
+
+            return operator
+
+        else:
+            print("It does not conserve the number of Particles, Hombre! \n")
+
+
+    def adag_a(self, i: int, j: int, psi: np.ndarray) -> np.ndarray:
+        charge_conservation = self.__charge_computation([i], [j])
+
+        if charge_conservation:
+            indices = np.nonzero(psi)[0]
             new_psi = np.zeros_like(psi)
-            if self.basis[index, j] != 0:
-                new_basis = self.basis[index].copy()
-                new_basis[j] = self.basis[index, j] - 1
-                if new_basis[i] != 1:
-                    new_basis[i] = new_basis[i] + 1
-                    new_index = self._get_index(new_basis)
-                    operator[index,new_index]=1
+            for index in indices:
+                if self.basis[index, j] != 0:
+                    new_basis = self.basis[index].copy()
+                    new_basis[j] = self.basis[index, j] - 1
+                    phase_j = np.sum(new_basis[0:j])
+                    if new_basis[i] != 1:
+                        new_basis[i] = new_basis[i] + 1
+                        phase_i = np.sum(new_basis[0:i])
+                        new_index = self._get_index(new_basis)
+                        new_psi[new_index] = (-1) ** (phase_i + phase_j) * psi[index]
 
-        return operator
-    
-    
-    def adag_adag_a_a(self, i1: int, i2: int, j1: int, j2: int) -> np.ndarray:
-        operator=lil_matrix((self.basis.shape[0],self.basis.shape[0]))
-        for idx,psi in enumerate(self.basis):
-            new_psi = np.zeros_like(psi)
-            
-            if self.basis[idx, j2] != 0:
-                new_basis = self.basis[idx].copy()
-                new_basis[j2] = self.basis[idx, j2] - 1
-                if new_basis[j1] != 0:
-                    new_basis[j1] = new_basis[j1] - 1
-                    if new_basis[i2] != 1:
-                        new_basis[i2] = new_basis[i2] + 1
-                        if new_basis[i1] != 1:
-                            new_basis[i1] = new_basis[i1] + 1
+            return new_psi
 
-                            new_index = self._get_index(new_basis)
-                            operator[idx,new_index]=1
+        else:
+            print("It does not conserve the number of Particles, Hombre! \n")
 
-        return operator
-            
-    def _get_kinetic_operator(self):
-        cost=-0.5*(self.ngrid/self.size)**2
-        operator=lil_matrix((self.basis.shape[0],self.basis.shape[0]))
-        for idx,sigma in enumerate(self.basis):
-        
-            operator[idx,idx]=-2*cost
-            new_sigma_y=np.zeros_like(sigma)
-            new_sigma_x=np.zeros_like(sigma)
-            for index in np.nonzero(sigma)[0]:
-                #y direction
-                x=index % self.ngrid
-                y= index // self.ngrid
-                new_sigma_y[x+((y+1)% self.ngrid)*self.ngrid]=1
-                new_sigma_x[(x+1)%self.ngrid+(y)*self.ngrid]=1
-                
-            idx_x=self._get_index(new_sigma_x)
-            idx_y=self._get_index(new_sigma_y)
-            operator[idx,idx_x]=cost
-            operator[idx,idx_y]=cost
-            
-        return 0.5*(operator+operator.T) 
-    
-    def _get_coulomb_operator(self):
-        
-        operator=lil_matrix((self.basis.shape[0],self.basis.shape[0]))
-        for idx, sigma in enumerate(self.basis):
-            two_elements_list=list(combinations(np.nonzero(sigma)[0], r=2))
-            value=0.
-            for pair in two_elements_list:
-                idx1,idx2=pair
-                value=value+coulomb_function(idx1,idx2,size=self.size,ngrid=self.ngrid,ndim=self.dim)
-            operator[idx,idx]=value
-            
-        return operator
-    
-    def get_single_particle_operator(self,v:np.ndarray):
-        operator=lil_matrix((self.basis.shape[0],self.basis.shape[0]))
-        for index,sigma in enumerate(self.basis):
-            v_value=0.
-            for idx in np.nonzero(sigma)[0]:
-                x=idx % self.ngrid
-                y= idx// self.ngrid
-                v_value=v_value+v[x,y]
-            operator[index,index]=v_value
-            
-        return operator
-            
-                
-                     
-    
-    def _get_index(self,element:np.ndarray):
 
-        index=np.where((self.basis == element).all(axis=1))[0][0]
+    def adag_adag_a_a_matrix(self, i1: int, i2: int, j1: int, j2: int) -> np.ndarray:
+        operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
+
+        charge_conservation = self.__charge_computation([i1, i2], [j1, j2])
+
+        # print(i1, i2, j1, j2, initial_phase, final_phase)
+
+        if charge_conservation:
+            for idx, psi in enumerate(self.basis):
+                if self.basis[idx, j2] != 0:
+                    new_basis = self.basis[idx].copy()
+                    new_basis[j2] = self.basis[idx, j2] - 1
+                    phase_j2 = np.sum(new_basis[0:j2])
+                    if new_basis[j1] != 0:
+                        new_basis[j1] = new_basis[j1] - 1
+                        phase_j1 = np.sum(new_basis[0:j1])
+                        if new_basis[i2] != 1:
+                            new_basis[i2] = new_basis[i2] + 1
+                            phase_i2 = np.sum(new_basis[0:i2])
+                            if new_basis[i1] != 1:
+                                new_basis[i1] = new_basis[i1] + 1
+                                phase_i1 = np.sum(new_basis[0:i1])
+
+                                new_index = self._get_index(new_basis)
+                                operator[new_index, idx] = (-1) ** (
+                                    phase_j2 + phase_j1 + phase_i1 + phase_i2
+                                )
+
+            return operator
+        else:
+            print(" it does not conserve the number of Particles, Hombre! \n")
             
+            
+    def adag_adag_adag_a_a_a_matrix(self, i1: int, i2: int,i3:int, j1: int, j2: int,j3:int) -> np.ndarray:
+        operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
+
+        charge_conservation = self.__charge_computation([i1, i2,i3], [j1, j2,j3])
+
+        # print(i1, i2, j1, j2, initial_phase, final_phase)
+
+        if charge_conservation:
+            for idx, psi in enumerate(self.basis):
+                if self.basis[idx, j3] != 0:
+                    new_basis = self.basis[idx].copy()
+                    new_basis[j3] = self.basis[idx, j3] - 1
+                    phase_j3 = np.sum(new_basis[0:j3])
+                    if new_basis[j2]!=0:
+                        new_basis[j2] = new_basis[j2] - 1
+                        phase_j2 = np.sum(new_basis[0:j2])
+                        if new_basis[j1] != 0:
+                            new_basis[j1] = new_basis[j1] - 1
+                            phase_j1 = np.sum(new_basis[0:j1])
+                            if new_basis[i3] != 1:
+                                new_basis[i3] = new_basis[i3] + 1
+                                phase_i3 = np.sum(new_basis[0:i3])
+                                if new_basis[i2] != 1:
+                                    new_basis[i2] = new_basis[i2] + 1
+                                    phase_i2 = np.sum(new_basis[0:i2])
+                                    if new_basis[i1] != 1:
+                                        new_basis[i1] = new_basis[i1] + 1
+                                        phase_i1 = np.sum(new_basis[0:i1])
+
+                                        new_index = self._get_index(new_basis)
+                                        operator[new_index, idx] = (-1) ** (
+                                            phase_j2 + phase_j1 + phase_i1 + phase_i2+phase_j3+phase_i3
+                                        )
+
+            return operator
+        else:
+            print(" it does not conserve the number of Particles, Hombre! \n")
+
+    def adag_adag_a_a(
+        self, i1: int, i2: int, j1: int, j2: int, psi: np.ndarray
+    ) -> np.ndarray:
+        indices = np.nonzero(psi)[0]
+        new_psi = np.zeros_like(psi)
+
+        # condition for p n  -> p n without violating the N particles
+        # IT DOES NOT WORK UP TO NOW
+
+        charge_conservation = self.__charge_computation([i1, i2], [j1, j2])
+
+        if charge_conservation:
+            for idx in indices:
+
+                if self.basis[idx, j2] != 0:
+                    new_basis = self.basis[idx].copy()
+                    new_basis[j2] = 0
+                    phase_j2 = np.sum(new_basis[0:j2])
+                    if new_basis[j1] != 0:
+                        new_basis[j1] = new_basis[j1] - 1
+                        phase_j1 = np.sum(new_basis[0:j1])
+                        if new_basis[i2] != 1:
+                            new_basis[i2] = new_basis[i2] + 1
+                            phase_i2 = np.sum(new_basis[0:i2])
+                            if new_basis[i1] != 1:
+                                new_basis[i1] = new_basis[i1] + 1
+                                phase_i1 = np.sum(new_basis[0:i1])
+
+                                print(new_basis)
+                                new_index = self._get_index(new_basis)
+                                new_psi[new_index] = (-1) ** (
+                                    phase_j2 + phase_j1 + phase_i1 + phase_i2
+                                ) * psi[idx]
+
+            return new_psi
+        else:
+            print(" it does not conserve the number of particles, Hombre! \n")
+            return psi
+
+    def reduced_state(self, indices: List, psi: np.ndarray):
+
+        sub_dimension = len(indices)
+        combinations = product([0, 1], repeat=sub_dimension)
+        # Convert each combination into a numpy array
+        basis = np.asarray([np.array(combination) for combination in combinations])
+
+        # initialize the reduced density matrix
+        density = np.zeros((basis.shape[0], basis.shape[0]))
+
+        for density_index_d, d in enumerate(basis):
+            for density_index_b, b in enumerate(basis):
+
+                # compute the value of the reduced state for each main basis element
+                value = 0
+                # the nonzero check is essential for the algorithm
+
+                # print("state_d=", d)
+                # print("state_b=", b)
+                for i_s, sigma in enumerate(self.basis):
+                    # print("sigma=", sigma)
+                    nonzero_check = True
+                    for i, basis_element in enumerate(b):
+                        if basis_element == 1:
+                            a_value = sigma[indices[i]]
+                        else:
+                            a_value = 1 - sigma[indices[i]]
+
+                        # # print(
+                        # #     "a_value d",
+                        # #     a_value,
+                        # #     "indices=",
+                        # #     indices[i],
+                        # #     "basis element=",
+                        # #     sigma,
+                        # #     "rho indices=",
+                        # #     d,
+                        # #     b,
+                        # #     "\n",
+                        # # )
+
+                        if a_value == 0:
+                            nonzero_check = False
+                            break
+
+                    if nonzero_check:
+                        for i, basis_element in enumerate(d):
+                            if basis_element == 1:
+                                a_value = sigma[indices[i]]
+                            else:
+                                a_value = 1 - sigma[indices[i]]
+
+                            if a_value == 0:
+                                nonzero_check = False
+                                break
+
+                            # print(
+                            #     "a_value d",
+                            #     a_value,
+                            #     "indices=",
+                            #     indices[i],
+                            #     "basis element=",
+                            #     sigma,
+                            #     "rho indices=",
+                            #     d,
+                            #     b,
+                            #     "\n",
+                            # )
+
+                    if nonzero_check:
+                        value += psi[i_s] * np.conj(psi[i_s])
+
+                # print(value)
+
+                # print(density_index_b, density_index_d)
+                density[density_index_d, density_index_b] = value
+
+        return density
+
+    def _get_the_encode(self):
+
+        encode = {}
+        for i, b in enumerate(self.basis):
+            indices = np.nonzero(b)[0]
+            encode[tuple(indices)] = i
+
+        return encode
+
+    def _get_index(self, element: np.ndarray):
+
+        indices = np.nonzero(element)[0]
+        index = self.encode[tuple(indices)]
+
         return index
-    
-    def compute_density(self,psi:np.ndarray):
-        psi=psi/(np.sum(psi*np.conj(psi))*self.dx**self.dim)
-        density=np.einsum('s,si->i',psi*np.conj(psi),self.basis)*(self.size/self.ngrid)**self.dim
-        
-            
-        matrix=density.reshape(self.ngrid,self.ngrid).transpose()
-        return matrix
-    
-    def coarse_grained_initialization(self,psi0:np.ndarray,scale:int,basis0:np.ndarray):
-        psi=np.zeros_like(self.basis[:,0])
-        for index,sigma in enumerate(self.basis):
-            sigma_big=np.zeros((self.ngrid//scale)**self.dim)
-            for idx in np.nonzero(sigma)[0]:
-                x=idx % self.ngrid
-                y= idx // self.ngrid
-                x_big=x//scale
-                y_big=y//scale
-                sigma_big[x_big+(self.ngrid//scale)*y_big]=1
-            
-            if np.sum(sigma_big)==2:
-                index_big=np.where((basis0 == sigma_big).all(axis=1))[0][0]
-                psi[index]=psi0[index_big]
-                
-        return psi
+
+    def __charge_computation(self, initial_indices: List, final_indices: List):
+
+        initial_tot_charge = 0
+        for idx in initial_indices:
+            if idx >= self.size_a:
+                initial_tot_charge += 1
+        final_tot_charge = 0
+        for idx in final_indices:
+            if idx >= self.size_a:
+                final_tot_charge += 1
+
+        return initial_tot_charge == final_tot_charge
