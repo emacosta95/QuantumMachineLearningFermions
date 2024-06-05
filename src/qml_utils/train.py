@@ -12,9 +12,9 @@ from scipy.optimize import minimize
 
 
 
-class fit():
+class Fit():
     
-    def __init__(self, method,tolerance_opt:float) -> None:
+    def __init__(self, method:str,tolerance_opt:float,e_ref:float=None) -> None:
         
         
         self.method:str=method
@@ -26,9 +26,7 @@ class fit():
         
         self.configuration_checkpoint:Callable=None
     
-    def set_checkpoint(self,checkpoint:Callable):
-        
-        self.configuration_checkpoint=checkpoint
+
         
     def init_model(self,model):
         self.model=model
@@ -38,17 +36,41 @@ class fit():
             while(self.model.grad_tolerance>self.tolerance):
                 
                 self.model.model_preparation()
+
                 
                 # optimization algorithm
-                res=minimize(model.energy, self.weights, args=(), method=self.method, jac=model.backward, tol=self.tolerance, callback=None, options=None)
-
-                energy=self.model.forward()
-                grad_energy=self.model.backward()
+                res=minimize(self.model.forward, self.model.weights, args=(), method=self.method, jac=self.model.backward, tol=self.tolerance, callback=None, options=None)
+                self.model.weights=res.x
+                energy=self.model.forward(self.model.weights)
+                grad_energy=self.model.backward(self.model.weights)
                 
-                self.configuration_checkpoint(res,energy,grad_energy)
+                print('Optimization Success=',res.success)
+                print(f'energy={energy:.5f}')
+                print(f'average gradient={np.average(np.abs(grad_energy)):.15f} \n')
+                print(f'grad tolerance={self.model.grad_tolerance:.15f} \n')
                 
-            
-        
     
+    def run_gradient_descent(self,):
+        
+        while(self.model.grad_tolerance>self.tolerance):
+                
+                self.model.model_preparation()
+
+                
+                # optimization algorithm
+                #res=minimize(self.model.forward, self.model.weights, args=(), method=self.method, jac=self.model.backward, tol=self.tolerance, callback=None, options=None)
+                grad=1000
+                while(np.average(np.abs(grad))>self.tolerance):
+                    grad=self.model.backward(self.model.weights)
+                    
+                    self.model.weights-=grad*0.1
+                    energy=self.model.forward(self.model.weights)
+                    
+                    print(f'energy={energy:.5f}')
+                    print(f'average gradient={np.average(np.abs(grad)):.15f} \n')
+                    print(f'grad tolerance={self.model.grad_tolerance:.15f} \n')
+                    
+        
+
     
         

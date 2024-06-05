@@ -28,22 +28,13 @@ class AdaptVQEFermiHubbard:
         # optimization hyperparameter
         self.grad_tolerance: float = 1000
         self.weights: np.ndarray = None
-        self.epochs: int = None
-        self.learning_rate: float = None
+
 
         # energy
         self.energy = 0.0
         self.psi=0.
 
-    def set_hyperparameters(
-        self, learning_rate: float, tolerance: float = None, epochs: int = None
-    ):
 
-        self.learning_rate = learning_rate
-        if tolerance == None:
-            self.epochs = epochs
-        else:
-            self.tolerance = tolerance
 
     def set_hamiltonian(
         self,
@@ -59,12 +50,14 @@ class AdaptVQEFermiHubbard:
         # we can add preparations or other methods
         self.psi0=reference_psi
         
-    def set_operators_pool(self,operator_pool: Dict):
+    def set_operators_pool(self,operator_pool: Dict,random:bool=False):
         
         
         # set some double check property of the operator pool
         
         self.operator_pool: Dict = operator_pool
+        
+        self.random=random
         
 
 
@@ -74,10 +67,12 @@ class AdaptVQEFermiHubbard:
         psi=self.__compute_psi(self.weights)
         sigma = self.hamiltonian @ psi
         
+
+        
         self.grad_tolerance=0.
         values:List=[]
         for key, op in self.operator_pool.items():
-            value = 2*np.real(sigma.transpose().dot(op.dot( psi)))
+            value = 2*np.real(sigma.conjugate().transpose().dot(op.dot( psi)))
             values.append(value)
             self.grad_tolerance+=value**2
             #print("value=", value, list(self.onebody_operator_pool.keys())[i], "\n")
@@ -85,15 +80,42 @@ class AdaptVQEFermiHubbard:
                 max = np.abs(value)
                 selected_operator = op
                 selected_key = key
+            
+                
+        
+        
+            
                 
         self.__update_weights()
         
-        self.__update_operators()
+        # self.operator_action.append(selected_operator)
+        # self.operator_action_info.append(selected_key)
+        self.__update_operators(selected_operator=selected_operator,selected_key=selected_key,values=values)
         
         self.grad_tolerance=np.sqrt(self.grad_tolerance)
         
+    def __select_random_new_operator(self):
+        
+            
+        self.__update_weights()        
+        
+        idx=np.random.randint(0,len(list(self.operator_pool.values())))
+        selected_key=list(self.operator_pool.keys())[idx]
+        selected_operator=list(self.operator_pool.values())[idx]
+        
+        self.operator_action.append(selected_operator)
+        self.operator_action_info.append(selected_key)
+
+        
+        
     def model_preparation(self,):
-        self.__select_new_operator()
+        
+        if self.random:
+            
+            self.__select_random_new_operator()
+        
+        else:
+            self.__select_new_operator()
         
     def __compute_psi(self,weights:np.ndarray) -> np.ndarray:
         psi = self.psi0.copy()
@@ -111,11 +133,13 @@ class AdaptVQEFermiHubbard:
     ):
 
         psi = self.__compute_psi(weights=weights)
-
+        #print(psi)
         # energy value
         #energy = np.conj(psi.T) @ self.hamiltonian @ psi
 
         sigma = self.hamiltonian @ psi
+        
+        #print('sigma here=',sigma)
         n_tot = len(self.operator_action)
         grad: np.ndarray = np.zeros(n_tot)
         for i in range(n_tot):
@@ -153,15 +177,16 @@ class AdaptVQEFermiHubbard:
         
         
         # conditions and constrains for the selection
-        if selected_operator== self.operator_action[-1]:
-            values=np.asarray(values)
-            idx_max=np.argmax(values)
-            values[idx_max]=-10**23
-            new_idx_max=np.argmax(values)
+        if len(self.operator_action)!=0:
+            if selected_operator is self.operator_action[-1]:
+                values=np.asarray(values)
+                idx_max=np.argmax(values)
+                values[idx_max]=-10**23
+                new_idx_max=np.argmax(values)
+                
+                selected_operator=list(self.operator_pool.values())[new_idx_max]    
+                selected_key=list(self.operator_pool.keys())[new_idx_max]    
             
-            selected_operator=list(self.operator_pool.values())[new_idx_max]    
-            selected_key=list(self.operator_pool.keys())[new_idx_max]    
-        
         self.operator_action.append(selected_operator)
         self.operator_action_info.append(selected_key)
         
@@ -173,6 +198,5 @@ class AdaptVQEFermiHubbard:
         psi.transpose().conj() @ self.hamiltonian @ psi
         #print(f"energy value={self.energy:.3f} \n")
         return psi.transpose().conj() @ self.hamiltonian @ psi
-
 
             
