@@ -28,6 +28,9 @@ class HartreeFockEnergy(nn.Module):
 
         self.basis=torch.from_numpy(basis)
         
+        self.nparticles=nparticles
+        self.size=size
+        
         
     def get_hamiltonian(self,hamiltonian:Dict):
         
@@ -50,11 +53,19 @@ class HartreeFockEnergy(nn.Module):
         
         for i,b in enumerate(self.basis):
             
-            indices=torch.nonzero(b)[:,0]
-            matrix=psi_singleparticle[:,indices]
-            value=torch.linalg.det(matrix)
+            b_a=b[:self.size//2]
+            b_b=b[self.size//2:]
+            
+            indices_a=torch.nonzero(b_a)[:,0]
+            matrix_a=psi_singleparticle[:self.nparticles//2,indices_a]
+            value_a=torch.linalg.det(matrix_a)
 
-            hf_psi[i]=value
+            indices_b=torch.nonzero(b_b)[:,0]
+            matrix_b=psi_singleparticle[self.nparticles//2:,indices_b]
+            value_b=torch.linalg.det(matrix_b)
+
+
+            hf_psi[i]=value_a*value_b
             
         #print('norm=',torch.linalg.norm(hf_psi))
             
@@ -74,9 +85,9 @@ class HartreeFockEnergy(nn.Module):
         c=np.arange(nparticles)
         position=np.arange(size)
         
-        #psi0=np.cos(c[:,None]*np.pi*position[None,:]/size)+1j*np.sin(c[:,None]*np.pi*position[None,:]/size)
+        psi0=np.cos(c[:,None]*np.pi*position[None,:]/size)+1j*np.sin(c[:,None]*np.pi*position[None,:]/size)
         
-        psi0=np.random.uniform(size=(nparticles,size))+1j*np.random.uniform(size=(nparticles,size))
+        #psi0=np.random.uniform(size=(nparticles,size))+1j*np.random.uniform(size=(nparticles,size))
 
         psi_orthonormal=gram_schmidt(psi0)
         self.weights=torch.zeros((2,nparticles,size))
@@ -101,6 +112,8 @@ class FitHartreeFock():
         tbar=tqdm(range(self.epochs))
         
         model.weights.requires_grad_(True)
+        
+        energy_history=[]
         for i in tbar:
             
             energy=model()
@@ -112,9 +125,11 @@ class FitHartreeFock():
                 model.weights-=self.learning_rate*grad
                 model.weights.grad.zero_()
             
+            energy_history.append(energy.item())
             tbar.set_description(f'energy={energy.item():.6f}')
             tbar.refresh()
                 
+        return energy_history
                 
                 
                          

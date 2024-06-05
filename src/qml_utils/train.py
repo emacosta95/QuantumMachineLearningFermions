@@ -1,10 +1,11 @@
 from src.fermi_hubbard_library import FemionicBasis
 import numpy as np
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable,Optional
 from scipy.linalg import expm
 import scipy
 from scipy.sparse.linalg import expm_multiply
 from scipy.optimize import minimize
+from tqdm import trange
 
 
 
@@ -32,7 +33,12 @@ class Fit():
         self.model=model
         
         
-    def run(self,):
+    def run(self,epochs:Optional[int]=None):
+
+        energy_history=[]
+        gradient_history=[]
+        if epochs is None:
+            
             while(self.model.grad_tolerance>self.tolerance):
                 
                 self.model.model_preparation()
@@ -49,6 +55,29 @@ class Fit():
                 print(f'average gradient={np.average(np.abs(grad_energy)):.15f} \n')
                 print(f'grad tolerance={self.model.grad_tolerance:.15f} \n')
                 
+                energy_history.append(energy)
+                gradient_history.append(np.average(np.abs(grad_energy)))
+                
+        else:
+            for i in trange(epochs):
+                self.model.model_preparation()
+
+                
+                # optimization algorithm
+                res=minimize(self.model.forward, self.model.weights, args=(), method=self.method, jac=self.model.backward, tol=self.tolerance, callback=None, options=None)
+                self.model.weights=res.x
+                energy=self.model.forward(self.model.weights)
+                grad_energy=self.model.backward(self.model.weights)
+                
+                print('Optimization Success=',res.success)
+                print(f'energy={energy:.5f}')
+                print(f'average gradient={np.average(np.abs(grad_energy)):.15f} \n')
+                print(f'grad tolerance={self.model.grad_tolerance:.15f} \n')
+                
+                energy_history.append(energy)
+                gradient_history.append(np.average(np.abs(grad_energy)))
+                
+        return energy_history,gradient_history
     
     def run_gradient_descent(self,):
         
