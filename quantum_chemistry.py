@@ -110,9 +110,9 @@ np.save('psi_hf',psi_hf)
 spinconservation=SpinConservation(size=size_a)
 operator_pool:Dict={}
 
-operator_pool=FHHamiltonian.set_operator_pool(operator_pool=operator_pool,n_new_operators=300,conditions=[spinconservation.spin_conservation],nbody='two')
+operator_pool=FHHamiltonian.set_operator_pool(operator_pool=operator_pool,conditions=[spinconservation.spin_conservation],nbody='two')
 
-operator_pool=FHHamiltonian.set_operator_pool(operator_pool=operator_pool,n_new_operators=300,conditions=[spinconservation.spin_conservation],nbody='one')
+operator_pool=FHHamiltonian.set_operator_pool(operator_pool=operator_pool,conditions=[spinconservation.spin_conservation],nbody='one')
 #%%
 print('number of operators=',len(list(operator_pool.keys())))
 

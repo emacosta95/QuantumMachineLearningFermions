@@ -1,142 +1,366 @@
 import torch
 import torch.nn as nn
-from typing import Dict
-from tqdm import trange,tqdm
+from typing import Dict, Optional
+from tqdm import trange, tqdm
 import numpy as np
-from scipy import sparse
-from math import factorial,sqrt
+from scipy import sparse, linalg
+from math import factorial, sqrt
+import matplotlib.pyplot as plt
 
 
-def gram_schmidt(vectors):
-    """ Orthonormalize a set of vectors using the Gram-Schmidt process. """
-    orthonormal_vectors = []
-    for v in vectors:
-        w = v - sum(np.dot(v, u) * u for u in orthonormal_vectors)
-        orthonormal_vectors.append(w / np.linalg.norm(w))
-    return np.array(orthonormal_vectors)
+# def gram_schmidt(matrix):
+#     Q, R = torch.linalg.qr(matrix)
+#     return Q
 
 
-class HartreeFockEnergy(nn.Module):
-    
-    def __init__(self,nparticles:int,size:int,basis:np.ndarray) -> None:
+def gram_schmidt(A):
+    """
+    Orthonormalize the columns of matrix A using the Gram-Schmidt process.
+    Args:
+    - A (torch.Tensor): A complex-valued tensor of shape (n, k)
+    Returns:
+    - Q (torch.Tensor): An orthonormalized matrix of shape (n, k)
+    """
+    # Number of columns
+    n, k = A.shape
+    # Initialize an empty matrix for orthonormal vectors
+    Q = torch.zeros((n, k), dtype=torch.complex64)
+
+    for i in range(k):
+        # Take the i-th column of A
+        v = A[:, i]
+        for j in range(i):
+            # Project v onto the j-th column of Q using the Hermitian inner product
+            proj = torch.dot(Q[:, j].conj(), v) * Q[:, j]
+            v -= proj
+        # Normalize v
+        v = v / torch.linalg.norm(v)
+        # Assign the normalized vector to the i-th column of Q
+        Q[:, i] = v
+
+    return Q
+
+
+class HartreeFock(nn.Module):
+
+    def __init__(self, size: int, nspecies: int) -> None:
         super().__init__()
-        
-        self.hamiltonian=None
-        
-        self.initialize_weights(nparticles=nparticles,size=size)
+
+        self.hamiltonian = None
+
+        self.size = nspecies * size
+        self.initialize_weights(size=self.size)
+
+        self.nspecies = nspecies
+
+        self.kinetic_matrix = None
+        self.twobody_matrix = None
+        self.external_matrix = None
+
+    def get_hamiltonian(
+        self,
+        twobody_interaction: Optional[Dict] = None,
+        kinetic_term: Optional[np.ndarray] = None,
+        external_potential: Optional[np.ndarray] = None,
+    ):
+
+        if twobody_interaction is not None:
+
+            self.twobody_matrix = np.zeros((self.size, self.size, self.size, self.size))
+
+            for item in twobody_interaction.items():
+                (i1, i2, i3, i4), value = item
+                self.twobody_matrix[i1, i2, i3, i4] = value
+
+        if kinetic_term is not None:
+
+            self.kinetic_matrix = kinetic_term
+
+        if external_potential is not None:
+
+            self.external_matrix = np.eye(self.size)
+            self.external_matrix = np.einsum(
+                "ij,j->ij", self.external_matrix, external_potential
+            )
+
+    def selfconsistent_computation(self, epochs=1000, eta=0.01):
+        des = []
+        herm_history = []
+        orthogonality_history = []
+        eigen_old = -1000
+        tbar = tqdm(range(epochs))
+        for i in tbar:
+
+            effective_hamiltonian = 0.0
+
+            if self.twobody_matrix is not None:
+
+                effective_two_body_term = (1 / 8) * np.einsum(
+                    "ijkl,ja,la->ik",
+                    self.twobody_matrix,
+                    self.weights.conjugate(),
+                    self.weights,
+                )
+                effective_hamiltonian += effective_two_body_term
+            if self.kinetic_matrix is not None:
+                effective_hamiltonian += self.kinetic_matrix
+            if self.external_matrix is not None:
+                effective_hamiltonian += self.external_matrix
+
+            ishermcheck = np.average(
+                np.abs(
+                    effective_hamiltonian
+                    - np.einsum("ij->ji", effective_hamiltonian).conjugate()
+                )
+            )
+            herm_history.append(ishermcheck)
+            if not (np.isclose(0, ishermcheck)):
+                print("effective Hamiltonian not Hermitian \n")
+
+            eigen, new_weights = np.linalg.eigh(effective_hamiltonian)
+            new_weights = new_weights / np.linalg.norm(new_weights, axis=0)[None, :]
+
+            de = np.average(np.abs(eigen_old - eigen))
+            eigen_old = eigen
+            self.weights = self.weights * (1 - eta) + eta * new_weights
+
+            # self.weights = gram_schmidt(self.weights)
+
+            self.weights = self.weights / np.linalg.norm(self.weights, axis=0)[None, :]
+
+            isortho = np.average(
+                np.abs(
+                    np.einsum("ia,ja->ij", self.weights.conj(), self.weights)
+                    - np.eye(self.size)
+                )
+            )
+
+            orthogonality_history.append(isortho)
+            tbar.set_description(f"de={de:.15f}")
+            tbar.refresh()
+            des.append(eigen)
+
+        return (
+            np.asarray(des),
+            np.asarray(herm_history),
+            np.asarray(orthogonality_history),
+        )
+
+    def compute_energy(
+        self,
+    ):
+        effective_hamiltonian = 0.0
+
+        if self.twobody_matrix is not None:
+
+            effective_two_body_term = (1 / 8) * np.einsum(
+                "ijkl,ja,la->ik",
+                self.twobody_matrix,
+                self.weights.conjugate(),
+                self.weights,
+            )
+            effective_hamiltonian += effective_two_body_term
+        if self.kinetic_matrix is not None:
+            effective_hamiltonian += self.kinetic_matrix
+        if self.external_matrix is not None:
+            effective_hamiltonian += self.external_matrix
+
+        return np.einsum(
+            "ia,ij,ja->",
+            self.weights.conj(),
+            effective_hamiltonian,
+            self.weights,
+        )
+
+    def initialize_weights(self, size: int):
+
+        # put some conditions
+        # self.weights = np.random.uniform(size=(size, size))
+        # self.weights = self.weights / np.linalg.norm(self.weights, axis=0)[None, :]
+        self.weights = np.eye(size)
+
+    def create_hf_psi(self, basis: np.ndarray, nparticles: int):
+
+        psi = np.zeros(basis.shape[0])
+        for i, b in enumerate(basis):
+
+            idx = np.nonzero(b)[0]
+            matrix = self.weights[idx, :nparticles]
+            coeff = np.linalg.det(matrix)
+            psi[i] = coeff
+
+        psi = psi / np.linalg.norm(psi)
+
+        return psi
+
+
+class HartreeFockVariational(nn.Module):
+
+    def __init__(self, size: int, nspecies: int, mu: float = 10) -> None:
+        super().__init__()
+
+        self.hamiltonian = None
+
+        self.size = nspecies * size
+        # self.initialize_weights(size=self.size)
+
+        self.nspecies = nspecies
+
+        self.weights = None
+        self.kinetic_matrix = None
+        self.twobody_matrix = None
+        self.external_matrix = None
+
+        self.mu = mu
+
+    def get_hamiltonian(
+        self,
+        twobody_interaction: Optional[Dict] = None,
+        kinetic_term: Optional[np.ndarray] = None,
+        external_potential: Optional[np.ndarray] = None,
+    ):
+
+        if twobody_interaction is not None:
+
+            self.twobody_matrix = torch.zeros(
+                (self.size, self.size, self.size, self.size), dtype=torch.complex64
+            )
+
+            for item in twobody_interaction.items():
+                (i1, i2, i3, i4), value = item
+                self.twobody_matrix[i1, i2, i3, i4] = value
+
+        if kinetic_term is not None:
+
+            self.kinetic_matrix = kinetic_term
+
+        if external_potential is not None:
+
+            self.external_matrix = torch.eye(self.size, dtype=torch.complex64)
+            self.external_matrix = torch.einsum(
+                "ij,j->ij", self.external_matrix, external_potential
+            )
+
+    def forward(self, psi: torch.tensor):
+
+        effective_hamiltonian = 0.0
+
+        if self.twobody_matrix is not None:
+            effective_two_body_term = (1 / 8) * torch.einsum(
+                "ijkl,ja,la->ik",
+                self.twobody_matrix,
+                psi.conj(),
+                psi,
+            )
+            effective_hamiltonian += effective_two_body_term
+        if self.kinetic_matrix is not None:
+            effective_hamiltonian += self.kinetic_matrix
+        if self.external_matrix is not None:
+            effective_hamiltonian += self.external_matrix
+
+        self.effective_hamiltonian = effective_hamiltonian
+
+        energy = torch.einsum("ia,ij,ja->", psi.conj(), effective_hamiltonian, psi)
+        normalization_constrain = torch.mean(
+            torch.abs(torch.eye(self.size) - torch.einsum("ia,ja->ij", psi.conj(), psi))
+        )
+        # print(normalization_constrain.item())
+
+        return energy + self.mu * normalization_constrain, normalization_constrain
+
+    def train(self, epochs=1000, eta=0.01):
+        des = []
+        herm_history = []
+        orthogonality_history = []
+        tbar = tqdm(range(epochs))
+
+        psi = self.initialize_weights(size=self.size)
+
+        for i in tbar:
+            self.weights.requires_grad_(True)
+            # self.weights = (
+            #     self.weights / torch.linalg.norm(self.weights, axis=0)[None, :]
+            # )
+            psi = self.weights[0] + 1j * self.weights[1]
+            psi = psi / torch.linalg.norm(psi, dim=0)[None, :]
+
+            energy, norm_constrain = self.forward(psi)
+
+            ishermcheck = torch.mean(
+                torch.abs(
+                    self.effective_hamiltonian
+                    - torch.einsum("ij->ji", self.effective_hamiltonian).conj()
+                )
+            )
+            herm_history.append(ishermcheck.detach().numpy())
+            if not (np.isclose(0, ishermcheck.detach().numpy())):
+                print("effective Hamiltonian not Hermitian \n")
+
+            energy.backward()
+            with torch.no_grad():
+
+                grad_energy = self.weights.grad
+
+                self.weights -= eta * (grad_energy)  # + 2 * mu * self.weights)
+                self.weights.grad.zero_()
+
+            self.eigen = torch.einsum(
+                "ia,ij,ja->a", psi.conj(), self.effective_hamiltonian, psi
+            )
+
+            # self.weights = gram_schmidt(self.weights)
+
+            isortho = torch.mean(
+                torch.abs(
+                    torch.einsum("ia,ja->ij", psi.conj(), psi) - torch.eye(self.size)
+                )
+            )
+
+            orthogonality_history.append(isortho.clone().detach().numpy())
+            tbar.set_description(
+                f"energy={energy.item():.15f}, norm constrain={norm_constrain.item():.15f}"
+            )
+            tbar.refresh()
+            des.append(self.eigen.clone().detach().numpy())
+
+        return (
+            np.asarray(des),
+            np.asarray(herm_history),
+            np.asarray(orthogonality_history),
+        )
+
+    def initialize_weights(self, size: int):
+
+        # put some conditions
+        # self.weights = np.random.uniform(size=(size, size))
+        # self.weights = self.weights / np.linalg.norm(self.weights, axis=0)[None, :]
+        self.weights = torch.cat(
+            (torch.eye(size).unsqueeze(0), torch.zeros((size, size)).unsqueeze(0)),
+            dim=0,
+        )
         self.weights.requires_grad_(True)
 
-        self.basis=torch.from_numpy(basis)
-        
-        self.nparticles=nparticles
-        self.size=size
-        
-        
-    def get_hamiltonian(self,hamiltonian:Dict):
-        
-        if not sparse.isspmatrix_coo(hamiltonian):
-            hamiltonian = hamiltonian.tocoo()
-        # here put all the checks
-        
-        indices = torch.tensor([hamiltonian.row, hamiltonian.col], dtype=torch.long)
-        values = torch.tensor(hamiltonian.data, dtype=torch.float32)
+        return self.weights[0] + 1j * self.weights[1]
 
-        # Create a PyTorch sparse tensor
-        shape = hamiltonian.shape
-        self.hamiltonian = torch.sparse.FloatTensor(indices, values, torch.Size(shape))
-        
-    def get_psi(self,):
-        
-        hf_psi=torch.zeros(self.basis.shape[0])
-        psi_singleparticle=self.weights[0]+1j*self.weights[1]
-        
-        
-        for i,b in enumerate(self.basis):
-            
-            b_a=b[:self.size//2]
-            b_b=b[self.size//2:]
-            
-            indices_a=torch.nonzero(b_a)[:,0]
-            matrix_a=psi_singleparticle[:self.nparticles//2,indices_a]
-            value_a=torch.linalg.det(matrix_a)
+    def compute_psi(self):
+        psi = self.weights[0] + 1j * self.weights[1]
+        psi = psi / torch.linalg.norm(psi, dim=0)[None, :]
+        idx = np.argsort(self.eigen.detach().numpy())
 
-            indices_b=torch.nonzero(b_b)[:,0]
-            matrix_b=psi_singleparticle[self.nparticles//2:,indices_b]
-            value_b=torch.linalg.det(matrix_b)
+        return psi.detach().numpy()[idx]
 
+    def create_hf_psi(self, basis: np.ndarray, nparticles: int):
 
-            hf_psi[i]=value_a*value_b
-            
-        #print('norm=',torch.linalg.norm(hf_psi))
-            
-        hf_psi=hf_psi/torch.linalg.norm(hf_psi)
-        return hf_psi
-        
-        
-    def forward(self,):
-        
-        hf_psi=self.get_psi()
-        h_psi = torch.sparse.mm(self.hamiltonian, hf_psi.unsqueeze(-1))
-        energy = torch.matmul(hf_psi.unsqueeze(-1).conj().T, h_psi).sum()
-        return energy
-    
-    def initialize_weights(self,nparticles:int,size:int):
-        
-        c=np.arange(nparticles)
-        position=np.arange(size)
-        
-        psi0=np.cos(c[:,None]*np.pi*position[None,:]/size)+1j*np.sin(c[:,None]*np.pi*position[None,:]/size)
-        
-        #psi0=np.random.uniform(size=(nparticles,size))+1j*np.random.uniform(size=(nparticles,size))
+        psi = np.zeros(basis.shape[0])
 
-        psi_orthonormal=gram_schmidt(psi0)
-        self.weights=torch.zeros((2,nparticles,size))
-        self.weights[0]=torch.from_numpy(np.real(psi_orthonormal))
-        self.weights[1]=torch.from_numpy(np.imag(psi_orthonormal))
-        
-        
-        
-    
+        orbitals = self.compute_psi()
+        for i, b in enumerate(basis):
 
+            idx = np.nonzero(b)[0]
+            matrix = orbitals[idx, :nparticles]
+            coeff = np.linalg.det(matrix)
+            psi[i] = coeff
 
-class FitHartreeFock():
-    
-    def __init__(self,learning_rate:int=0.01,epochs:int=1000) -> None:
-        
-        self.learning_rate=learning_rate
-        
-        self.epochs=epochs
-        
-    def run(self,model:nn.Module):
-        
-        tbar=tqdm(range(self.epochs))
-        
-        model.weights.requires_grad_(True)
-        
-        energy_history=[]
-        for i in tbar:
-            
-            energy=model()
-            energy.backward()
-            
-            # gradient
-            with torch.no_grad():
-                grad=model.weights.grad
-                model.weights-=self.learning_rate*grad
-                model.weights.grad.zero_()
-            
-            energy_history.append(energy.item())
-            tbar.set_description(f'energy={energy.item():.6f}')
-            tbar.refresh()
-                
-        return energy_history
-                
-                
-                         
-            
-        
-    
-    
-                
-            
-    
+        psi = psi / np.linalg.norm(psi)
+
+        return psi

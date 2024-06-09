@@ -10,7 +10,6 @@ import multiprocessing
 from tqdm import tqdm, trange
 
 
-
 def single_particle_potential(
     ndim: int,
     nparticles: int,
@@ -201,7 +200,6 @@ class FemionicBasis:
         else:
             print("It does not conserve the number of Particles, Hombre! \n")
 
-
     def adag_a(self, i: int, j: int, psi: np.ndarray) -> np.ndarray:
         charge_conservation = self.__charge_computation([i], [j])
 
@@ -223,7 +221,6 @@ class FemionicBasis:
 
         else:
             print("It does not conserve the number of Particles, Hombre! \n")
-
 
     def adag_adag_a_a_matrix(self, i1: int, i2: int, j1: int, j2: int) -> np.ndarray:
         operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
@@ -256,12 +253,13 @@ class FemionicBasis:
             return operator
         else:
             print(" it does not conserve the number of Particles, Hombre! \n")
-            
-            
-    def three_body_matrix(self, i1: int, i2: int,i3:int, j1: int, j2: int,j3:int) -> np.ndarray:
+
+    def three_body_matrix(
+        self, i1: int, i2: int, i3: int, j1: int, j2: int, j3: int
+    ) -> np.ndarray:
         operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
 
-        charge_conservation = self.__charge_computation([i1, i2,i3], [j1, j2,j3])
+        charge_conservation = self.__charge_computation([i1, i2, i3], [j1, j2, j3])
 
         # print(i1, i2, j1, j2, initial_phase, final_phase)
 
@@ -271,7 +269,7 @@ class FemionicBasis:
                     new_basis = self.basis[idx].copy()
                     new_basis[j3] = self.basis[idx, j3] - 1
                     phase_j3 = np.sum(new_basis[0:j3])
-                    if new_basis[j2]!=0:
+                    if new_basis[j2] != 0:
                         new_basis[j2] = new_basis[j2] - 1
                         phase_j2 = np.sum(new_basis[0:j2])
                         if new_basis[j1] != 0:
@@ -289,18 +287,26 @@ class FemionicBasis:
 
                                         new_index = self._get_index(new_basis)
                                         operator[new_index, idx] = (-1) ** (
-                                            phase_j2 + phase_j1 + phase_i1 + phase_i2+phase_j3+phase_i3
+                                            phase_j2
+                                            + phase_j1
+                                            + phase_i1
+                                            + phase_i2
+                                            + phase_j3
+                                            + phase_i3
                                         )
 
             return operator
         else:
             print(" it does not conserve the number of Particles, Hombre! \n")
-            
-            
-    def four_body_matrix(self, i1: int, i2: int,i3:int,i4:int, j1: int, j2: int,j3:int,j4:int) -> np.ndarray:
+
+    def four_body_matrix(
+        self, i1: int, i2: int, i3: int, i4: int, j1: int, j2: int, j3: int, j4: int
+    ) -> np.ndarray:
         operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
 
-        charge_conservation = self.__charge_computation([i1, i2,i3,i4], [j1, j2,j3,j4])
+        charge_conservation = self.__charge_computation(
+            [i1, i2, i3, i4], [j1, j2, j3, j4]
+        )
 
         # print(i1, i2, j1, j2, initial_phase, final_phase)
 
@@ -310,10 +316,10 @@ class FemionicBasis:
                     new_basis = self.basis[idx].copy()
                     new_basis[j4] = self.basis[idx, j4] - 1
                     phase_j4 = np.sum(new_basis[0:j4])
-                    if new_basis[j3]!=0:
+                    if new_basis[j3] != 0:
                         new_basis[j3] = new_basis[j3] - 1
                         phase_j3 = np.sum(new_basis[0:j3])
-                        if new_basis[j2]!=0:
+                        if new_basis[j2] != 0:
                             new_basis[j2] = new_basis[j2] - 1
                             phase_j2 = np.sum(new_basis[0:j2])
                             if new_basis[j1] != 0:
@@ -334,7 +340,14 @@ class FemionicBasis:
 
                                                 new_index = self._get_index(new_basis)
                                                 operator[new_index, idx] = (-1) ** (
-                                                    phase_j2 + phase_j1 + phase_i1 + phase_i2+phase_j3+phase_i3+phase_i4+phase_j4
+                                                    phase_j2
+                                                    + phase_j1
+                                                    + phase_i1
+                                                    + phase_i2
+                                                    + phase_j3
+                                                    + phase_i3
+                                                    + phase_i4
+                                                    + phase_j4
                                                 )
 
             return operator
@@ -458,32 +471,34 @@ class FemionicBasis:
                 density[density_index_d, density_index_b] = value
 
         return density
-    
-    def mutual_info(self,psi:np.ndarray,):
-        
-        mutual_info=np.zeros((self.size_a+self.size_b,self.size_a+self.size_b))
 
-        for i in range(self.size_a+self.size_b):
-            for j in range(self.size_a+self.size_b):
+    def mutual_info(
+        self,
+        psi: np.ndarray,
+    ):
 
-                rho_ab=self.reduced_state(indices=[i,j],psi=psi)
-                lambd,_=np.linalg.eigh(rho_ab)
-                s_ab=-1*np.sum(np.log(lambd+10**-20)*lambd)
+        mutual_info = np.zeros((self.size_a + self.size_b, self.size_a + self.size_b))
 
+        for i in range(self.size_a + self.size_b):
+            for j in range(self.size_a + self.size_b):
+
+                rho_ab = self.reduced_state(indices=[i, j], psi=psi)
+                lambd, _ = np.linalg.eigh(rho_ab)
+                s_ab = -1 * np.sum(np.log(lambd + 10**-20) * lambd)
 
                 rho_a = self.reduced_state(indices=[i], psi=psi)
                 lambd, _ = np.linalg.eigh(rho_a)
-                s_a = -1*np.sum(np.log(lambd+10**-20) * lambd)
+                s_a = -1 * np.sum(np.log(lambd + 10**-20) * lambd)
 
                 rho_b = self.reduced_state(indices=[j], psi=psi)
                 lambd, _ = np.linalg.eigh(rho_b)
-                s_b = -1*np.sum(np.log(lambd+10**-20) * lambd)
+                s_b = -1 * np.sum(np.log(lambd + 10**-20) * lambd)
 
-                if i==j:
-                    mutual_info[i,j]=0.
+                if i == j:
+                    mutual_info[i, j] = 0.0
                 else:
                     mutual_info[i, j] = -s_ab + (s_a + s_b)
-                    
+
         return mutual_info
 
     def _get_the_encode(self):
@@ -514,34 +529,75 @@ class FemionicBasis:
                 final_tot_charge += 1
 
         return initial_tot_charge == final_tot_charge
-    
-    
-    def set_operator_pool(self,operator_pool:Dict,n_new_operators:int,conditions:List[Callable],nbody:str):
-        count=0
-        while (count<n_new_operators):
-            if nbody=='one':
-                idxs=np.random.randint(0,self.size_a+self.size_b,size=(2))
 
-            
-            if nbody=='two':
-                idxs=np.random.randint(0,self.size_a+self.size_b,size=(4))
-            
-            full_condition=True
-            for cond in conditions:
-                logic_statement=cond(idxs)
-                full_condition=full_condition and logic_statement
-            
-            if full_condition:
-                
-                if nbody=='one':
-                    op_plus = self.adag_a_matrix(idxs[0], idxs[1])
-                    op_minus = self.adag_a_matrix( idxs[1], idxs[0])
+    def set_operator_pool(
+        self, operator_pool: Dict, conditions: List[Callable], nbody: str
+    ):
+        # count=0
+        # while (count<n_new_operators):
+        #     if nbody=='one':
+        #         idxs=np.random.randint(0,self.size_a+self.size_b,size=(2))
 
-                if nbody=='two':
-                    op_plus = self.adag_adag_a_a_matrix(idxs[0], idxs[1],idxs[2],idxs[3])
-                    op_minus = self.adag_adag_a_a_matrix( idxs[3], idxs[2],idxs[1],idxs[0])
+        #     if nbody=='two':
+        #         idxs=np.random.randint(0,self.size_a+self.size_b,size=(4))
 
-                operator_pool[tuple(idxs)]=op_plus-op_minus
-                count=count+1
-                
+        #     full_condition=True
+        #     for cond in conditions:
+        #         logic_statement=cond(idxs)
+        #         full_condition=full_condition and logic_statement
+
+        #     if full_condition:
+
+        #         if nbody=='one':
+        #             op_plus = self.adag_a_matrix(idxs[0], idxs[1])
+        #             op_minus = self.adag_a_matrix( idxs[1], idxs[0])
+
+        #         if nbody=='two':
+        #             op_plus = self.adag_adag_a_a_matrix(idxs[0], idxs[1],idxs[2],idxs[3])
+        #             op_minus = self.adag_adag_a_a_matrix( idxs[3], idxs[2],idxs[1],idxs[0])
+
+        #         operator_pool[tuple(idxs)]=op_plus-op_minus
+        #         count=count+1
+
+        for i1 in range(self.size_a + self.size_b):
+            for i2 in range(i1, self.size_a + self.size_b):
+
+                if nbody == "two":
+                    for i3 in range(self.size_a + self.size_b):
+                        for i4 in range(i3, self.size_a + self.size_b):
+
+                            idxs = [i1, i2, i3, i4]
+                            cond = True
+                            for c in conditions:
+                                cond = c(idxs) and cond
+
+                            if cond is False:
+                                continue
+                            else:
+                                op_plus = self.adag_adag_a_a_matrix(
+                                    idxs[0], idxs[1], idxs[2], idxs[3]
+                                )
+                                op_minus = self.adag_adag_a_a_matrix(
+                                    idxs[3], idxs[2], idxs[1], idxs[0]
+                                )
+                                operator_pool[tuple(idxs)] = op_plus - op_minus
+
+                                # operator_pool[(i2, i1, i3, i4)] = -(op_plus - op_minus)
+                                # operator_pool[(i1, i2, i4, i3)] = -(op_plus - op_minus)
+                                # operator_pool[(i1, i2, i4, i3)] = op_plus - op_minus
+
+                if nbody == "one":
+                    idxs = [i1, i2]
+                    cond = True
+                    for c in conditions:
+                        cond = c(idxs) and cond
+
+                    if cond is False:
+                        continue
+                    else:
+                        op_plus = self.adag_a_matrix(idxs[0], idxs[1])
+                        op_minus = self.adag_a_matrix(idxs[1], idxs[0])
+
+                        operator_pool[tuple(idxs)] = op_plus - op_minus
+
         return operator_pool
