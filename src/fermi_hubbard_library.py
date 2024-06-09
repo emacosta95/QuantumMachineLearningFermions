@@ -570,10 +570,7 @@ class FemionicBasis:
                             cond = True
                             for c in conditions:
                                 cond = c(idxs) and cond
-
-                            if cond is False:
-                                continue
-                            else:
+                            if cond:
                                 op_plus = self.adag_adag_a_a_matrix(
                                     idxs[0], idxs[1], idxs[2], idxs[3]
                                 )
@@ -585,6 +582,8 @@ class FemionicBasis:
                                 # operator_pool[(i2, i1, i3, i4)] = -(op_plus - op_minus)
                                 # operator_pool[(i1, i2, i4, i3)] = -(op_plus - op_minus)
                                 # operator_pool[(i1, i2, i4, i3)] = op_plus - op_minus
+                            else:
+                                continue
 
                 if nbody == "one":
                     idxs = [i1, i2]
@@ -592,12 +591,12 @@ class FemionicBasis:
                     for c in conditions:
                         cond = c(idxs) and cond
 
-                    if cond is False:
-                        continue
-                    else:
+                    if cond:
                         op_plus = self.adag_a_matrix(idxs[0], idxs[1])
                         op_minus = self.adag_a_matrix(idxs[1], idxs[0])
 
                         operator_pool[tuple(idxs)] = op_plus - op_minus
+                    else:
+                        continue
 
         return operator_pool
