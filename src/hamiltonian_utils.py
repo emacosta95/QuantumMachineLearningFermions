@@ -76,10 +76,10 @@ class SingleParticleState:
             for idx in idxs:
 
                 (n, l, j, m, t, t_z) = self.state_encoding[idx]
-                j_ave += j * psi[basis_index].conjugate() * psi[basis_index]
-                m_ave += m * psi[basis_index].conjugate() * psi[basis_index]
+                j_ave = j_ave + j * psi[basis_index].conjugate() * psi[basis_index]
+                m_ave = m_ave + m * psi[basis_index].conjugate() * psi[basis_index]
 
-        return j_ave, m_ave
+        return j_ave / np.sum(basis[0]), m_ave / np.sum(basis[0])
 
 
 def krond(tuple_a, tuple_b):  # Kronecker delta
@@ -234,6 +234,8 @@ def compute_nuclear_twobody_matrix(
 ) -> Dict:
 
     matrix: Dict = {}
+    matrix_j: Dict = {}
+    matrix_m: Dict = {}
     for i in trange(len(spg.state_encoding)):
         for j in range(i, len(spg.state_encoding)):
             for l in range(len(spg.state_encoding)):
@@ -264,6 +266,8 @@ def compute_nuclear_twobody_matrix(
                         ]
 
                         value = 0.0
+                        value_j = 0.0
+                        value_m = 0.0
 
                         for j_tot in j_tot_range:
                             for i_tot in i_tot_range:
@@ -366,6 +370,25 @@ def compute_nuclear_twobody_matrix(
                                             / (nij * nlm)
                                         )
 
+                                        value_j = (
+                                            value_j
+                                            + cg_initial
+                                            * cg_final
+                                            * cg_iso_initial
+                                            * cg_iso_final
+                                            * j_tot
+                                            / (nij * nlm)
+                                        )
+                                        value_m = (
+                                            value_m
+                                            + cg_initial
+                                            * cg_final
+                                            * cg_iso_initial
+                                            * cg_iso_final
+                                            * m_tot
+                                            / (nij * nlm)
+                                        )
+
                         if value != 0:
                             matrix[(i, j, l, m)] = value  # regular value
                             if m != l:
@@ -374,26 +397,57 @@ def compute_nuclear_twobody_matrix(
                                 matrix[(j, i, l, m)] = -1 * value  # asymmetric initial
                             matrix[(j, i, m, l)] = value  # double asymmetric
 
+                        if value_j != 0:
+                            matrix_j[(i, j, l, m)] = value_j  # regular value
+                            if m != l:
+                                matrix_j[(i, j, m, l)] = (
+                                    -1 * value_j
+                                )  # asymmetric final
+                            if j != i:
+                                matrix_j[(j, i, l, m)] = (
+                                    -1 * value_j
+                                )  # asymmetric initial
+                            matrix_j[(j, i, m, l)] = value_j  # double asymmetric
+
+                        if value_m != 0:
+                            matrix_m[(i, j, l, m)] = value_m  # regular value
+                            if m != l:
+                                matrix_m[(i, j, m, l)] = (
+                                    -1 * value_m
+                                )  # asymmetric final
+                            if j != i:
+                                matrix_m[(j, i, l, m)] = (
+                                    -1 * value_m
+                                )  # asymmetric initial
+                            matrix_m[(j, i, m, l)] = value_m  # double asymmetric
+
                             # matrix[(l,m,j,i)]=value   # inversion
 
     old_matrix_keys = list(matrix.keys())
-
     for key in old_matrix_keys:
         i, j, l, m = key
         matrix[(m, l, j, i)] = matrix[key]
 
-    return matrix
+    old_matrix_keys = list(matrix_j.keys())
+    for key in old_matrix_keys:
+        matrix_j[(m, l, j, i)] = matrix_j[key]
+
+    old_matrix_keys = list(matrix_m.keys())
+    for key in old_matrix_keys:
+        matrix_m[(m, l, j, i)] = matrix_m[key]
+
+    return matrix, matrix_j, matrix_m
 
 
 def get_twobody_nuclearshell_model(file_name: str):
 
     j_tot_i_tot, scattering_values = scattering_matrix_reader(file_name=file_name)
     SPG = SingleParticleState(file_name=file_name)
-    twobody_matrix = compute_nuclear_twobody_matrix(
+    twobody_matrix, j_matrix, m_matrix = compute_nuclear_twobody_matrix(
         spg=SPG, j_tot_i_tot=j_tot_i_tot, scattering_values=scattering_values
     )
 
-    return twobody_matrix, SPG.energies
+    return twobody_matrix, j_matrix, m_matrix, SPG.energies
 
 
 class FermiHubbardHamiltonian(FemionicBasis):
@@ -450,23 +504,19 @@ class FermiHubbardHamiltonian(FemionicBasis):
 
         matrix_keys = twobody_dict.keys()
         matrix_values = list(twobody_dict.values())
+        ham_int=0.
         for q, indices in enumerate(matrix_keys):
             i1, i2, i3, i4 = indices
-
+            
+            if any(idx> self.size_a+self.size_b-1 for idx in indices):
+                continue
             value = matrix_values[q]
-            # print(i1,i2,i3,i4,value)
-            if q == 0:
 
-                ham_int = (
-                    value * self.adag_adag_a_a_matrix(i1=i1, i2=i2, j1=i4, j2=i3)
-                ) / 4
-
-            else:
-                ham_int = (
-                    ham_int
-                    + (value * (self.adag_adag_a_a_matrix(i1=i1, i2=i2, j1=i4, j2=i3)))
-                    / 4
-                )
+            ham_int = (
+                ham_int
+                + (value * (self.adag_adag_a_a_matrix(i1=i1, i2=i2, j1=i4, j2=i3)))
+                / 4
+            )
 
         self.twobody_operator = ham_int
 

@@ -13,30 +13,32 @@ import matplotlib.pyplot as plt
 #     return Q
 
 
-def gram_schmidt(A):
-    """
-    Orthonormalize the columns of matrix A using the Gram-Schmidt process.
-    Args:
-    - A (torch.Tensor): A complex-valued tensor of shape (n, k)
-    Returns:
-    - Q (torch.Tensor): An orthonormalized matrix of shape (n, k)
-    """
-    # Number of columns
-    n, k = A.shape
-    # Initialize an empty matrix for orthonormal vectors
-    Q = torch.zeros((n, k), dtype=torch.complex64)
+def gram_schmidt(V):
+    """Orthogonalize a set of vectors using the Gram-Schmidt process.
 
-    for i in range(k):
-        # Take the i-th column of A
-        v = A[:, i]
+    Parameters:
+    V (numpy.ndarray): A 2D array where each row is a vector.
+
+    Returns:
+    numpy.ndarray: An array of orthogonal vectors.
+    """
+    # Get the number of vectors and their dimension
+    n, d = V.shape
+
+    # Initialize the matrix for the orthogonal vectors
+    Q = np.zeros((n, d))
+
+    for i in range(n):
+        # Start with the current vector
+        qi = V[i]
+
         for j in range(i):
-            # Project v onto the j-th column of Q using the Hermitian inner product
-            proj = torch.dot(Q[:, j].conj(), v) * Q[:, j]
-            v -= proj
-        # Normalize v
-        v = v / torch.linalg.norm(v)
-        # Assign the normalized vector to the i-th column of Q
-        Q[:, i] = v
+            # Subtract the projection of qi onto each of the previous orthogonal vectors
+            qj = Q[j]
+            qi -= np.dot(qi, qj) / np.dot(qj, qj) * qj
+
+        # Normalize the orthogonal vector
+        Q[i] = qi / np.linalg.norm(qi)
 
     return Q
 
