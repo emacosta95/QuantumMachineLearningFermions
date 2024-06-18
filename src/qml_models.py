@@ -236,16 +236,16 @@ class QAOAFermiHubbard:
         # we can add preparations or other methods
         self.psi0 = reference_psi
 
-    def set_weights(self, total_step:int,initialization_type:str='zeros',tf:float=None):
+    def set_weights(self, total_step:int,initialization_type:str='ones',tf:float=None):
 
         # set some double check property of the operator pool
-        if initialization_type=='zeros':
-            self.weights=np.zeros((2*total_step))
+        if initialization_type=='ones':
+            self.weights=np.ones((2*total_step))
             
         if initialization_type=='annealing':
             self.weights=np.zeros((2*total_step))
-            self.weights[0:total_step]=np.linspace(0,tf,total_step)
-            self.weights[total_step:]=np.linspace(0,tf,total_step)
+            self.weights[0:total_step]=np.linspace(0,tf,total_step)/tf
+            self.weights[total_step:]=1-np.linspace(0,tf,total_step)/tf
             
         self.nstep=total_step
             
