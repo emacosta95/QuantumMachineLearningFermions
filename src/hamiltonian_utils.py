@@ -1,5 +1,6 @@
 import numpy as np
-
+import itertools
+from itertools import combinations
 from src.cg_utils import ClebschGordan, SelectCG
 import matplotlib.pyplot as plt
 from tqdm import trange
@@ -7,7 +8,7 @@ from src.fermi_hubbard_library import FemionicBasis
 import numpy as np
 from scipy.sparse.linalg import eigsh
 
-from typing import List, Dict, Tuple, Text, Optional
+from typing import List, Dict, Tuple, Text, Optional,Callable
 
 
 class SingleParticleState:
@@ -23,6 +24,7 @@ class SingleParticleState:
 
         self.state_encoding: List = []
         self.energies: List = []
+        #self.energies_dictionary:Dict={}
         for i_z in [1 / 2, -1 / 2]:
             for i, label in enumerate(labels[2:]):
                 n = int(label[0])
@@ -34,6 +36,7 @@ class SingleParticleState:
                 for two_m in two_m_range:
                     self.state_encoding.append((n, l, two_j / 2, two_m / 2, 1 / 2, i_z))
                     self.energies.append(energy_values[i])
+                    #self.energies_dictionary[(n, l, two_j / 2, two_m / 2, 1 / 2, i_z)]=energy_values[i]
 
         self.energies = np.asarray(self.energies)
 
@@ -81,6 +84,26 @@ class SingleParticleState:
 
         return j_ave / np.sum(basis[0]), m_ave / np.sum(basis[0])
 
+    def total_M_zero(self,idxs:np.ndarray):
+        
+        total_m=0.
+        for idx in idxs:
+            (n, l, j, m, t, t_z) = self.state_encoding[idx]
+            total_m+=m
+            
+        return np.isclose(total_m,0.)
+    
+    # def single_particle_energy(self,basis:np.ndarray):
+    #     spe=[]
+    #     for b in basis:
+    #         idxs=np.nonzero(b)[0]
+    #         eng=0.
+    #         for idx in idxs:
+    #             key = self.state_encoding[idx]
+    #             eng+=self.energies_dictionary[key]
+    #         spe.append(eng)
+        
+    #     return np.asarray(spe)
 
 def krond(tuple_a, tuple_b):  # Kronecker delta
     krond = 0
@@ -453,7 +476,7 @@ def get_twobody_nuclearshell_model(file_name: str):
 class FermiHubbardHamiltonian(FemionicBasis):
 
     def __init__(
-        self, size_a: int, size_b: int, nparticles_a: int, nparticles_b: int
+        self, size_a: int, size_b: int, nparticles_a: int, nparticles_b: int,symmetries:Optional[List[Callable]]=None
     ) -> None:
 
         super().__init__(size_a, size_b, nparticles_a, nparticles_b)
@@ -465,6 +488,9 @@ class FermiHubbardHamiltonian(FemionicBasis):
         self.hamiltonian = None
 
         self.dim_hilbert_space = self.basis.shape[0]
+        
+        self.basis = self.generate_fermi_hubbard_basis(symmetries)
+        self.encode = self._get_the_encode()
 
     def get_kinetic_operator(
         self, hopping_term: Optional[float] = None, adj_matrix: Optional[Dict] = None
@@ -539,3 +565,35 @@ class FermiHubbardHamiltonian(FemionicBasis):
         e, states = eigsh(self.hamiltonian, k=n_states, which="SA")
 
         return e, states
+    
+    def generate_fermi_hubbard_basis(self,symmetries:Optional[List[Callable]]=None):
+        combinations_list = []
+        print(combinations(range(self.nparticles_a), self.size_a))
+        for indices_part1 in list(combinations(range(self.size_a), self.nparticles_a)):
+            for indices_part2 in list(
+                combinations(range(self.size_b), self.nparticles_b)
+            ):
+                base = [0] * (self.size_a + self.size_b)
+                for idx in indices_part1:
+                    base[idx] = 1
+                for idx in indices_part2:
+                    # because the second subsystem is related to the other species
+                    base[idx + self.size_a] = 1
+                combinations_list.append(base)
+                
+        basis=np.asarray(combinations_list)
+        if symmetries is not None:
+            basis_with_symmetry=[]
+            for b in basis:
+                idxs=np.nonzero(b)[0]
+                full_cond=True
+                for sym in symmetries:
+                    cond=sym(idxs)
+                    full_cond=cond*full_cond
+                
+                if full_cond:
+                    basis_with_symmetry.append(b)
+            
+            basis=np.asarray(basis_with_symmetry)
+        
+        return basis

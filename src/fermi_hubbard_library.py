@@ -3,7 +3,7 @@ from itertools import combinations
 import numpy as np
 from scipy.sparse import lil_matrix
 import scipy.sparse as sparse
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable,Optional
 from scipy.sparse.linalg import eigsh, lobpcg
 from itertools import product
 import multiprocessing
@@ -176,7 +176,10 @@ class FemionicBasis:
                     # because the second subsystem is related to the other species
                     base[idx + self.size_a] = 1
                 combinations_list.append(base)
-        return np.asarray(combinations_list)
+                
+        basis=np.asarray(combinations_list)
+        
+        return basis
 
     def adag_a_matrix(self, i: int, j: int) -> np.ndarray:
 
