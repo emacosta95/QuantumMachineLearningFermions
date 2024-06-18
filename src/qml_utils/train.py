@@ -43,7 +43,7 @@ class Fit:
                     method=self.method,
                     jac=self.model.backward,
                     tol=self.tolerance,
-                    callback=None,
+                    callback=self.model.callback,
                     options=None,
                 )
                 self.model.weights = res.x

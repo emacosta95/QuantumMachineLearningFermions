@@ -190,3 +190,156 @@ class AdaptVQEFermiHubbard:
 
         self.history_grad.append(self.grad)
         self.history_energy.append(self.energy)
+        print('energy value=',self.energy,'\n')
+
+
+
+class QAOAFermiHubbard:
+
+    def __init__(
+        self,
+    ) -> None:
+
+        # physics hyperparameters
+        self.hamiltonian: np.ndarray = None
+        self.psi0: np.ndarray = None
+        self.hamiltonian_driving = None
+
+        
+        
+        # optimization hyperparameter
+        self.grad_tolerance: float = 1000
+        self.weights: np.ndarray = None
+        self.nstep=None
+
+        # energy
+        self.energy = 0.0
+        self.grad = 0.0
+        self.psi = 0.0
+
+        # histories
+        self.history_energy = []
+        self.history_grad = []
+
+    def set_hamiltonian(
+        self,
+        hamiltonian: np.ndarray,hamiltonian_driving:np.ndarray
+    ):
+
+        # check all the options for the hamiltonian, like is herm so on and so forth
+
+        self.hamiltonian = hamiltonian
+        self.hamiltonian_driving=hamiltonian_driving
+
+    def set_reference_psi(self, reference_psi: np.ndarray):
+
+        # we can add preparations or other methods
+        self.psi0 = reference_psi
+
+    def set_weights(self, total_step:int,initialization_type:str='zeros',tf:float=None):
+
+        # set some double check property of the operator pool
+        if initialization_type=='zeros':
+            self.weights=np.zeros((2*total_step))
+            
+        if initialization_type=='annealing':
+            self.weights=np.zeros((2*total_step))
+            self.weights[0:total_step]=np.linspace(0,tf,total_step)
+            self.weights[total_step:]=np.linspace(0,tf,total_step)
+            
+        self.nstep=total_step
+            
+
+    def model_preparation(
+        self,
+    ):
+
+        return None
+    def __compute_psi(self,weights:np.ndarray) -> np.ndarray:
+
+        
+        psi = self.psi0.copy()
+        #print(weights.shape,'weights shapeee')
+        for i in range(self.nstep):
+            # print(np.conj(expm(weights[i] * op).T) @ expm(weights[i] * op))
+            psi = scipy.sparse.linalg.expm_multiply(
+                -1j*weights[i] * self.hamiltonian_driving, psi
+            )
+            psi = scipy.sparse.linalg.expm_multiply(
+                -1j*weights[i+self.nstep] * self.hamiltonian, psi
+            )
+            
+            # psi = psi / np.linalg.norm(psi)
+
+        return psi
+
+    def backward(self,weights:np.ndarray ):
+
+        # minimize reshape everytime the weights, we should put it on a callback
+
+
+        psi = self.__compute_psi(weights=weights)
+        # print(psi)
+        # energy value
+        # energy = np.conj(psi.T) @ self.hamiltonian @ psi
+
+        sigma = self.hamiltonian @ psi
+
+        # print('sigma here=',sigma)
+        n_tot = 2*self.nstep
+        grad: np.ndarray = np.zeros((n_tot))
+        action_operator=[self.hamiltonian_driving,self.hamiltonian]
+        for i in range(n_tot//2):
+            # update immediately state psi
+            psi = scipy.sparse.linalg.expm_multiply(
+                1j * weights[n_tot - 1 - i] * self.hamiltonian, psi
+            )
+            psi = scipy.sparse.linalg.expm_multiply(
+                1j * weights[n_tot - 1 - i-self.nstep] * self.hamiltonian_driving, psi
+            )
+            
+            # add the exp contribution of the acting operator
+            a_state=scipy.sparse.linalg.expm_multiply(
+                -1j * weights[n_tot - 1 - i-self.nstep] * self.hamiltonian_driving, psi
+            )
+            b_state=scipy.sparse.linalg.expm_multiply(
+                1j * weights[n_tot - 1 - i] * self.hamiltonian, sigma
+            )
+            
+            # compute the gradient
+            for a in range(2):
+                grad[n_tot - 1 - i-(1-a)*self.nstep] = 2 * np.imag(
+                    np.conj(b_state.T) @ action_operator[a] @ a_state
+                )
+                
+            #update sigma state
+            sigma = scipy.sparse.linalg.expm_multiply(
+                1j * weights[n_tot - 1 - i] * self.hamiltonian, sigma
+            )
+            sigma = scipy.sparse.linalg.expm_multiply(
+                1j * weights[n_tot - 1 - i-self.nstep] * self.hamiltonian_driving, sigma
+            )
+            
+            
+
+        self.grad = grad
+
+
+        return grad
+
+
+
+    def forward(self, weights):
+
+        psi = self.__compute_psi(weights)
+        psi.transpose().conj() @ self.hamiltonian @ psi
+        # print(f"energy value={self.energy:.3f} \n")
+        self.energy = (psi.transpose().conj() @ self.hamiltonian @ psi).real[0,0]
+        return self.energy
+
+    def callback(self,*args):
+
+        self.history_grad.append(self.grad)
+        self.history_energy.append(self.energy)
+        
+        print('energy value=',self.energy,'\n')
