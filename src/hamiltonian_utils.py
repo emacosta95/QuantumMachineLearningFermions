@@ -515,7 +515,7 @@ class FermiHubbardHamiltonian(FemionicBasis):
             (i, j), value = element
             operator = operator + value * self.adag_a_matrix(i=i, j=j)
 
-        self.kinetic_operator = operator + operator.transpose().conjugate()
+        self.kinetic_operator = operator #+ operator.transpose().conjugate()
 
     def get_external_potential(self, external_potential: np.ndarray):
 
