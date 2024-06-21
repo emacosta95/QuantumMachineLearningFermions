@@ -1,0 +1,14 @@
+python>=3.9
+
+# --------- exact diagonalization --------- #
+scipy
+numpy
+
+
+# --------- numerical diagonalization --------- #
+-c weinbe58 omp quspin
+
+
+# --------- others --------- #
+jupyter      # better jupyter notebooks
+matplotlib
