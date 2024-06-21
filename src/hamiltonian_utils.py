@@ -20,8 +20,7 @@ class SingleParticleState:
 
         labels = lines[1].split()
         energy_values = [float(element) for element in lines[2].split()]
-        print(energy_values)
-
+        
         self.state_encoding: List = []
         self.energies: List = []
         #self.energies_dictionary:Dict={}
@@ -69,7 +68,7 @@ class SingleParticleState:
 
         return condition
 
-    def compute_j_m_exp_value(self, psi: np.ndarray, basis: np.ndarray):
+    def compute_m_exp_value(self, psi: np.ndarray, basis: np.ndarray):
 
         j_ave = 0.0
         m_ave = 0.0
@@ -79,10 +78,9 @@ class SingleParticleState:
             for idx in idxs:
 
                 (n, l, j, m, t, t_z) = self.state_encoding[idx]
-                j_ave = j_ave + j * psi[basis_index].conjugate() * psi[basis_index]
                 m_ave = m_ave + m * psi[basis_index].conjugate() * psi[basis_index]
 
-        return j_ave / np.sum(basis[0]), m_ave / np.sum(basis[0])
+        return  m_ave 
 
     def total_M_zero(self,idxs:np.ndarray):
         
@@ -125,9 +123,6 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
     matrix_entries_string: List = []
 
     for i in range(4, len(lines), 3):
-        print(lines[i])
-        print(lines[i + 1])
-        print(lines[i + 2])
         float_line_1 = [(element) for element in lines[i].split()]
         float_line_2 = [float(element) for element in lines[i + 1].split()]
         float_line_3 = [float(element) for element in lines[i + 2].split()]
@@ -181,8 +176,7 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
             j_tot_i_tot[
                 (n2f, l2f, j2f), (n1f, l1f, j1f), (n2i, l2i, j2i), (n1i, l1i, j1i)
             ] = (tot_j_range, tot_iso_range)
-        # si deve fare qui sto lavoro di anti symmetria IMPORTANTISSIMO
-        # matrix_entries=np.asarray(matrix_entries)
+        # we must to take into account all the combinations!
         for matrix_jdx, j_tot in enumerate(tot_j_range):
             for matrix_idx, i_tot in enumerate(tot_iso_range):
 
@@ -210,10 +204,7 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
                     ][
                         matrix_jdx
                     ]
-                    print(
-                        (-1) ** int(j2i + j1i + j_tot + i_tot)
-                        * matrix_entries[2 * i + matrix_idx][matrix_jdx]
-                    )
+                    
 
                 if (n1f, l1f, j1f) != (n2f, l2f, j2f):
                     scattering_values[
@@ -257,8 +248,8 @@ def compute_nuclear_twobody_matrix(
 ) -> Dict:
 
     matrix: Dict = {}
-    matrix_j: Dict = {}
-    matrix_m: Dict = {}
+    print('Computing the matrix, pls wait... (u_u) \n')
+
     for i in trange(len(spg.state_encoding)):
         for j in range(i, len(spg.state_encoding)):
             for l in range(len(spg.state_encoding)):
@@ -290,10 +281,10 @@ def compute_nuclear_twobody_matrix(
 
                         value = 0.0
                         value_j = 0.0
-                        value_m = 0.0
-
                         for j_tot in j_tot_range:
                             for i_tot in i_tot_range:
+                                
+                                #phij, phlm = (-1) ** int(ji + jj + j_tot + i_tot), (-1) ** int(jl + jm + j_tot + i_tot)
 
                                 cg_final_list = ClebschGordan(
                                     ji,
@@ -328,89 +319,63 @@ def compute_nuclear_twobody_matrix(
                                     )
                                 ]
 
-                                for m_tot in np.linspace(
-                                    -j_tot, j_tot, int(2 * j_tot) + 1
-                                ):
-                                    for iz_tot in np.linspace(
-                                        -i_tot, i_tot, int(2 * i_tot) + 1
-                                    ):
+                                cg_initial = SelectCG(
+                                    cg_initial_list,
+                                    jl,
+                                    ml,
+                                    jm,
+                                    mm,
+                                    j_tot,
+                                    ml+mm,
+                                )
+                                cg_final = SelectCG(
+                                    cg_final_list, ji, mi, jj, mj, j_tot, mi+mj
+                                )
+                                cg_iso_initial = SelectCG(
+                                    cg_iso_initial_list,
+                                    1 / 2,
+                                    izl,
+                                    1 / 2,
+                                    izm,
+                                    i_tot,
+                                    izl+izm,
+                                )
+                                cg_iso_final = SelectCG(
+                                    cg_iso_final_list,
+                                    1 / 2,
+                                    izi,
+                                    1 / 2,
+                                    izj,
+                                    i_tot,
+                                    izi+izj,
+                                )
 
-                                        # cg values
-                                        cg_initial = SelectCG(
-                                            cg_initial_list,
-                                            jl,
-                                            ml,
-                                            jm,
-                                            mm,
-                                            j_tot,
-                                            m_tot,
-                                        )
-                                        cg_final = SelectCG(
-                                            cg_final_list, ji, mi, jj, mj, j_tot, m_tot
-                                        )
-                                        cg_iso_initial = SelectCG(
-                                            cg_iso_initial_list,
-                                            1 / 2,
-                                            izl,
-                                            1 / 2,
-                                            izm,
-                                            i_tot,
-                                            iz_tot,
-                                        )
-                                        cg_iso_final = SelectCG(
-                                            cg_iso_final_list,
-                                            1 / 2,
-                                            izi,
-                                            1 / 2,
-                                            izj,
-                                            i_tot,
-                                            iz_tot,
-                                        )
+                                phaseJT = (-1.0) ** (j_tot + i_tot)
+                                # normalization
+                                nij = np.sqrt(
+                                    1.0
+                                    - krond((ni, li, ji), (nj, lj, jj))
+                                    * phaseJT
+                                ) / (1.0 + krond((ni, li, ji), (nj, lj, jj)))
+                                nlm = np.sqrt(
+                                    1.0
+                                    - krond((nl, ll, jl), (nm, lm, jm))
+                                    * phaseJT
+                                ) / (1.0 + krond((nl, ll, jl), (nm, lm, jm)))
 
-                                        phaseJT = (-1.0) ** (j_tot + i_tot)
-                                        # normalization
-                                        nij = np.sqrt(
-                                            1.0
-                                            - krond((ni, li, ji), (nj, lj, jj))
-                                            * phaseJT
-                                        ) / (1.0 + krond((ni, li, ji), (nj, lj, jj)))
-                                        nlm = np.sqrt(
-                                            1.0
-                                            - krond((nl, ll, jl), (nm, lm, jm))
-                                            * phaseJT
-                                        ) / (1.0 + krond((nl, ll, jl), (nm, lm, jm)))
+                                if (abs(nij) == 0.0) or (abs(nlm) == 0.0):
+                                    continue
 
-                                        if (abs(nij) == 0.0) or (abs(nlm) == 0.0):
-                                            continue
+                                value = (
+                                    value
+                                    + cg_initial
+                                    * cg_final
+                                    * cg_iso_initial
+                                    * cg_iso_final
+                                    * matrix_outcome
+                                    / (nij * nlm)
+                                )
 
-                                        value = (
-                                            value
-                                            + cg_initial
-                                            * cg_final
-                                            * cg_iso_initial
-                                            * cg_iso_final
-                                            * matrix_outcome
-                                            / (nij * nlm)
-                                        )
-
-                                        value_j = (
-                                            value_j
-                                            + cg_initial
-                                            * cg_final
-                                            * cg_iso_initial
-                                            * cg_iso_final
-                                            * j_tot
-                                            / (nij * nlm)
-                                        )
-                                        value_m = (
-                                            value_m
-                                            + cg_initial
-                                            * cg_final
-                                            * cg_iso_initial
-                                            * cg_iso_final
-                                            * m_tot
-                                            / (nij * nlm)
-                                        )
 
                         if value != 0:
                             matrix[(i, j, l, m)] = value  # regular value
@@ -420,29 +385,8 @@ def compute_nuclear_twobody_matrix(
                                 matrix[(j, i, l, m)] = -1 * value  # asymmetric initial
                             matrix[(j, i, m, l)] = value  # double asymmetric
 
-                        if value_j != 0:
-                            matrix_j[(i, j, l, m)] = value_j  # regular value
-                            if m != l:
-                                matrix_j[(i, j, m, l)] = (
-                                    -1 * value_j
-                                )  # asymmetric final
-                            if j != i:
-                                matrix_j[(j, i, l, m)] = (
-                                    -1 * value_j
-                                )  # asymmetric initial
-                            matrix_j[(j, i, m, l)] = value_j  # double asymmetric
+                        
 
-                        if value_m != 0:
-                            matrix_m[(i, j, l, m)] = value_m  # regular value
-                            if m != l:
-                                matrix_m[(i, j, m, l)] = (
-                                    -1 * value_m
-                                )  # asymmetric final
-                            if j != i:
-                                matrix_m[(j, i, l, m)] = (
-                                    -1 * value_m
-                                )  # asymmetric initial
-                            matrix_m[(j, i, m, l)] = value_m  # double asymmetric
 
                             # matrix[(l,m,j,i)]=value   # inversion
 
@@ -451,26 +395,21 @@ def compute_nuclear_twobody_matrix(
         i, j, l, m = key
         matrix[(m, l, j, i)] = matrix[key]
 
-    old_matrix_keys = list(matrix_j.keys())
-    for key in old_matrix_keys:
-        matrix_j[(m, l, j, i)] = matrix_j[key]
 
-    old_matrix_keys = list(matrix_m.keys())
-    for key in old_matrix_keys:
-        matrix_m[(m, l, j, i)] = matrix_m[key]
 
-    return matrix, matrix_j, matrix_m
+
+    return matrix
 
 
 def get_twobody_nuclearshell_model(file_name: str):
 
     j_tot_i_tot, scattering_values = scattering_matrix_reader(file_name=file_name)
     SPG = SingleParticleState(file_name=file_name)
-    twobody_matrix, j_matrix, m_matrix = compute_nuclear_twobody_matrix(
+    twobody_matrix= compute_nuclear_twobody_matrix(
         spg=SPG, j_tot_i_tot=j_tot_i_tot, scattering_values=scattering_values
     )
 
-    return twobody_matrix, j_matrix, m_matrix, SPG.energies
+    return twobody_matrix, SPG.energies
 
 
 class FermiHubbardHamiltonian(FemionicBasis):
@@ -568,7 +507,6 @@ class FermiHubbardHamiltonian(FemionicBasis):
     
     def generate_fermi_hubbard_basis(self,symmetries:Optional[List[Callable]]=None):
         combinations_list = []
-        print(combinations(range(self.nparticles_a), self.size_a))
         for indices_part1 in list(combinations(range(self.size_a), self.nparticles_a)):
             for indices_part2 in list(
                 combinations(range(self.size_b), self.nparticles_b)

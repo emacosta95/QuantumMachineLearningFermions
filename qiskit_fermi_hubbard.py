@@ -54,7 +54,13 @@ lmp = LatticeModelProblem(fhm)
 mapper = ParityMapper(num_particles=(n_up,n_down))
 #mapper=JordanWignerMapper()
 
-numpy_solver = NumPyMinimumEigensolver(k=1)
+
+
+algorithm = GroundStateEigensolver(mapper, vqe)
+
+electronic_structure_result = algorithm.solve(problem)
+
+numpy_solver = NumPyMinimumEigensolver()
 calc = GroundStateEigensolver(mapper, numpy_solver)
 res = calc.solve(lmp)
 
