@@ -3,7 +3,7 @@ import itertools
 from itertools import combinations
 from src.cg_utils import ClebschGordan, SelectCG
 import matplotlib.pyplot as plt
-from tqdm import trange
+from tqdm import trange,tqdm
 from src.fermi_hubbard_library import FemionicBasis
 import numpy as np
 from scipy.sparse.linalg import eigsh
@@ -470,7 +470,8 @@ class FermiHubbardHamiltonian(FemionicBasis):
         matrix_keys = twobody_dict.keys()
         matrix_values = list(twobody_dict.values())
         ham_int=0.
-        for q, indices in enumerate(matrix_keys):
+        tbar=tqdm(enumerate(matrix_keys))
+        for q, indices in tbar:
             i1, i2, i3, i4 = indices
             
             if any(idx> self.size_a+self.size_b-1 for idx in indices):
@@ -482,6 +483,7 @@ class FermiHubbardHamiltonian(FemionicBasis):
                 + (value * (self.adag_adag_a_a_matrix(i1=i1, i2=i2, j1=i4, j2=i3)))
                 / 4
             )
+            tbar.refresh()
 
         self.twobody_operator = ham_int
 
