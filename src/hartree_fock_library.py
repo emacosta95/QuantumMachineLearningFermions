@@ -97,12 +97,14 @@ class HartreeFock(nn.Module):
 
             if self.twobody_matrix is not None:
 
-                effective_two_body_term = (1 / 8) * np.einsum(
+                effective_two_body_term = (1 / 4) * np.einsum(
                     "ijkl,ja,la->ik",
                     self.twobody_matrix,
                     self.weights.conjugate(),
                     self.weights,
                 )
+                # print('twobody matrix=',self.twobody_matrix)
+                # print('effective_two_body_term=',effective_two_body_term)
                 effective_hamiltonian += effective_two_body_term
             if self.kinetic_matrix is not None:
                 effective_hamiltonian += self.kinetic_matrix
@@ -115,6 +117,7 @@ class HartreeFock(nn.Module):
                     - np.einsum("ij->ji", effective_hamiltonian).conjugate()
                 )
             )
+            
             herm_history.append(ishermcheck)
             if not (np.isclose(0, ishermcheck)):
                 print("effective Hamiltonian not Hermitian \n")

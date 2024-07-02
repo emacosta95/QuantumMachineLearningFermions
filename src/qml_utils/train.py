@@ -43,7 +43,7 @@ class Fit:
                     method=self.method,
                     jac=self.model.backward,
                     tol=self.tolerance,
-                    callback=self.model.callback,
+                    callback=self.configuration_checkpoint,
                     options=None,
                 )
                 self.model.weights = res.x

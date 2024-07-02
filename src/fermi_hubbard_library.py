@@ -582,9 +582,9 @@ class FemionicBasis:
                                 )
                                 operator_pool[tuple(idxs)] = op_plus - op_minus
 
-                                # operator_pool[(i2, i1, i3, i4)] = -(op_plus - op_minus)
-                                # operator_pool[(i1, i2, i4, i3)] = -(op_plus - op_minus)
-                                # operator_pool[(i1, i2, i4, i3)] = op_plus - op_minus
+                                #operator_pool[(i2, i1, i3, i4)] = -(op_plus - op_minus)
+                                #operator_pool[(i1, i2, i4, i3)] = -(op_plus - op_minus)
+                                #operator_pool[(i1, i2, i4, i3)] = op_plus - op_minus
                             else:
                                 continue
 
