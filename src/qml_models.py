@@ -63,7 +63,7 @@ class AdaptVQEFermiHubbard:
     def __select_new_operator(self):
 
         max = -1000
-        psi = self.__compute_psi(self.weights)
+        psi = self.compute_psi(self.weights)
         sigma = self.hamiltonian @ psi
 
         self.grad_tolerance = 0.0
@@ -112,7 +112,7 @@ class AdaptVQEFermiHubbard:
         else:
             self.__select_new_operator()
 
-    def __compute_psi(self, weights: np.ndarray) -> np.ndarray:
+    def compute_psi(self, weights: np.ndarray) -> np.ndarray:
         psi = self.psi0.copy()
         if weights is not (None):
 
@@ -127,7 +127,7 @@ class AdaptVQEFermiHubbard:
 
     def backward(self, weights: np.ndarray):
 
-        psi = self.__compute_psi(weights=weights)
+        psi = self.compute_psi(weights=weights)
         # print(psi)
         # energy value
         # energy = np.conj(psi.T) @ self.hamiltonian @ psi
@@ -180,7 +180,7 @@ class AdaptVQEFermiHubbard:
 
     def forward(self, weights):
 
-        psi = self.__compute_psi(weights)
+        psi = self.compute_psi(weights)
         psi.transpose().conj() @ self.hamiltonian @ psi
         # print(f"energy value={self.energy:.3f} \n")
         self.energy = psi.transpose().conj() @ self.hamiltonian @ psi
@@ -255,7 +255,7 @@ class QAOAFermiHubbard:
     ):
 
         return None
-    def __compute_psi(self,weights:np.ndarray) -> np.ndarray:
+    def compute_psi(self,weights:np.ndarray) -> np.ndarray:
 
         
         psi = self.psi0.copy()
@@ -278,7 +278,7 @@ class QAOAFermiHubbard:
         # minimize reshape everytime the weights, we should put it on a callback
 
 
-        psi = self.__compute_psi(weights=weights)
+        psi = self.compute_psi(weights=weights)
         # print(psi)
         # energy value
         # energy = np.conj(psi.T) @ self.hamiltonian @ psi
@@ -331,7 +331,7 @@ class QAOAFermiHubbard:
 
     def forward(self, weights):
 
-        psi = self.__compute_psi(weights)
+        psi = self.compute_psi(weights)
         psi.transpose().conj() @ self.hamiltonian @ psi
         # print(f"energy value={self.energy:.3f} \n")
         self.energy = (psi.transpose().conj() @ self.hamiltonian @ psi).real[0,0]
@@ -404,7 +404,7 @@ class QAOAFermiHubbard:
 #     def __select_new_operator(self):
 
 #         max = -1000
-#         psi = self.__compute_psi(self.weights)
+#         psi = self.compute_psi(self.weights)
 #         sigma = self.hamiltonian @ psi
 
 #         self.grad_tolerance = 0.0
@@ -453,7 +453,7 @@ class QAOAFermiHubbard:
 #         else:
 #             self.__select_new_operator()
 
-#     def __compute_psi(self, weights: np.ndarray) -> np.ndarray:
+#     def compute_psi(self, weights: np.ndarray) -> np.ndarray:
 #         psi = self.psi0.copy()
 #         if weights is not (None):
 
@@ -470,7 +470,7 @@ class QAOAFermiHubbard:
 #         # we need to figure out how we can update just the selected weights
 #         weights=self.from_selected2weights(selected_weights)
 
-#         psi = self.__compute_psi(weights=weights)
+#         psi = self.compute_psi(weights=weights)
 #         # print(psi)
 #         # energy value
 #         # energy = np.conj(psi.T) @ self.hamiltonian @ psi
@@ -527,7 +527,7 @@ class QAOAFermiHubbard:
 
 #     def forward(self, weights):
 
-#         psi = self.__compute_psi(weights)
+#         psi = self.compute_psi(weights)
 #         psi.transpose().conj() @ self.hamiltonian @ psi
 #         # print(f"energy value={self.energy:.3f} \n")
 #         self.energy = psi.transpose().conj() @ self.hamiltonian @ psi

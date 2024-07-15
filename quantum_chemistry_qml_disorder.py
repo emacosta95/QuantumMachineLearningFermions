@@ -41,17 +41,20 @@ class SpinConservation():
         condition=idxs[0]==idxs[-2] and idxs[1]==idxs[-1] and (idxs[0]+self.size==idxs[1] or idxs[1]+self.size==idxs[0])
         
         return condition
+
+ndata=10
     
 t=1.
-    
-us=np.linspace(0,4,8)
+
+
+u=4.
 
 size_a=6
 size_b=6
 nparticles_a=3
 nparticles_b=3
 
-v_ext=np.random.uniform(size=size_a)
+vs_ext=np.random.uniform(size=(ndata,size_a))
 
 
 FHHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_a,nparticles_a=nparticles_a,nparticles_b=nparticles_b)
@@ -87,20 +90,30 @@ for i in range(linear_dimension):
     adj_matrix[i+size_a,size_a+ (i+1) % linear_dimension ] = t
     adj_matrix[size_a+(i+1) % linear_dimension ,size_a+ i] = t
     
+es=[]
+exact_es=[]
+psis=[]
+exact_psis=[]
+tot_weights=[]
+op_infos=[]
+ops=[]
+hists=[]
+grad_hists=[]
+
+twobody_matrix:Dict={}
+for i in range(size_a):
+    twobody_matrix[(i,i+size_a,i+size_a,i)]=u
+    twobody_matrix[(i, i + size_a, i, i + size_a)] = -u
+    twobody_matrix[( i + size_a,i , i + size_a,i)] = -u
+    twobody_matrix[(i+size_a, i , i , i+size_a)] = u
 
 
-for r in us:
+for r in range(ndata):
 
-    u=4.*r
+    v_ext=vs_ext[r]
     
     # define the local onsite potential
-    twobody_matrix:Dict={}
-    for i in range(size_a):
-        twobody_matrix[(i,i+size_a,i+size_a,i)]=u
-        twobody_matrix[(i, i + size_a, i, i + size_a)] = -u
-        twobody_matrix[( i + size_a,i , i + size_a,i)] = -u
-        twobody_matrix[(i+size_a, i , i , i+size_a)] = u
-
+    
     # %%
 
     FHHamiltonian.get_external_potential(external_potential=np.append(v_ext,v_ext))
@@ -112,6 +125,9 @@ for r in us:
     # print(FHHamiltonian.twobody_operator)
     # print(FHHamiltonian.kinetic_operator+FHHamiltonian.twobody_operator-FHHamiltonian.hamiltonian)
     egs,psi0=FHHamiltonian.get_spectrum(n_states=1)
+    
+    exact_es.append(egs)
+    exact_psis.append(psi0)
 
     print(egs)
 
@@ -161,7 +177,16 @@ for r in us:
 
     #%%
     history,grad_history=fit.run()
+    
+    hists.append(history)
+    grad_hists.append(grad_history)
+    tot_weights.append(model.weights)
+    op_infos.append(model.operator_action_info)
+    ops.append(model.operator_action)
+    psis.append(model.compute_psi(model.weights))
     # # %%
     print('results=',(model.energy-egs)/egs,'\n')
+    
+    es.append(model.energy)
 
-    np.savez(f'data/quantum_chemistry/adaptive_vqe_results_tol_1e-05_t_{t}_u_{r:.2f}_size_{size_a}_nparticles_{nparticles_a}_{nparticles_b}',history=history,history_grad=grad_history,weights=model.weights,psi=model.psi,energy=model.energy,operators_info=model.operator_action_info,operator_action=model.operator_action,exact_energy=egs,exact_psi=psi0)
+    np.savez(f'data/quantum_chemistry/adaptive_vqe_results_tol_1e-05_t_{t}_u_{u:.2f}_size_{size_a}_nparticles_{nparticles_a}_{nparticles_b}_ndata_{ndata}',history=hists,history_grad=grad_hists,weights=tot_weights,psi=psis,energy=es,operators_info=op_infos,operator_action=ops,exact_energy=exact_es,exact_psi=exact_psis)
