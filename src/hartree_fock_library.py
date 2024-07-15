@@ -85,6 +85,7 @@ class HartreeFock(nn.Module):
                 "ij,j->ij", self.external_matrix, external_potential
             )
 
+
     def selfconsistent_computation(self, epochs=1000, eta=0.01):
         des = []
         herm_history = []
@@ -122,8 +123,15 @@ class HartreeFock(nn.Module):
             if not (np.isclose(0, ishermcheck)):
                 print("effective Hamiltonian not Hermitian \n")
 
-            eigen, new_weights = np.linalg.eigh(effective_hamiltonian)
-            new_weights = new_weights / np.linalg.norm(new_weights, axis=0)[None, :]
+            #eigen, new_weights = np.linalg.eigh(effective_hamiltonian)
+            
+            new_weights=np.einsum('ij,ja->ia',effective_hamiltonian,self.weights) 
+            new_weights=gram_schmidt(new_weights.T)
+            #self.weights = self.weights / np.linalg.norm(self.weights, axis=0)[None, :]
+
+            eigen=np.einsum('ia,ij,ja->a',np.conj(self.weights),effective_hamiltonian,self.weights)
+            
+            #new_weights = new_weights / np.linalg.norm(new_weights, axis=0)[None, :]
 
             de = np.average(np.abs(eigen_old - eigen))
             eigen_old = eigen
@@ -131,8 +139,7 @@ class HartreeFock(nn.Module):
 
             # self.weights = gram_schmidt(self.weights)
 
-            self.weights = self.weights / np.linalg.norm(self.weights, axis=0)[None, :]
-
+            
             isortho = np.average(
                 np.abs(
                     np.einsum("ia,ja->ij", self.weights.conj(), self.weights)
@@ -184,13 +191,16 @@ class HartreeFock(nn.Module):
         # self.weights = self.weights / np.linalg.norm(self.weights, axis=0)[None, :]
         self.weights = np.eye(size)
 
-    def create_hf_psi(self, basis: np.ndarray, nparticles: int):
+    def create_hf_psi(self, basis: np.ndarray, nparticles_a: int,nparticles_b:int):
 
         psi = np.zeros(basis.shape[0])
+        jdx=np.append(np.arange(nparticles_a),np.arange(nparticles_b)+basis.shape[1]//2)
+        jdx=list(jdx)
+        print(jdx)
+        matrix=np.zeros((nparticles_a+nparticles_b,nparticles_a+nparticles_b))
         for i, b in enumerate(basis):
-
             idx = np.nonzero(b)[0]
-            matrix = self.weights[idx, :nparticles]
+            matrix = self.weights[idx,:nparticles_a+nparticles_b]
             coeff = np.linalg.det(matrix)
             psi[i] = coeff
 
@@ -354,15 +364,16 @@ class HartreeFockVariational(nn.Module):
 
         return psi.detach().numpy()[idx]
 
-    def create_hf_psi(self, basis: np.ndarray, nparticles: int):
+    def create_hf_psi(self, basis: np.ndarray, nparticles_a: int,nparticles_b:int):
 
         psi = np.zeros(basis.shape[0])
 
         orbitals = self.compute_psi()
         for i, b in enumerate(basis):
-
+            
+            jdx=np.append(np.arange(nparticles_a),np.arange(nparticles_b)+basis.shape[1]//2)
             idx = np.nonzero(b)[0]
-            matrix = orbitals[idx, :nparticles]
+            matrix = orbitals[idx, jdx]
             coeff = np.linalg.det(matrix)
             psi[i] = coeff
 
