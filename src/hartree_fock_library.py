@@ -14,32 +14,34 @@ import matplotlib.pyplot as plt
 
 
 def gram_schmidt(V):
-    """Orthogonalize a set of vectors using the Gram-Schmidt process.
-
-    Parameters:
-    V (numpy.ndarray): A 2D array where each row is a vector.
-
-    Returns:
-    numpy.ndarray: An array of orthogonal vectors.
     """
-    # Get the number of vectors and their dimension
-    n, d = V.shape
-
-    # Initialize the matrix for the orthogonal vectors
-    Q = np.zeros((n, d))
-
-    for i in range(n):
-        # Start with the current vector
-        qi = V[i]
-
+    Perform Gram-Schmidt orthogonalization on the set of vectors V.
+    
+    Parameters:
+        V (numpy.ndarray): A 2D numpy array where each column is a vector.
+        
+    Returns:
+        numpy.ndarray: A 2D numpy array where each column is an orthonormal vector.
+    """
+    # Number of vectors
+    num_vectors = V.shape[1]
+    # Dimension of each vector
+    dim = V.shape[0]
+    
+    # Initialize an empty array for the orthogonal vectors
+    Q = np.zeros((dim, num_vectors))
+    
+    for i in range(num_vectors):
+        # Start with the original vector
+        q = V[:, i]
+        
+        # Subtract the projection of q onto each of the previously calculated orthogonal vectors
         for j in range(i):
-            # Subtract the projection of qi onto each of the previous orthogonal vectors
-            qj = Q[j]
-            qi -= np.dot(qi, qj) / np.dot(qj, qj) * qj
-
-        # Normalize the orthogonal vector
-        Q[i] = qi / np.linalg.norm(qi)
-
+            q = q - np.dot(Q[:, j], V[:, i]) * Q[:, j]
+        
+        # Normalize the resulting vector
+        Q[:, i] = q / np.linalg.norm(q)
+    
     return Q
 
 
@@ -98,7 +100,7 @@ class HartreeFock(nn.Module):
 
             if self.twobody_matrix is not None:
 
-                effective_two_body_term = (1 / 4) * np.einsum(
+                effective_two_body_term = (1 / 8) * np.einsum(
                     "ijkl,ja,la->ik",
                     self.twobody_matrix,
                     self.weights.conjugate(),
@@ -123,13 +125,13 @@ class HartreeFock(nn.Module):
             if not (np.isclose(0, ishermcheck)):
                 print("effective Hamiltonian not Hermitian \n")
 
-            #eigen, new_weights = np.linalg.eigh(effective_hamiltonian)
+            eigen, new_weights = np.linalg.eigh(effective_hamiltonian)
             
-            new_weights=np.einsum('ij,ja->ia',effective_hamiltonian,self.weights) 
-            new_weights=gram_schmidt(new_weights.T)
+            #new_weights=np.einsum('ij,ja->ia',effective_hamiltonian,self.weights) 
+            new_weights=gram_schmidt(new_weights)
             #self.weights = self.weights / np.linalg.norm(self.weights, axis=0)[None, :]
 
-            eigen=np.einsum('ia,ij,ja->a',np.conj(self.weights),effective_hamiltonian,self.weights)
+            #eigen=np.einsum('ia,ij,ja->a',np.conj(self.weights),effective_hamiltonian,self.weights)
             
             #new_weights = new_weights / np.linalg.norm(new_weights, axis=0)[None, :]
 
@@ -137,7 +139,7 @@ class HartreeFock(nn.Module):
             eigen_old = eigen
             self.weights = self.weights * (1 - eta) + eta * new_weights
 
-            # self.weights = gram_schmidt(self.weights)
+            #self.weights = gram_schmidt(self.weights)
 
             
             isortho = np.average(
