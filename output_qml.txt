@@ -2418,3 +2418,440 @@ energy=-14.41352
 de=0.000089052
 average gradient=0.000002255607203 
 
+grad tolerance=0.189606748548026 
+
+Optimization Success= True
+energy=-14.41361
+de=0.000086312
+average gradient=0.000001999275606 
+
+grad tolerance=0.180978236718519 
+
+Optimization Success= True
+energy=-14.41365
+de=0.000044255
+average gradient=0.000001964743098 
+
+grad tolerance=0.179096555795373 
+
+Optimization Success= True
+energy=-14.41374
+de=0.000084938
+average gradient=0.000002981847365 
+
+grad tolerance=0.172405781697083 
+
+Optimization Success= True
+energy=-14.41382
+de=0.000082373
+average gradient=0.000002318460858 
+
+grad tolerance=0.170490514124032 
+
+Optimization Success= True
+energy=-14.41392
+de=0.000098381
+average gradient=0.000002046936935 
+
+grad tolerance=0.167104273868851 
+
+Optimization Success= True
+energy=-14.41417
+de=0.000251636
+average gradient=0.000002264432209 
+
+grad tolerance=0.162826936736722 
+
+Optimization Success= True
+energy=-14.41438
+de=0.000207930
+average gradient=0.000001969023664 
+
+grad tolerance=0.157720845219232 
+
+Optimization Success= True
+energy=-14.41447
+de=0.000093421
+average gradient=0.000001982575639 
+
+grad tolerance=0.156025305114567 
+
+Optimization Success= True
+energy=-14.41455
+de=0.000079651
+average gradient=0.000001929753448 
+
+grad tolerance=0.147211296590095 
+
+Optimization Success= True
+energy=-14.41474
+de=0.000188373
+average gradient=0.000001774186463 
+
+grad tolerance=0.147025627886785 
+
+Optimization Success= True
+energy=-14.41482
+de=0.000076716
+average gradient=0.000002885716155 
+
+grad tolerance=0.144701031142474 
+
+Optimization Success= True
+energy=-14.41504
+de=0.000229022
+average gradient=0.000002075177841 
+
+grad tolerance=0.142763817333408 
+
+Optimization Success= True
+energy=-14.41522
+de=0.000173943
+average gradient=0.000002146764963 
+
+grad tolerance=0.136849565046816 
+
+Optimization Success= True
+energy=-14.41531
+de=0.000089562
+average gradient=0.000001819622877 
+
+grad tolerance=0.131719938829004 
+
+Optimization Success= True
+energy=-14.41538
+de=0.000072478
+average gradient=0.000001613526177 
+
+grad tolerance=0.131966166301121 
+
+Optimization Success= True
+energy=-14.41550
+de=0.000122917
+average gradient=0.000002072447188 
+
+grad tolerance=0.128935367096822 
+
+Optimization Success= True
+energy=-14.41552
+de=0.000017513
+average gradient=0.000002360518550 
+
+grad tolerance=0.129455766623100 
+
+Optimization Success= True
+energy=-14.41580
+de=0.000274253
+average gradient=0.000001783116307 
+
+grad tolerance=0.128113695994538 
+
+Optimization Success= True
+energy=-14.41591
+de=0.000113263
+average gradient=0.000001525432968 
+
+grad tolerance=0.129417272032131 
+
+Optimization Success= True
+energy=-14.41595
+de=0.000044736
+average gradient=0.000001748102135 
+
+grad tolerance=0.122231019234974 
+
+Optimization Success= True
+energy=-14.41614
+de=0.000183835
+average gradient=0.000001645149256 
+
+grad tolerance=0.122034367432317 
+
+Optimization Success= True
+energy=-14.41623
+de=0.000088316
+average gradient=0.000002525672305 
+
+grad tolerance=0.119120077331411 
+
+Optimization Success= True
+energy=-14.41631
+de=0.000081290
+average gradient=0.000002270901110 
+
+grad tolerance=0.117528812712972 
+
+Optimization Success= True
+energy=-14.41635
+de=0.000041049
+average gradient=0.000002289046390 
+
+grad tolerance=0.113194522023501 
+
+Optimization Success= True
+energy=-14.41639
+de=0.000043384
+average gradient=0.000001987860714 
+
+grad tolerance=0.109334209119599 
+
+Optimization Success= True
+energy=-14.41648
+de=0.000089696
+average gradient=0.000001571992279 
+
+grad tolerance=0.108242848175056 
+
+Optimization Success= True
+energy=-14.41651
+de=0.000029547
+average gradient=0.000002351382579 
+
+grad tolerance=0.106249192281340 
+
+Optimization Success= True
+energy=-14.41667
+de=0.000157270
+average gradient=0.000002631760232 
+
+grad tolerance=0.105751544452696 
+
+Optimization Success= True
+energy=-14.41676
+de=0.000095078
+average gradient=0.000001859310744 
+
+grad tolerance=0.103086371676783 
+
+Optimization Success= True
+energy=-14.41684
+de=0.000081291
+average gradient=0.000002034288719 
+
+grad tolerance=0.105469304770560 
+
+Optimization Success= True
+energy=-14.41687
+de=0.000031080
+average gradient=0.000002315337396 
+
+grad tolerance=0.102728895013402 
+
+Optimization Success= True
+energy=-14.41690
+de=0.000027243
+average gradient=0.000001805526238 
+
+grad tolerance=0.101375949200832 
+
+Optimization Success= True
+energy=-14.41725
+de=0.000346951
+average gradient=0.000002255768587 
+
+grad tolerance=0.100228514952632 
+
+Optimization Success= True
+energy=-14.41728
+de=0.000034074
+average gradient=0.000002787186663 
+
+grad tolerance=0.100909610613457 
+
+Optimization Success= True
+energy=-14.41743
+de=0.000146809
+average gradient=0.000002270349459 
+
+grad tolerance=0.099380666485310 
+
+Optimization Success= True
+energy=-14.41750
+de=0.000065279
+average gradient=0.000002090234432 
+
+grad tolerance=0.097231159987661 
+
+Optimization Success= True
+energy=-14.41758
+de=0.000087971
+average gradient=0.000002538798608 
+
+grad tolerance=0.097454633574668 
+
+Optimization Success= True
+energy=-14.41766
+de=0.000073925
+average gradient=0.000002180414864 
+
+grad tolerance=0.097058535744361 
+
+Optimization Success= True
+energy=-14.41775
+de=0.000095140
+average gradient=0.000002402485493 
+
+grad tolerance=0.099000831433017 
+
+Optimization Success= True
+energy=-14.41780
+de=0.000044259
+average gradient=0.000002459849995 
+
+grad tolerance=0.098773492163481 
+
+Optimization Success= True
+energy=-14.41791
+de=0.000111661
+average gradient=0.000002062670521 
+
+grad tolerance=0.095732696459547 
+
+Optimization Success= True
+energy=-14.41801
+de=0.000104467
+average gradient=0.000002240228945 
+
+grad tolerance=0.100948548256184 
+
+Optimization Success= True
+energy=-14.41805
+de=0.000038093
+average gradient=0.000002266380366 
+
+grad tolerance=0.097069187158854 
+
+Optimization Success= True
+energy=-14.41819
+de=0.000143789
+average gradient=0.000001965575133 
+
+grad tolerance=0.094536094207539 
+
+Optimization Success= True
+energy=-14.41821
+de=0.000013482
+average gradient=0.000002458527420 
+
+grad tolerance=0.094352247666351 
+
+Optimization Success= True
+energy=-14.41828
+de=0.000071893
+average gradient=0.000002587923536 
+
+grad tolerance=0.092875164236118 
+
+Optimization Success= True
+energy=-14.41841
+de=0.000134678
+average gradient=0.000001911534248 
+
+grad tolerance=0.090394230758938 
+
+Optimization Success= True
+energy=-14.41848
+de=0.000063886
+average gradient=0.000002435730590 
+
+grad tolerance=0.088575405887654 
+
+Optimization Success= True
+energy=-14.41851
+de=0.000033474
+average gradient=0.000002594772825 
+
+grad tolerance=0.085552006841361 
+
+Optimization Success= True
+energy=-14.41856
+de=0.000047261
+average gradient=0.000002241449424 
+
+grad tolerance=0.084925682490667 
+
+Optimization Success= True
+energy=-14.41860
+de=0.000045700
+average gradient=0.000001958307258 
+
+grad tolerance=0.083145597573165 
+
+Optimization Success= True
+energy=-14.41862
+de=0.000016708
+average gradient=0.000002180951508 
+
+grad tolerance=0.079537373959826 
+
+Optimization Success= True
+energy=-14.41870
+de=0.000074869
+average gradient=0.000002774469389 
+
+grad tolerance=0.078073219974649 
+
+Optimization Success= True
+energy=-14.41872
+de=0.000021610
+average gradient=0.000002348392308 
+
+grad tolerance=0.077189035249874 
+
+Optimization Success= True
+energy=-14.41874
+de=0.000023269
+average gradient=0.000002144652541 
+
+grad tolerance=0.075462482542570 
+
+Optimization Success= True
+energy=-14.41876
+de=0.000020522
+average gradient=0.000002445834493 
+
+grad tolerance=0.074480141443889 
+
+Optimization Success= True
+energy=-14.41881
+de=0.000049367
+average gradient=0.000001897975975 
+
+grad tolerance=0.075254321089551 
+
+Optimization Success= True
+energy=-14.41883
+de=0.000020846
+average gradient=0.000002287880912 
+
+grad tolerance=0.074960911565816 
+
+Optimization Success= True
+energy=-14.41887
+de=0.000042753
+average gradient=0.000002213355872 
+
+grad tolerance=0.073699625008408 
+
+Optimization Success= True
+energy=-14.41892
+de=0.000049713
+average gradient=0.000002090074745 
+
+grad tolerance=0.072630090764500 
+
+Optimization Success= True
+energy=-14.41894
+de=0.000015197
+average gradient=0.000002458302654 
+
+grad tolerance=0.070560220976585 
+
+Optimization Success= True
+energy=-14.41901
+de=0.000070769
+average gradient=0.000002184671645 
+
+grad tolerance=0.069307936344355 
+
+Optimization Success= True
