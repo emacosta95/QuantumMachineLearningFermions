@@ -34,7 +34,7 @@ class Fit:
             while de > self.tolerance:
 
                 self.model.model_preparation()
-
+                
                 # optimization algorithm
                 res = minimize(
                     self.model.forward,
