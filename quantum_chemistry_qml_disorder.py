@@ -42,7 +42,7 @@ class SpinConservation():
         
         return condition
 
-ndata=10
+ndata=100
     
 t=1.
 
@@ -153,7 +153,7 @@ for r in range(ndata):
     #%%
     print('number of operators=',len(list(operator_pool.keys())))
 
-    psi_hf=HFclass.create_hf_psi(FHHamiltonian.basis,nparticles=nparticles_a+nparticles_b)
+    psi_hf=HFclass.create_hf_psi(FHHamiltonian.basis,nparticles_a=nparticles_a, nparticles_b=nparticles_b)
     print(psi_hf.conjugate().transpose() @ FHHamiltonian.hamiltonian @ psi_hf)
 
     # %%
