@@ -49,8 +49,8 @@ energies=SPS.energies
 
 size_a=energies.shape[0]//2
 size_b=energies.shape[0]//2
-nparticles_a=6
-nparticles_b=6
+nparticles_a=4
+nparticles_b=4
 
 
 twobody_matrix,energies=get_twobody_nuclearshell_model(file_name=file_name)
@@ -110,7 +110,7 @@ min_b=np.zeros(size_a+size_b)
 min_b[0:5]=1
 min_b[size_a:5+size_a]=1
 
-psi_index=InitialHamiltonian.encode[tuple([0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5])]
+psi_index=InitialHamiltonian.encode[tuple([1,2,3,4,size_a+1,size_a+2,size_a+3,size_a+4])]
 
 min_psi=np.zeros(InitialHamiltonian.basis.shape[0])
 
@@ -199,7 +199,7 @@ fidelity_t=np.asarray(fidelity_t)
 variance_t=np.asarray(variance_t)
 
 
-np.savez('data/quantum_annealing_results/silicon_results_quantum_annealing',fidelity=fidelity_t,energy=eng_t,spectrum=spectrum,probabilities=probabilities,egs=egs)
+np.savez('data/quantum_annealing_results/magnesium_results_quantum_annealing',fidelity=fidelity_t,energy=eng_t,spectrum=spectrum,probabilities=probabilities,egs=egs)
 
 print('tau vs Fidelity \n')
 
@@ -249,4 +249,4 @@ for a in trange(tfs.shape[0]):
 fidelities=np.asarray(fidelities)
 relative_err=np.asarray(relative_err)
 
-np.savez('data/quantum_annealing_results/silicon_qa_results_fidelity_tau',fidelity=fidelities,tau=tfs,relative_error=relative_err)
+np.savez('data/quantum_annealing_results/magnesium_qa_results_fidelity_tau',fidelity=fidelities,tau=tfs,relative_error=relative_err)
