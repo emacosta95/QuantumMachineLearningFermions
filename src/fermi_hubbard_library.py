@@ -10,113 +10,6 @@ import multiprocessing
 from tqdm import tqdm, trange
 
 
-def single_particle_potential(
-    ndim: int,
-    nparticles: int,
-    size: float,
-    ngrid: int,
-    peaks: List,
-    amplitudes: List,
-    deviations: List,
-):
-
-    if ndim == 2 and nparticles == 2:
-        x, y = np.mgrid[0 : size : ngrid * 1j, 0 : size : ngrid * 1j]
-        v: np.ndarray = 0.0
-        for i, peak in enumerate(peaks):
-            gaussian = (
-                -1
-                * amplitudes[i]
-                * np.exp(
-                    -1 * (((size / 2 - x) ** 2) + ((size / 2 - y) ** 2)) / deviations[i]
-                )
-            )
-            shift_mean_x = int((ngrid * (peak[0]) / size))
-            shift_mean_y = int((ngrid * (peak[1]) / size))
-            gaussian = np.roll(
-                gaussian, shift=(shift_mean_x, shift_mean_y), axis=(0, 1)
-            )
-            v = v + gaussian
-
-    return v
-
-
-def coulomb_function(idx: int, jdx: int, size: float, ngrid: int, ndim: int):
-    dx = size / ngrid
-
-    if ndim == 2:
-        i1 = idx % ngrid
-        j1 = idx // ngrid
-
-        i2 = jdx % ngrid
-        j2 = jdx // ngrid
-
-        boxes = [-1, 0, 1]
-        v = 0.0
-        for b1x in boxes:
-            for b2x in boxes:
-                for b1y in boxes:
-                    for b2y in boxes:
-                        r = dx * np.sqrt(
-                            1
-                            + ((i1 + b1x * ngrid) - (i2 + b2x * ngrid)) ** 2
-                            + ((j1 + b1y * ngrid) - (j2 + b2y * ngrid)) ** 2
-                        )
-                        v = v + 0.5 * 1 / r
-
-    return v
-
-
-def unique_combinations(lists):
-    seen_values = set()
-    for combination in product(*lists):
-        if len(set(combination)) == len(combination) and combination not in seen_values:
-            seen_values.add(combination)
-            yield combination
-
-
-def define_kinetic_element(
-    sigma: np.ndarray,
-    indices: int,
-    nparticles: int,
-    ngrid: int,
-    cost: float,
-    get_index: Callable,
-    operator: sparse.csr_matrix,
-):
-
-    indices_and_variations = []
-    for idx in indices:
-        x = idx % ngrid
-        y = idx // ngrid
-        # print('x=',x)
-        # print('y=',y)
-        idx_x = (x + 1) % ngrid + ngrid * y
-        idx_y = x + ngrid * ((y + 1) % ngrid)
-        indices_and_variations.append([(idx, -2 * cost), (idx_x, cost), (idx_y, cost)])
-
-    # permutation of all the combinations
-    combinations = unique_combinations(indices_and_variations)
-
-    for combo in combinations:
-        operator_value = 0.0
-        new_sigma = np.zeros_like(sigma)
-        for element in combo:
-            combo_index = element[0]
-            value = element[1]
-            operator_value = operator_value + value
-            new_sigma[combo_index] = 1.0
-        if int(np.sum(new_sigma)) == nparticles:
-            old_index = get_index(sigma)
-            new_index = get_index(new_sigma)
-
-            # for jdx in np.nonzero(new_sigma)[0]:
-            #     print('x_new=',jdx % ngrid)
-            #     print('y_new=',jdx // ngrid)
-
-            operator[old_index, new_index] = operator_value
-
-    return operator
 
 
 class FemionicBasis:
@@ -183,7 +76,7 @@ class FemionicBasis:
 
     def adag_a_matrix(self, i: int, j: int) -> np.ndarray:
 
-        charge_conservation = self.__charge_computation([i], [j])
+        charge_conservation = self.charge_computation([i], [j])
         if charge_conservation:
             operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
             for index, psi in enumerate(self.basis):
@@ -204,7 +97,7 @@ class FemionicBasis:
             print("It does not conserve the number of Particles, Hombre! \n")
 
     def adag_a(self, i: int, j: int, psi: np.ndarray) -> np.ndarray:
-        charge_conservation = self.__charge_computation([i], [j])
+        charge_conservation = self.charge_computation([i], [j])
 
         if charge_conservation:
             indices = np.nonzero(psi)[0]
@@ -228,7 +121,7 @@ class FemionicBasis:
     def adag_adag_a_a_matrix(self, i1: int, i2: int, j1: int, j2: int) -> np.ndarray:
         operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
 
-        charge_conservation = self.__charge_computation([i1, i2], [j1, j2])
+        charge_conservation = self.charge_computation([i1, i2], [j1, j2])
 
         # print(i1, i2, j1, j2, initial_phase, final_phase)
 
@@ -262,7 +155,7 @@ class FemionicBasis:
     ) -> np.ndarray:
         operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
 
-        charge_conservation = self.__charge_computation([i1, i2, i3], [j1, j2, j3])
+        charge_conservation = self.charge_computation([i1, i2, i3], [j1, j2, j3])
 
         # print(i1, i2, j1, j2, initial_phase, final_phase)
 
@@ -307,7 +200,7 @@ class FemionicBasis:
     ) -> np.ndarray:
         operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
 
-        charge_conservation = self.__charge_computation(
+        charge_conservation = self.charge_computation(
             [i1, i2, i3, i4], [j1, j2, j3, j4]
         )
 
@@ -366,7 +259,7 @@ class FemionicBasis:
         # condition for p n  -> p n without violating the N particles
         # IT DOES NOT WORK UP TO NOW
 
-        charge_conservation = self.__charge_computation([i1, i2], [j1, j2])
+        charge_conservation = self.charge_computation([i1, i2], [j1, j2])
 
         if charge_conservation:
             for idx in indices:
@@ -520,7 +413,7 @@ class FemionicBasis:
 
         return index
 
-    def __charge_computation(self, initial_indices: List, final_indices: List):
+    def charge_computation(self, initial_indices: List, final_indices: List):
 
         initial_tot_charge = 0
         for idx in initial_indices:
@@ -574,13 +467,17 @@ class FemionicBasis:
                             for c in conditions:
                                 cond = c(idxs) and cond
                             if cond:
-                                op_plus = self.adag_adag_a_a_matrix(
-                                    idxs[0], idxs[1], idxs[2], idxs[3]
-                                )
-                                op_minus = self.adag_adag_a_a_matrix(
-                                    idxs[3], idxs[2], idxs[1], idxs[0]
-                                )
-                                operator_pool[tuple(idxs)] = op_plus - op_minus
+                                
+                                if (idxs[2],idxs[3],idxs[0],idxs[1]) in operator_pool.keys():
+                                    continue
+                                else:
+                                    op_plus = self.adag_adag_a_a_matrix(
+                                        idxs[0], idxs[1], idxs[2], idxs[3]
+                                    )
+                                    op_minus = self.adag_adag_a_a_matrix(
+                                        idxs[3], idxs[2], idxs[1], idxs[0]
+                                    )
+                                    operator_pool[tuple(idxs)] = op_plus - op_minus
 
                                 #operator_pool[(i2, i1, i3, i4)] = -(op_plus - op_minus)
                                 #operator_pool[(i1, i2, i4, i3)] = -(op_plus - op_minus)

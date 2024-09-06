@@ -51,22 +51,17 @@ size_a=energies.shape[0]//2
 size_b=size_a
 
 ####
-nparts=[(4,4),(6,6)]
-
-
-
-indices=(1,2,3,4,size_a+1,size_a+2,size_a+3,size_a+4)
-indices_1=(0,1,2,3,4,5,size_a+0,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5)
-#indices_2=(0,2,3,5)
-
-indices_initial_state=[indices,indices_1]
+nparts=[(2,0),(4,0),(6,0),(2,2)]
 
 
 
 
 
 
-labels=[r'Mg24',r'Si26']
+
+
+
+labels=[r'O18',r'O20',r'O22','Ne20']
 npart_fidelities=[]
 npart_errors=[]
 
@@ -91,7 +86,8 @@ for key in twobody_matrix.keys():
 
 
 average_unit_energy=np.average(np.abs(np.asarray(list(twobody_matrix.values()))))
-
+total_tau=[]
+total_gap=[]
 
 for g in range(len(nparts)):
     nparticles_a=nparts[g][0]
@@ -143,10 +139,11 @@ for g in range(len(nparts)):
     # Moperator.get_external_potential(diag_m)
     # Moperator.get_hamiltonian()
     
-    TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
+    TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b)
     print('size=',size_a+size_b,size_b)
     TargetHamiltonian.get_external_potential(external_potential=energies[:size_a+size_b])
     TargetHamiltonian.twobody_operator=scipy.sparse.load_npz(f'data/nuclear_twobody_matrix/usdb_{nparticles_a}_{nparticles_b}.npz')
+    TargetHamiltonian.get_twobody_interaction(twobody_dict=twobody_matrix)
     TargetHamiltonian.get_hamiltonian()
 
     nlevels=1
@@ -161,35 +158,26 @@ for g in range(len(nparts)):
     print('total_m=',SPS.compute_m_exp_value(psi=psi0,basis=TargetHamiltonian.basis))
 
     # We select the product state of the basis that minimizes the Hamiltonian
-    # min = 10000
-    # min_b=0.
-    # for i, b in enumerate(TargetHamiltonian.basis):
-    #     psi = np.zeros(TargetHamiltonian.basis.shape[0])
-    #     psi[i] = 1.0
-    #     value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
-    #     if value < min:
-    #         min = value
-    #         print(value)
-    #         print(b)
-    #         psi_base = psi
-    #         min_b=b
-    # min_b=np.zeros(size_a+size_b)
+    min = 10000
+    min_b=0.
+    for i, b in enumerate(TargetHamiltonian.basis):
+        psi = np.zeros(TargetHamiltonian.basis.shape[0])
+        psi[i] = 1.0
+        value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
+        if value < min:
+            min = value
+            print(value)
+            print(b)
+            psi_base = psi
+            min_b=b
+   
 
-
-    indices=indices_initial_state[g]
     
-    psi_index=TargetHamiltonian.encode[indices]
-    min_b=TargetHamiltonian.basis[psi_index]
-
-    psi=np.zeros(TargetHamiltonian.basis.shape[0])
-    psi[psi_index]=1.
-
-    min = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi            
 
     omega=0
     omega_b=4
 
-    InitialHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
+    InitialHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b)
 
     kinetic_term:Dict={}
     adj_matrix=np.zeros((size_a+size_b,size_a+size_b))
@@ -224,18 +212,21 @@ for g in range(len(nparts)):
     psi_initial=psis[:,0]
     print('total_m=',SPS.compute_m_exp_value(psi=psi_initial,basis=InitialHamiltonian.basis))
 
+    count_tf=0
+    
+    tfs = np.linspace(1,10,20)/average_unit_energy
 
-    tfs = np.array([10,20,30])/average_unit_energy
-    nsteps =10*tfs
+    nsteps =50*(tfs)
     if nparts[g]==(3,3):
         nlevels=15
     else:
-        nlevels=1
+        nlevels=3
 
     #gamma=1/(tf/2)
     #lambd=np.exp(-gamma*time)
     fidelities=[]
     relative_err=[]
+    min_gap=10000
     for a in range(tfs.shape[0]):
         tf=tfs[a]
         nstep=int(nsteps[a])
@@ -256,6 +247,11 @@ for g in range(len(nparts)):
             e_square_ave = (
                 psi.conjugate().transpose() @ time_hamiltonian @ time_hamiltonian @ psi
             )
+
+            gap=values[1]-values[0]
+                    
+            if gap< min_gap:
+                min_gap=gap
             
         degenerate_fidelity=0.
         count=0
@@ -266,19 +262,20 @@ for g in range(len(nparts)):
                 ) * np.conj(psis[:, j].conjugate().transpose() @ psi[:])
                 count=count+1
 
-        print('fidelity=',degenerate_fidelity,'relative energy error=',e_ave,'\n')
-        fidelities.append(degenerate_fidelity)
-        relative_err.append(np.abs((egs-e_ave)/egs))    
+        print('fidelity=',degenerate_fidelity,tf,'\n')
+ 
+        if np.abs(degenerate_fidelity)>0.990 and count_tf==0:
+            tau_min=tf
+            count_tf+=1
+        
+            total_tau.append(tau_min*average_unit_energy)
+            total_gap.append(min_gap/average_unit_energy)
+            print('gap=',min_gap/average_unit_energy,'tau=',tau_min*average_unit_energy,'fidelity=',degenerate_fidelity,'\n')
+        
 
+    count_tf=0
 
-    fidelities=np.asarray(fidelities)
-    relative_err=np.asarray(relative_err)
-
-    npart_fidelities.append(fidelities)
-    npart_errors.append(relative_err)
     
-np.savez('data/quantum_annealing_results/plot_results_fig2_heavy_nuclei',fidelity=npart_fidelities,errors=npart_errors,particles=nparts,labels=labels)
+np.savez('data/quantum_annealing_results/gap_vs_tau_usdb',tau=total_tau,gap=total_gap,labels=labels)
 
-    
-    
     

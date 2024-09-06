@@ -28,10 +28,11 @@ class Fit:
         gradient_history = []
         e_old = -(10**25)
         de = 100
+        tot_op=0
 
         if epochs is None:
 
-            while de > self.tolerance:
+            while de > 10**-4:
 
                 self.model.model_preparation()
                 
@@ -39,26 +40,27 @@ class Fit:
                 res = minimize(
                     self.model.forward,
                     self.model.weights,
-                    args=(),
                     method=self.method,
                     jac=self.model.backward,
-                    tol=self.tolerance,
+                    options={'ftol':self.tolerance,'gtol':10**-3},
                     callback=self.configuration_checkpoint,
-                    options=None,
                 )
                 self.model.weights = res.x
                 energy = self.model.forward(self.model.weights)
                 grad_energy = self.model.backward(self.model.weights)
 
-                de = np.abs(energy - e_old)
+                de = np.abs(energy - self.model.exact_energy)/np.abs(self.model.exact_energy)
                 e_old = energy
-
+                tot_op+=self.model.total_operation_metric*(len(self.model.operator_action_info))+self.model.total_operation_metric*(len(self.model.operator_action_info)*(len(self.model.operator_action_info)+1))/2
+                self.model.total_operation_metric=0
                 print("Optimization Success=", res.success)
                 print(f"energy={energy:.5f}")
                 print(f"de={de:.9f}")
                 print(f"average gradient={np.average(np.abs(grad_energy)):.15f} \n")
                 print(f"grad tolerance={self.model.grad_tolerance:.15f} \n")
-
+                print(f'TOT_OPERATION_METRIC={tot_op}')
+                print(f'LAYERS=',len(self.model.operator_action_info),'\n')
+                #print('operator_action=',self.model.operator_action_info)
                 energy_history.append(energy)
                 gradient_history.append(np.average(np.abs(grad_energy)))
 
@@ -70,11 +72,11 @@ class Fit:
                 res = minimize(
                     self.model.forward,
                     self.model.weights,
-                    args=(),
                     method=self.method,
                     jac=self.model.backward,
                     tol=self.tolerance,
-                    callback=None,
+                    gtol=10**-3,
+                    callback=self.configuration_checkpoint,
                     options=None,
                 )
                 self.model.weights = res.x

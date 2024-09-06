@@ -67,6 +67,30 @@ class SingleParticleState:
         condition = (m_initial == m_final) and (t_z_final == t_z_initial)
 
         return condition
+    
+    def projection_m_zero(self, idxs: List[int]):
+
+        nbody = len(idxs) // 2
+
+        t_z_final = 0.0
+        m_final = 0
+        for idx in idxs[:nbody]:
+
+            (n, l, j, m, t, t_z) = self.state_encoding[idx]
+            t_z_final += t_z
+            m_final += m
+
+        t_z_initial = 0.0
+        m_initial = 0
+        for idx in idxs[nbody:]:
+
+            (n, l, j, m, t, t_z) = self.state_encoding[idx]
+            t_z_initial += t_z
+            m_initial += m
+
+        condition = (m_initial == m_final) and (m_initial==0)  and (t_z_final == t_z_initial)
+
+        return condition
 
     def compute_m_exp_value(self, psi: np.ndarray, basis: np.ndarray):
 
@@ -532,6 +556,7 @@ class FermiHubbardHamiltonian(FemionicBasis):
                     full_cond=cond*full_cond
                 
                 if full_cond:
+                    print(idxs)
                     basis_with_symmetry.append(b)
             
             basis=np.asarray(basis_with_symmetry)

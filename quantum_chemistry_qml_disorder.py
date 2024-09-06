@@ -42,7 +42,7 @@ class SpinConservation():
         
         return condition
 
-ndata=100
+ndata=30
     
 t=1.
 

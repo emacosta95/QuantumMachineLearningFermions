@@ -18,6 +18,7 @@ class AdaptVQEFermiHubbard:
         self.psi0: np.ndarray = None
         self.operator_action = []
         self.operator_action_info = []
+        self.exact_energy=0.
 
         # pool operators
         self.operator_pool: Dict = None
@@ -37,6 +38,9 @@ class AdaptVQEFermiHubbard:
         # histories
         self.history_energy = []
         self.history_grad = []
+        
+        # computational counter
+        self.total_operation_metric=0
 
     def set_hamiltonian(
         self,
@@ -47,10 +51,11 @@ class AdaptVQEFermiHubbard:
 
         self.hamiltonian = hamiltonian
 
-    def set_reference_psi(self, reference_psi: np.ndarray):
+    def set_reference_psi(self, reference_psi: np.ndarray,energy_gs:np.ndarray):
 
         # we can add preparations or other methods
         self.psi0 = reference_psi
+        self.exact_energy=energy_gs
 
     def set_operators_pool(self, operator_pool: Dict, random: bool = False):
 
@@ -73,8 +78,8 @@ class AdaptVQEFermiHubbard:
             values.append(value)
             self.grad_tolerance += value**2
             # print("value=", value, list(self.onebody_operator_pool.keys())[i], "\n")
-            if np.abs(value) > max:
-                max = np.abs(value)
+            if (value) > max:
+                max = (value)
                 selected_operator = op
                 selected_key = key
 
@@ -190,7 +195,11 @@ class AdaptVQEFermiHubbard:
 
         self.history_grad.append(self.grad)
         self.history_energy.append(self.energy)
-        print('energy value=',self.energy,'\n')
+        #print('energy value=',self.energy,'\n')
+        
+        
+        self.total_operation_metric+=1
+        #print(f'total operations={self.total_operation_metric} \n')
 
 
 
@@ -343,6 +352,7 @@ class QAOAFermiHubbard:
         self.history_energy.append(self.energy)
         
         print('energy value=',self.energy,'\n')
+  
 
 
 
