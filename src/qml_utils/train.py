@@ -41,7 +41,7 @@ class Fit:
                     self.model.forward,
                     self.model.weights,
                     method=self.method,
-                    jac=self.model.backward,
+                    #jac=self.model.backward,
                     options={'ftol':self.tolerance,'gtol':10**-3},
                     callback=self.configuration_checkpoint,
                 )
@@ -60,6 +60,7 @@ class Fit:
                 print(f"grad tolerance={self.model.grad_tolerance:.15f} \n")
                 print(f'TOT_OPERATION_METRIC={tot_op}')
                 print(f'LAYERS=',len(self.model.operator_action_info),'\n')
+                print('gradient selected=',self.model.gradient_selected[-1],'\n')
                 #print('operator_action=',self.model.operator_action_info)
                 energy_history.append(energy)
                 gradient_history.append(np.average(np.abs(grad_energy)))

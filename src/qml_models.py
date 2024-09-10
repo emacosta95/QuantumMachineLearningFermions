@@ -34,6 +34,8 @@ class AdaptVQEFermiHubbard:
         self.energy = 0.0
         self.grad = 0.0
         self.psi = 0.0
+        
+        self.gradient_selected=[]
 
         # histories
         self.history_energy = []
@@ -78,11 +80,13 @@ class AdaptVQEFermiHubbard:
             values.append(value)
             self.grad_tolerance += value**2
             # print("value=", value, list(self.onebody_operator_pool.keys())[i], "\n")
-            if (value) > max:
-                max = (value)
+            if np.abs(value) >= max:
+                max = np.abs(value)
                 selected_operator = op
                 selected_key = key
-
+            
+        print('maximum value=',max)
+        self.gradient_selected.append(max)
         self.__update_weights()
 
         # self.operator_action.append(selected_operator)

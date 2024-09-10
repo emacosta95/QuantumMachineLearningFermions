@@ -43,7 +43,7 @@ def plot_spectrum(eigenvalues):
     # Show the plot
     plt.show()
 
-file_name='data/usdb.nat'
+file_name='data/cki'
 SPS=SingleParticleState(file_name=file_name)
 energies=SPS.energies
 
@@ -51,7 +51,7 @@ size_a=energies.shape[0]//2
 size_b=size_a
 
 ####
-nparts=[(4,4),(6,6)]
+nparts=[(2,2),(2,4),(2,6),(3,3)]
 
 
 
@@ -66,7 +66,7 @@ indices_initial_state=[indices,indices_1]
 
 
 
-labels=[r'Mg24',r'Si26']
+labels=[r'Be8',r'Be10',r'Be12',r'B10']
 npart_fidelities=[]
 npart_errors=[]
 
@@ -98,55 +98,16 @@ for g in range(len(nparts)):
     nparticles_b=nparts[g][1]
 
 
-    # matrix_j,_=get_twobody_nuclearshell_model(file_name='data/j2.int')
-
-    # energies=SPS.energies
-
-    # diag_j=np.zeros(energies.shape[0])
-    # diag_m=np.zeros(energies.shape[0])
-    # label=[]
-    # for i in range(energies.shape[0]):
-    #     n,l,j,m,_,tz=SPS.state_encoding[i]
-    #     label.append((j,m,tz))
-    #     diag_j[i]=j*(j+1)
-    #     diag_m[i]=m
-
-    # Joperator = FermiHubbardHamiltonian(
-    #     size_a=size_a,
-    #     size_b=size_b,
-    #     nparticles_a=nparticles_a,
-    #     nparticles_b=nparticles_b,
-    # )
-
-    # Joperator.get_twobody_interaction(twobody_dict=matrix_j)
-    # Joperator.get_external_potential(diag_j)
-    # Joperator.get_hamiltonian()
-
-    # Jdiagoperator=FermiHubbardHamiltonian(
-    #     size_a=size_a,
-    #     size_b=size_b,
-    #     nparticles_a=nparticles_a,
-    #     nparticles_b=nparticles_b,
-    # )
-
-    # Jdiagoperator.get_external_potential(diag_j)
-    # Jdiagoperator.get_hamiltonian()
-
-
-    # Moperator = FermiHubbardHamiltonian(
-    #     size_a=size_a,
-    #     size_b=size_b,
-    #     nparticles_a=nparticles_a,
-    #     nparticles_b=nparticles_b,
-    # )
-
-    # Moperator.get_external_potential(diag_m)
-    # Moperator.get_hamiltonian()
     
-    TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
+    TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b)
     print('size=',size_a+size_b,size_b)
     TargetHamiltonian.get_external_potential(external_potential=energies[:size_a+size_b])
-    TargetHamiltonian.twobody_operator=scipy.sparse.load_npz(f'data/nuclear_twobody_matrix/usdb_{nparticles_a}_{nparticles_b}.npz')
+    # just for the CKI interaction
+    TargetHamiltonian.get_twobody_interaction(twobody_dict=twobody_matrix)
+    ###
+    
+    # for the USDB
+    #TargetHamiltonian.twobody_operator=scipy.sparse.load_npz(f'data/nuclear_twobody_matrix/usdb_{nparticles_a}_{nparticles_b}.npz')
     TargetHamiltonian.get_hamiltonian()
 
     nlevels=1
@@ -161,35 +122,35 @@ for g in range(len(nparts)):
     print('total_m=',SPS.compute_m_exp_value(psi=psi0,basis=TargetHamiltonian.basis))
 
     # We select the product state of the basis that minimizes the Hamiltonian
-    # min = 10000
-    # min_b=0.
-    # for i, b in enumerate(TargetHamiltonian.basis):
-    #     psi = np.zeros(TargetHamiltonian.basis.shape[0])
-    #     psi[i] = 1.0
-    #     value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
-    #     if value < min:
-    #         min = value
-    #         print(value)
-    #         print(b)
-    #         psi_base = psi
-    #         min_b=b
-    # min_b=np.zeros(size_a+size_b)
-
-
-    indices=indices_initial_state[g]
+    #USEFUL FOR THE CKI BASIS
+    min = 10000
+    min_b=0.
+    for i, b in enumerate(TargetHamiltonian.basis):
+        psi = np.zeros(TargetHamiltonian.basis.shape[0])
+        psi[i] = 1.0
+        value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
+        if value < min:
+            min = value
+            print(value)
+            print(b)
+            psi_base = psi
+            min_b=b
+            
+    #min_b=np.zeros(size_a+size_b)
+    #indices=indices_initial_state[g]
     
-    psi_index=TargetHamiltonian.encode[indices]
-    min_b=TargetHamiltonian.basis[psi_index]
+    #psi_index=TargetHamiltonian.encode[indices]
+    #min_b=TargetHamiltonian.basis[psi_index]
 
-    psi=np.zeros(TargetHamiltonian.basis.shape[0])
-    psi[psi_index]=1.
+    #psi=np.zeros(TargetHamiltonian.basis.shape[0])
+    #psi[psi_index]=1.
 
-    min = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi            
+    #min = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi            
 
     omega=0
     omega_b=4
 
-    InitialHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
+    InitialHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b)
 
     kinetic_term:Dict={}
     adj_matrix=np.zeros((size_a+size_b,size_a+size_b))
@@ -224,13 +185,14 @@ for g in range(len(nparts)):
     psi_initial=psis[:,0]
     print('total_m=',SPS.compute_m_exp_value(psi=psi_initial,basis=InitialHamiltonian.basis))
 
+    
 
     tfs = np.array([10,20,30])/average_unit_energy
     nsteps =10*tfs
     if nparts[g]==(3,3):
         nlevels=15
     else:
-        nlevels=1
+        nlevels=8
 
     #gamma=1/(tf/2)
     #lambd=np.exp(-gamma*time)
@@ -266,10 +228,10 @@ for g in range(len(nparts)):
                 ) * np.conj(psis[:, j].conjugate().transpose() @ psi[:])
                 count=count+1
 
+
         print('fidelity=',degenerate_fidelity,'relative energy error=',e_ave,'\n')
         fidelities.append(degenerate_fidelity)
         relative_err.append(np.abs((egs-e_ave)/egs))    
-
 
     fidelities=np.asarray(fidelities)
     relative_err=np.asarray(relative_err)
@@ -277,7 +239,7 @@ for g in range(len(nparts)):
     npart_fidelities.append(fidelities)
     npart_errors.append(relative_err)
     
-np.savez('data/quantum_annealing_results/plot_results_fig2_heavy_nuclei',fidelity=npart_fidelities,errors=npart_errors,particles=nparts,labels=labels)
+np.savez('data/quantum_annealing_results/plot_results_fig2',fidelity=npart_fidelities,errors=npart_errors,particles=nparts,labels=labels)
 
     
     

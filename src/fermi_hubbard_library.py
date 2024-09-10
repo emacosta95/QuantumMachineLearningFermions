@@ -456,11 +456,11 @@ class FemionicBasis:
         #         count=count+1
 
         for i1 in range(self.size_a + self.size_b):
-            for i2 in range(i1, self.size_a + self.size_b):
+            for i2 in range(i1+1, self.size_a + self.size_b):
 
                 if nbody == "two":
                     for i3 in range(self.size_a + self.size_b):
-                        for i4 in range(i3, self.size_a + self.size_b):
+                        for i4 in range(i3+1, self.size_a + self.size_b):
 
                             idxs = [i1, i2, i3, i4]
                             cond = True

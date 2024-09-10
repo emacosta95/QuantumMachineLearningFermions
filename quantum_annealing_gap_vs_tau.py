@@ -61,7 +61,7 @@ nparts=[(2,0),(4,0),(6,0),(2,2)]
 
 
 
-labels=[r'O18',r'O20',r'O22','Ne20']
+labels=['O18','O20','O22','Ne20']
 npart_fidelities=[]
 npart_errors=[]
 
@@ -139,7 +139,7 @@ for g in range(len(nparts)):
     # Moperator.get_external_potential(diag_m)
     # Moperator.get_hamiltonian()
     
-    TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b)
+    TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
     print('size=',size_a+size_b,size_b)
     TargetHamiltonian.get_external_potential(external_potential=energies[:size_a+size_b])
     TargetHamiltonian.twobody_operator=scipy.sparse.load_npz(f'data/nuclear_twobody_matrix/usdb_{nparticles_a}_{nparticles_b}.npz')
@@ -177,7 +177,7 @@ for g in range(len(nparts)):
     omega=0
     omega_b=4
 
-    InitialHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b)
+    InitialHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
 
     kinetic_term:Dict={}
     adj_matrix=np.zeros((size_a+size_b,size_a+size_b))
@@ -220,7 +220,7 @@ for g in range(len(nparts)):
     if nparts[g]==(3,3):
         nlevels=15
     else:
-        nlevels=3
+        nlevels=10
 
     #gamma=1/(tf/2)
     #lambd=np.exp(-gamma*time)
@@ -248,7 +248,10 @@ for g in range(len(nparts)):
                 psi.conjugate().transpose() @ time_hamiltonian @ time_hamiltonian @ psi
             )
 
-            gap=values[1]-values[0]
+            if labels[g]=='O22':
+                gap=values[7]-values[0]
+            else:
+                gap=values[1]-values[0]
                     
             if gap< min_gap:
                 min_gap=gap

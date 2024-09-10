@@ -49,8 +49,8 @@ energies=SPS.energies
 
 size_a=energies.shape[0]//2
 size_b=energies.shape[0]//2
-nparticles_a=4
-nparticles_b=4
+nparticles_a=6
+nparticles_b=6
 
 
 twobody_matrix,energies=get_twobody_nuclearshell_model(file_name=file_name)
@@ -83,10 +83,10 @@ TargetHamiltonian.get_hamiltonian()
 
 print('get the eigenvalue problem...')
 egs,psis=TargetHamiltonian.get_spectrum(n_states=1)
-
+psi0=psis[:,0]
 print(egs)
 
-print(TargetHamiltonian.twobody_operator)
+#print(TargetHamiltonian.twobody_operator)
 
 
 
@@ -110,7 +110,7 @@ min_b=np.zeros(size_a+size_b)
 min_b[0:5]=1
 min_b[size_a:5+size_a]=1
 
-psi_index=InitialHamiltonian.encode[tuple([1,2,3,4,size_a+1,size_a+2,size_a+3,size_a+4])]
+psi_index=InitialHamiltonian.encode[tuple([0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5])]
 
 min_psi=np.zeros(InitialHamiltonian.basis.shape[0])
 
@@ -158,6 +158,7 @@ dt=time[1]-time[0]
 eng_t=[]
 variance_t=[]
 fidelity_t=[]
+fidelity_psi0_t=[]
 lambd=1-time/tf
 #gamma=1/(tf/2)
 #lambd=np.exp(-gamma*time)
@@ -193,60 +194,64 @@ for i in trange(nstep):
 
     fidelity=degenerate_fidelity        
     fidelity_t.append(fidelity)
+    fidelity_psi0_t.append((
+                psi0.conjugate().transpose() @ psi[:]
+            ) * np.conj(psi0.conjugate().transpose() @ psi[:]))
 
 eng_t=np.asarray(eng_t)
 fidelity_t=np.asarray(fidelity_t)
+fidelity_psi0_t=np.asarray(fidelity_psi0_t)
 variance_t=np.asarray(variance_t)
 
 
-np.savez('data/quantum_annealing_results/magnesium_results_quantum_annealing',fidelity=fidelity_t,energy=eng_t,spectrum=spectrum,probabilities=probabilities,egs=egs)
+np.savez('data/quantum_annealing_results/silicon_results_quantum_annealing',fidelity=fidelity_t,energy=eng_t,spectrum=spectrum,probabilities=probabilities,egs=egs,fidelity_psi0=fidelity_psi0_t)
 
-print('tau vs Fidelity \n')
+# print('tau vs Fidelity \n')
 
-tfs = np.array([1,2,4,8,16,32,64])/average_unit_energy
-nsteps =10*tfs
-nlevels=2
+# tfs = np.array([1,2,4,8,16,32,64])/average_unit_energy
+# nsteps =10*tfs
+# nlevels=2
 
-#gamma=1/(tf/2)
-#lambd=np.exp(-gamma*time)
-fidelities=[]
-relative_err=[]
-for a in trange(tfs.shape[0]):
-    tf=tfs[a]
-    nstep=int(nsteps[a])
-    time = np.linspace(0.0, tf, nstep)
-    psi = psi_initial
-    dt=time[1]-time[0]
-    lambd=1-time/tf
-    for i in trange(nstep):
+# #gamma=1/(tf/2)
+# #lambd=np.exp(-gamma*time)
+# fidelities=[]
+# relative_err=[]
+# for a in trange(tfs.shape[0]):
+#     tf=tfs[a]
+#     nstep=int(nsteps[a])
+#     time = np.linspace(0.0, tf, nstep)
+#     psi = psi_initial
+#     dt=time[1]-time[0]
+#     lambd=1-time/tf
+#     for i in trange(nstep):
 
-        time_hamiltonian = (
-            InitialHamiltonian.hamiltonian * ( lambd[i])
-            + TargetHamiltonian.hamiltonian * (1-lambd[i])
-        ) #+lambd[i]*(1-lambd[i]) * IntermediateHamiltonian.hamiltonian
-        values, psis = eigsh(time_hamiltonian, k=nlevels, which="SA")
-        psi=expm_multiply(-1j*dt*time_hamiltonian,psi)
+#         time_hamiltonian = (
+#             InitialHamiltonian.hamiltonian * ( lambd[i])
+#             + TargetHamiltonian.hamiltonian * (1-lambd[i])
+#         ) #+lambd[i]*(1-lambd[i]) * IntermediateHamiltonian.hamiltonian
+#         values, psis = eigsh(time_hamiltonian, k=nlevels, which="SA")
+#         psi=expm_multiply(-1j*dt*time_hamiltonian,psi)
 
-        e_ave=psi.conjugate().transpose()@ time_hamiltonian @ psi
-        e_square_ave = (
-            psi.conjugate().transpose() @ time_hamiltonian @ time_hamiltonian @ psi
-        )
+#         e_ave=psi.conjugate().transpose()@ time_hamiltonian @ psi
+#         e_square_ave = (
+#             psi.conjugate().transpose() @ time_hamiltonian @ time_hamiltonian @ psi
+#         )
     
-    degenerate_fidelity=0.
-    count=0
-    for j in range(values.shape[0]):
-        if np.isclose(values[j],values[0]):
-            degenerate_fidelity += (
-                psis[:, j].conjugate().transpose() @ psi[:]
-            ) * np.conj(psis[:, j].conjugate().transpose() @ psi[:])
-            count=count+1
+#     degenerate_fidelity=0.
+#     count=0
+#     for j in range(values.shape[0]):
+#         if np.isclose(values[j],values[0]):
+#             degenerate_fidelity += (
+#                 psis[:, j].conjugate().transpose() @ psi[:]
+#             ) * np.conj(psis[:, j].conjugate().transpose() @ psi[:])
+#             count=count+1
 
-    print('fidelity=',degenerate_fidelity,'relative energy error=',e_ave,'\n')
-    fidelities.append(degenerate_fidelity)
-    relative_err.append(np.abs((egs-e_ave)/egs))    
+#     print('fidelity=',degenerate_fidelity,'relative energy error=',e_ave,'\n')
+#     fidelities.append(degenerate_fidelity)
+#     relative_err.append(np.abs((egs-e_ave)/egs))    
 
 
-fidelities=np.asarray(fidelities)
-relative_err=np.asarray(relative_err)
+# fidelities=np.asarray(fidelities)
+# relative_err=np.asarray(relative_err)
 
-np.savez('data/quantum_annealing_results/magnesium_qa_results_fidelity_tau',fidelity=fidelities,tau=tfs,relative_error=relative_err)
+# np.savez('data/quantum_annealing_results/magnesium_qa_results_fidelity_tau',fidelity=fidelities,tau=tfs,relative_error=relative_err)
