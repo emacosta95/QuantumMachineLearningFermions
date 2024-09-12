@@ -556,7 +556,7 @@ class FermiHubbardHamiltonian(FemionicBasis):
                     full_cond=cond*full_cond
                 
                 if full_cond:
-                    print(idxs)
+                    #print(idxs)
                     basis_with_symmetry.append(b)
             
             basis=np.asarray(basis_with_symmetry)

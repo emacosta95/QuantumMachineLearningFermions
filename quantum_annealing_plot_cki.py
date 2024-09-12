@@ -43,7 +43,17 @@ def plot_spectrum(eigenvalues):
     # Show the plot
     plt.show()
 
-file_name='data/cki'
+name='usdb'
+
+if name=='cki':
+    file_name='data/cki'
+    nparts=[(2,2),(2,4),(2,6),(3,3)]
+    labels=[r'Be8',r'Be10',r'Be12',r'B10']
+else:
+    file_name='data/usdb.nat'
+    nparts=[(2,0),(4,0),(6,0),(2,2)]
+    labels=[r'O18',r'O20',r'O22',r'Ne20']
+
 SPS=SingleParticleState(file_name=file_name)
 energies=SPS.energies
 
@@ -51,7 +61,7 @@ size_a=energies.shape[0]//2
 size_b=size_a
 
 ####
-nparts=[(2,2),(2,4),(2,6),(3,3)]
+
 
 
 
@@ -65,8 +75,6 @@ indices_initial_state=[indices,indices_1]
 
 
 
-
-labels=[r'Be8',r'Be10',r'Be12',r'B10']
 npart_fidelities=[]
 npart_errors=[]
 
@@ -187,7 +195,7 @@ for g in range(len(nparts)):
 
     
 
-    tfs = np.array([10,20,30])/average_unit_energy
+    tfs = np.array([10,20,30])#/average_unit_energy
     nsteps =10*tfs
     if nparts[g]==(3,3):
         nlevels=15
@@ -239,7 +247,7 @@ for g in range(len(nparts)):
     npart_fidelities.append(fidelities)
     npart_errors.append(relative_err)
     
-np.savez('data/quantum_annealing_results/plot_results_fig2',fidelity=npart_fidelities,errors=npart_errors,particles=nparts,labels=labels)
+np.savez('data/quantum_annealing_results/plot_results_fig2_usdb',fidelity=npart_fidelities,errors=npart_errors,particles=nparts,labels=labels)
 
     
     

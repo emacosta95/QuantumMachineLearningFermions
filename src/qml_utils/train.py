@@ -53,13 +53,20 @@ class Fit:
                 e_old = energy
                 tot_op+=self.model.total_operation_metric*(len(self.model.operator_action_info))+self.model.total_operation_metric*(len(self.model.operator_action_info)*(len(self.model.operator_action_info)+1))/2
                 self.model.total_operation_metric=0
+                
+                translator=np.array([3,2,1,0,5,4,9,8,7,6,11,10])
+                # for i in range(12):
+                #     print(SPS.state_encoding[i],i,'\n')
+                    
+                print('Operator:',translator[self.model.operator_action_info[-1][0]],translator[self.model.operator_action_info[-1][1]],translator[self.model.operator_action_info[-1][2]],translator[self.model.operator_action_info[-1][3]],)
                 print("Optimization Success=", res.success)
+                print('weights=',self.model.weights)
                 print(f"energy={energy:.5f}")
                 print(f"de={de:.9f}")
-                print(f"average gradient={np.average(np.abs(grad_energy)):.15f} \n")
-                print(f"grad tolerance={self.model.grad_tolerance:.15f} \n")
+                print(f"average gradient={np.average(np.abs(grad_energy)):.15f} ")
+                print(f"grad tolerance={self.model.grad_tolerance:.15f} ")
                 print(f'TOT_OPERATION_METRIC={tot_op}')
-                print(f'LAYERS=',len(self.model.operator_action_info),'\n')
+                print(f'LAYERS=',len(self.model.operator_action_info),)
                 print('gradient selected=',self.model.gradient_selected[-1],'\n')
                 #print('operator_action=',self.model.operator_action_info)
                 energy_history.append(energy)

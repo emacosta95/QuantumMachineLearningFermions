@@ -43,7 +43,12 @@ def plot_spectrum(eigenvalues):
     # Show the plot
     plt.show()
 
-file_name='data/usdb.nat'
+name='usdb'
+
+if name=='usdb':
+    file_name='data/usdb.nat'
+else:
+    file_name='data/cki'
 SPS=SingleParticleState(file_name=file_name)
 energies=SPS.energies
 
@@ -51,17 +56,18 @@ size_a=energies.shape[0]//2
 size_b=size_a
 
 ####
-nparts=[(2,0),(4,0),(6,0),(2,2)]
+
+if name=='usdb':
+    nparts=[(2,0),(4,0),(6,0),(2,2)]
+    labels=['O18','O20','O22','Ne20']
+else:
+    labels=['Be8','Be10','Be12']
+    nparts=[(2,2),(4,2),(6,2)]
 
 
 
 
 
-
-
-
-
-labels=['O18','O20','O22','Ne20']
 npart_fidelities=[]
 npart_errors=[]
 
@@ -142,7 +148,8 @@ for g in range(len(nparts)):
     TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
     print('size=',size_a+size_b,size_b)
     TargetHamiltonian.get_external_potential(external_potential=energies[:size_a+size_b])
-    TargetHamiltonian.twobody_operator=scipy.sparse.load_npz(f'data/nuclear_twobody_matrix/usdb_{nparticles_a}_{nparticles_b}.npz')
+    # just for the USDB heavy nuclei
+    #TargetHamiltonian.twobody_operator=scipy.sparse.load_npz(f'data/nuclear_twobody_matrix/usdb_{nparticles_a}_{nparticles_b}.npz')
     TargetHamiltonian.get_twobody_interaction(twobody_dict=twobody_matrix)
     TargetHamiltonian.get_hamiltonian()
 
@@ -205,7 +212,7 @@ for g in range(len(nparts)):
     InitialHamiltonian.get_external_potential(external_field)
     InitialHamiltonian.get_hamiltonian()
 
-    nlevels=8
+    nlevels=3
 
     es,psis=InitialHamiltonian.get_spectrum(n_states=nlevels)
     einitial=es[0]
@@ -214,13 +221,16 @@ for g in range(len(nparts)):
 
     count_tf=0
     
-    tfs = np.linspace(1,10,20)/average_unit_energy
+    tfs = np.linspace(0.5,20,120)/average_unit_energy
 
     nsteps =50*(tfs)
     if nparts[g]==(3,3):
         nlevels=15
     else:
-        nlevels=10
+        if labels[g]=='O22':
+            nlevels=10
+        else:
+            nlevels=2
 
     #gamma=1/(tf/2)
     #lambd=np.exp(-gamma*time)
@@ -270,15 +280,18 @@ for g in range(len(nparts)):
         if np.abs(degenerate_fidelity)>0.990 and count_tf==0:
             tau_min=tf
             count_tf+=1
+            print('count=',count)
+            print(degenerate_fidelity)
+            print(labels[g])
         
-            total_tau.append(tau_min*average_unit_energy)
-            total_gap.append(min_gap/average_unit_energy)
+            total_tau.append(tau_min)#*average_unit_energy)
+            total_gap.append(min_gap)#/average_unit_energy)
             print('gap=',min_gap/average_unit_energy,'tau=',tau_min*average_unit_energy,'fidelity=',degenerate_fidelity,'\n')
-        
+            break
 
     count_tf=0
 
     
-np.savez('data/quantum_annealing_results/gap_vs_tau_usdb',tau=total_tau,gap=total_gap,labels=labels)
+np.savez(f'data/quantum_annealing_results/gap_vs_tau_'+name,tau=total_tau,gap=total_gap,labels=labels)
 
     

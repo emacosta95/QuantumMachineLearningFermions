@@ -57,7 +57,7 @@ class FemionicBasis:
 
     def generate_fermi_hubbard_basis(self):
         combinations_list = []
-        print(combinations(range(self.nparticles_a), self.size_a))
+        #print(combinations(range(self.nparticles_a), self.size_a))
         for indices_part1 in list(combinations(range(self.size_a), self.nparticles_a)):
             for indices_part2 in list(
                 combinations(range(self.size_b), self.nparticles_b)
@@ -278,7 +278,7 @@ class FemionicBasis:
                                 new_basis[i1] = new_basis[i1] + 1
                                 phase_i1 = np.sum(new_basis[0:i1])
 
-                                print(new_basis)
+                                #print(new_basis)
                                 new_index = self._get_index(new_basis)
                                 new_psi[new_index] = (-1) ** (
                                     phase_j2 + phase_j1 + phase_i1 + phase_i2

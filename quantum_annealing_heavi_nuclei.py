@@ -137,7 +137,6 @@ external_field=(value/(nparticles_a+nparticles_b))*min_b
 InitialHamiltonian.get_external_potential(external_field)
 InitialHamiltonian.get_hamiltonian()
 
-nlevels=2
 
 es,psis=InitialHamiltonian.get_spectrum(n_states=nlevels)
 einitial=es[0]
@@ -149,7 +148,7 @@ print('Initial Hamiltonian computed... \n')
 
 nstep =100
 tf = 10/average_unit_energy
-nlevels=2
+nlevels=40
 time = np.linspace(0.0, tf, nstep)
 psi = psi_initial
 spectrum = np.zeros((nlevels, nstep))
