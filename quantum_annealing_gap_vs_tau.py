@@ -43,12 +43,15 @@ def plot_spectrum(eigenvalues):
     # Show the plot
     plt.show()
 
-name='usdb'
+name='heavy'
 
 if name=='usdb':
     file_name='data/usdb.nat'
-else:
+elif name=='cki':
     file_name='data/cki'
+elif name=='heavy':
+    file_name='data/usdb.nat'
+
 SPS=SingleParticleState(file_name=file_name)
 energies=SPS.energies
 
@@ -60,10 +63,12 @@ size_b=size_a
 if name=='usdb':
     nparts=[(2,0),(4,0),(6,0),(2,2)]
     labels=['O18','O20','O22','Ne20']
-else:
+elif name=='cki':
     labels=['Be8','Be10','Be12']
     nparts=[(2,2),(4,2),(6,2)]
-
+elif name=='heavy':
+    labels=['Mg24','Si28']
+    nparts=[(4,4),(6,6)]
 
 
 
@@ -71,27 +76,27 @@ else:
 npart_fidelities=[]
 npart_errors=[]
 
+if file_name=='cki':
+    twobody_matrix,energies=get_twobody_nuclearshell_model(file_name=file_name)
 
-twobody_matrix,energies=get_twobody_nuclearshell_model(file_name=file_name)
+    habcd=np.zeros((energies.shape[0],energies.shape[0],energies.shape[0],energies.shape[0]))
+    iso_dict={-0.5:'n',0.5:'p'}
+    values=np.asarray(list(twobody_matrix.values()))
+    print(np.average(np.abs(values)))
+    for key in twobody_matrix.keys():
+        i,j,k,l=key
+        habcd[i,j,k,l]=twobody_matrix[key]
+        (n,_,ja,ma,_,tza)=SPS.state_encoding[i]
+        (n,_,jb,mb,_,tzb)=SPS.state_encoding[j]
+        (n,_,jc,mc,_,tzc)=SPS.state_encoding[k]
+        (n,_,jd,md,_,tzd)=SPS.state_encoding[l]
 
-habcd=np.zeros((energies.shape[0],energies.shape[0],energies.shape[0],energies.shape[0]))
-iso_dict={-0.5:'n',0.5:'p'}
-values=np.asarray(list(twobody_matrix.values()))
-print(np.average(np.abs(values)))
-for key in twobody_matrix.keys():
-    i,j,k,l=key
-    habcd[i,j,k,l]=twobody_matrix[key]
-    (n,_,ja,ma,_,tza)=SPS.state_encoding[i]
-    (n,_,jb,mb,_,tzb)=SPS.state_encoding[j]
-    (n,_,jc,mc,_,tzc)=SPS.state_encoding[k]
-    (n,_,jd,md,_,tzd)=SPS.state_encoding[l]
-
-    print(ja,ma,iso_dict[tza]+'+'+iso_dict[tzb],jb,mb,'-->',jc,mc,iso_dict[tzc]+'+'+iso_dict[tzd],jd,md)
-    print('cross section=',twobody_matrix[key],'\n')
-    
+        print(ja,ma,iso_dict[tza]+'+'+iso_dict[tzb],jb,mb,'-->',jc,mc,iso_dict[tzc]+'+'+iso_dict[tzd],jd,md)
+        print('cross section=',twobody_matrix[key],'\n')
+        
 
 
-average_unit_energy=np.average(np.abs(np.asarray(list(twobody_matrix.values()))))
+    average_unit_energy=np.average(np.abs(np.asarray(list(twobody_matrix.values()))))
 total_tau=[]
 total_gap=[]
 
@@ -149,8 +154,10 @@ for g in range(len(nparts)):
     print('size=',size_a+size_b,size_b)
     TargetHamiltonian.get_external_potential(external_potential=energies[:size_a+size_b])
     # just for the USDB heavy nuclei
-    #TargetHamiltonian.twobody_operator=scipy.sparse.load_npz(f'data/nuclear_twobody_matrix/usdb_{nparticles_a}_{nparticles_b}.npz')
-    TargetHamiltonian.get_twobody_interaction(twobody_dict=twobody_matrix)
+    if name=='usdb' or name=='heavy':
+        TargetHamiltonian.twobody_operator=scipy.sparse.load_npz(f'data/nuclear_twobody_matrix/usdb_{nparticles_a}_{nparticles_b}.npz')
+    else:
+        TargetHamiltonian.get_twobody_interaction(twobody_dict=twobody_matrix)
     TargetHamiltonian.get_hamiltonian()
 
     nlevels=1
@@ -165,18 +172,46 @@ for g in range(len(nparts)):
     print('total_m=',SPS.compute_m_exp_value(psi=psi0,basis=TargetHamiltonian.basis))
 
     # We select the product state of the basis that minimizes the Hamiltonian
-    min = 10000
-    min_b=0.
-    for i, b in enumerate(TargetHamiltonian.basis):
-        psi = np.zeros(TargetHamiltonian.basis.shape[0])
-        psi[i] = 1.0
-        value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
-        if value < min:
-            min = value
-            print(value)
-            print(b)
-            psi_base = psi
-            min_b=b
+    if name=='heavy':
+
+        if labels[g]=='Mg24':
+            min_b=np.zeros(size_a+size_b)
+            
+            indices=[1,2,3,4,size_a+1,size_a+2,size_a+3,size_a+4]
+            min_b[indices]=1.
+            print(min_b)
+            psi_index=TargetHamiltonian.encode[tuple(indices)]
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[psi_index]=1
+            
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+            
+        elif labels[g]=='Si28':
+            min_b=np.zeros(size_a+size_b)
+            
+            indices=[0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5]
+            min_b[indices]=1.
+            print(min_b)
+            psi_index=TargetHamiltonian.encode[tuple(indices)]
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[psi_index]=1
+            
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+            
+            
+    else:
+        min = 10000
+        min_b=0.
+        for i, b in enumerate(TargetHamiltonian.basis):
+            psi = np.zeros(TargetHamiltonian.basis.shape[0])
+            psi[i] = 1.0
+            value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
+            if value < min:
+                min = value
+                print(value)
+                print(b)
+                psi_base = psi
+                min_b=b
    
 
     
@@ -221,7 +256,7 @@ for g in range(len(nparts)):
 
     count_tf=0
     
-    tfs = np.linspace(0.5,20,120)/average_unit_energy
+    tfs = np.linspace(0.5,40,40)#/average_unit_energy
 
     nsteps =50*(tfs)
     if nparts[g]==(3,3):
