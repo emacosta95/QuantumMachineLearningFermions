@@ -256,9 +256,9 @@ for g in range(len(nparts)):
 
     count_tf=0
     
-    tfs = np.linspace(0.5,40,40)#/average_unit_energy
+    tfs = np.linspace(3,50,40)#/average_unit_energy
 
-    nsteps =50*(tfs)
+    nsteps =10*(tfs)
     if nparts[g]==(3,3):
         nlevels=15
     else:
@@ -321,7 +321,7 @@ for g in range(len(nparts)):
         
             total_tau.append(tau_min)#*average_unit_energy)
             total_gap.append(min_gap)#/average_unit_energy)
-            print('gap=',min_gap/average_unit_energy,'tau=',tau_min*average_unit_energy,'fidelity=',degenerate_fidelity,'\n')
+            print('gap=',min_gap,'tau=',tau_min,'fidelity=',degenerate_fidelity,'\n')
             break
 
     count_tf=0
