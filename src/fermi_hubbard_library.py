@@ -455,14 +455,18 @@ class FemionicBasis:
         #         operator_pool[tuple(idxs)]=op_plus-op_minus
         #         count=count+1
 
+        # translator for Antonio's encoding
+        translator=np.array([3,2,1,0,5,4,9,8,7,6,11,10])
+
         for i1 in range(self.size_a + self.size_b):
             for i2 in range(i1+1, self.size_a + self.size_b):
 
                 if nbody == "two":
                     for i3 in range(self.size_a + self.size_b):
                         for i4 in range(i3+1, self.size_a + self.size_b):
+                            
 
-                            idxs = [i1, i2, i3, i4]
+                            idxs = [translator[i1], translator[i2], translator[i3], translator[i4]]
                             cond = True
                             for c in conditions:
                                 cond = c(idxs) and cond

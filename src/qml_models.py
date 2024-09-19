@@ -76,16 +76,16 @@ class AdaptVQEFermiHubbard:
         self.grad_tolerance = 0.0
         values: List = []
         for key, op in self.operator_pool.items():
-            value = 2 * np.real(sigma.conjugate().transpose().dot(op.dot(psi)))
+            value = 2 * np.abs(np.real(sigma.conjugate().transpose().dot(op.dot(psi))))
             values.append(value)
             self.grad_tolerance += value**2
             # print("value=", value, list(self.onebody_operator_pool.keys())[i], "\n")
-            if np.abs(value) >= max:
+            if value > max:
                 max = np.abs(value)
                 selected_operator = op
                 selected_key = key
             
-        print('maximum value=',max)
+        #print('maximum value=',max)
         self.gradient_selected.append(max)
         self.__update_weights()
 
