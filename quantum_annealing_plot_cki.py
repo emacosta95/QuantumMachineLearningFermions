@@ -55,8 +55,8 @@ elif name=='usdb':
     labels=[r'O18',r'O20',r'O22',r'Ne20']
 elif name=='heavy':
     file_name='data/usdb.nat'
-    nparts=[(4,4),(6,6)]
-    labels=[r'Mg24',r'Si28']
+    nparts=[(4,2),(4,4),(6,6)]
+    labels=[r'Ne22',r'Mg24',r'Si28']
 
 SPS=SingleParticleState(file_name=file_name)
 energies=SPS.energies
@@ -108,8 +108,10 @@ for g in range(len(nparts)):
         indices=(0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5)
         
     if nparts[g]==(4,4):
-        indices=(1,2,3,4,size_a+1,size_a+2,size_a+3,size_a+4)
+        indices=(0,1,4,5,size_a,size_a+1,size_a+4,size_a+5)
         
+    if nparts[g]==(4,2):
+        indices=(0,1,4,5,size_a,size_a+5)
 
     
     TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])

@@ -67,8 +67,8 @@ elif name=='cki':
     labels=['Be8','Be10','Be12']
     nparts=[(2,2),(4,2),(6,2)]
 elif name=='heavy':
-    labels=['Mg24','Si28']
-    nparts=[(4,4),(6,6)]
+    labels=['Ne22','Mg24','Si28']
+    nparts=[(4,2),(4,4),(6,6)]
 
 
 
@@ -177,42 +177,64 @@ for g in range(len(nparts)):
         if labels[g]=='Mg24':
             min_b=np.zeros(size_a+size_b)
             
-            indices=[1,2,3,4,size_a+1,size_a+2,size_a+3,size_a+4]
+            indices=[0,1,4,5,size_a,size_a+1,size_a+4,size_a+5]
             min_b[indices]=1.
             print(min_b)
             psi_index=TargetHamiltonian.encode[tuple(indices)]
             psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
             psi_base[psi_index]=1
-            
             min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
             
         elif labels[g]=='Si28':
             min_b=np.zeros(size_a+size_b)
-            
             indices=[0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5]
             min_b[indices]=1.
             print(min_b)
             psi_index=TargetHamiltonian.encode[tuple(indices)]
             psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
             psi_base[psi_index]=1
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
             
+        elif labels[g]=='Ne22':
+            min_b=np.zeros(size_a+size_b)
+            indices=[0,1,4,5,size_a,size_a+5]
+            min_b[indices]=1.
+            print(min_b)
+            psi_index=TargetHamiltonian.encode[tuple(indices)]
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[psi_index]=1
             min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
             
             
+            
     else:
-        min = 10000
-        min_b=0.
-        for i, b in enumerate(TargetHamiltonian.basis):
-            psi = np.zeros(TargetHamiltonian.basis.shape[0])
-            psi[i] = 1.0
-            value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
-            if value < min:
-                min = value
-                print(value)
-                print(b)
-                psi_base = psi
-                min_b=b
-   
+        
+        if labels[g]=='O20':
+            min_b=np.zeros(size_a+size_b)
+            
+            indices=[0,1,4,5]
+            min_b[indices]=1.
+            print(min_b)
+            psi_index=TargetHamiltonian.encode[tuple(indices)]
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[psi_index]=1
+            
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+        
+        else:
+            min = 10000
+            min_b=0.
+            for i, b in enumerate(TargetHamiltonian.basis):
+                psi = np.zeros(TargetHamiltonian.basis.shape[0])
+                psi[i] = 1.0
+                value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
+                if value < min:
+                    min = value
+                    print(value)
+                    print(b)
+                    psi_base = psi
+                    min_b=b
+    
 
     
 
@@ -256,7 +278,7 @@ for g in range(len(nparts)):
 
     count_tf=0
     
-    tfs = np.linspace(3,50,40)#/average_unit_energy
+    tfs = np.linspace(0.5,40,50)#/average_unit_energy
 
     nsteps =10*(tfs)
     if nparts[g]==(3,3):

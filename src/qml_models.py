@@ -42,7 +42,7 @@ class AdaptVQEFermiHubbard:
         self.history_grad = []
         
         # computational counter
-        self.total_operation_metric=0
+        self.total_operation_miquel=0
 
     def set_hamiltonian(
         self,
@@ -193,6 +193,7 @@ class AdaptVQEFermiHubbard:
         psi.transpose().conj() @ self.hamiltonian @ psi
         # print(f"energy value={self.energy:.3f} \n")
         self.energy = psi.transpose().conj() @ self.hamiltonian @ psi
+        self.total_operation_miquel+=len(self.operator_action_info)
         return self.energy
 
     def callback(self,*args):
@@ -202,7 +203,7 @@ class AdaptVQEFermiHubbard:
         #print('energy value=',self.energy,'\n')
         
         
-        self.total_operation_metric+=1
+        #self.total_operation_metric+=1
         #print(f'total operations={self.total_operation_metric} \n')
 
 
