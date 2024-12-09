@@ -64,11 +64,14 @@ if name=='usdb':
     nparts=[(2,0),(4,0),(6,0),(2,2)]
     labels=['O18','O20','O22','Ne20']
 elif name=='cki':
-    labels=['Be8','Be10','Be12']
-    nparts=[(2,2),(4,2),(6,2)]
+    nparts=[(2,2),(2,4),(4,4),(2,6),(3,1),(3,3),(5,1),(5,3)]
+    labels=[r'Be8',r'Be10',r'C12',r'Be12',r'Li8',r'B10',r'B6',r'B12']
 elif name=='heavy':
-    labels=['Ne22','Mg24','Si28']
-    nparts=[(4,2),(4,4),(6,6)]
+    #labels=['Ne22','Mg24','Si28']
+    #nparts=[(4,2),(4,4),(6,6)]
+    
+    nparts=[(6,10),(6,2),(6,4),(6,8),]
+    labels=[r'Ar32',r'Ne24',r'Mg26',r'Si30']
 
 
 
@@ -76,7 +79,7 @@ elif name=='heavy':
 npart_fidelities=[]
 npart_errors=[]
 
-if file_name=='cki':
+if name=='cki':
     twobody_matrix,energies=get_twobody_nuclearshell_model(file_name=file_name)
 
     habcd=np.zeros((energies.shape[0],energies.shape[0],energies.shape[0],energies.shape[0]))
@@ -91,8 +94,8 @@ if file_name=='cki':
         (n,_,jc,mc,_,tzc)=SPS.state_encoding[k]
         (n,_,jd,md,_,tzd)=SPS.state_encoding[l]
 
-        print(ja,ma,iso_dict[tza]+'+'+iso_dict[tzb],jb,mb,'-->',jc,mc,iso_dict[tzc]+'+'+iso_dict[tzd],jd,md)
-        print('cross section=',twobody_matrix[key],'\n')
+        #print(ja,ma,iso_dict[tza]+'+'+iso_dict[tzb],jb,mb,'-->',jc,mc,iso_dict[tzc]+'+'+iso_dict[tzd],jd,md)
+        #print('cross section=',twobody_matrix[key],'\n')
         
 
 
@@ -173,7 +176,7 @@ for g in range(len(nparts)):
 
     # We select the product state of the basis that minimizes the Hamiltonian
     if name=='heavy':
-
+        min_b=np.zeros(size_a+size_b)
         if labels[g]=='Mg24':
             min_b=np.zeros(size_a+size_b)
             
@@ -186,7 +189,7 @@ for g in range(len(nparts)):
             min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
             
         elif labels[g]=='Si28':
-            min_b=np.zeros(size_a+size_b)
+            
             indices=[0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5]
             min_b[indices]=1.
             print(min_b)
@@ -206,21 +209,73 @@ for g in range(len(nparts)):
             min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
             
             
+        if nparts[g]==(6,2):
+            indices=[0,1,2,3,4,5,size_a,size_a+5]
+            min_b[indices]=1.
+            psi_index=TargetHamiltonian.encode[tuple(indices)]
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[psi_index]=1
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+
+
+    
+        if nparts[g]==(6,4):
+            indices=[0,1,2,3,4,5,size_a,size_a+1,size_a+4,size_a+5]
+            min_b[indices]=1.
+            psi_index=TargetHamiltonian.encode[tuple(indices)]
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[psi_index]=1
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+        
+        if nparts[g]==(6,8):
+            indices=[0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5,size_a+6,size_a+7]
+            min_b[indices]=1.
+            psi_index=TargetHamiltonian.encode[tuple(indices)]
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[psi_index]=1
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+
+        
+        
+        if nparts[g]==(6,10):
+            indices=[0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5,size_a+6,size_a+7,size_a+8,size_a+11]
+            min_b[indices]=1.
+            psi_index=TargetHamiltonian.encode[tuple(indices)]
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[psi_index]=1
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+                
+            
             
     else:
-        
         if labels[g]=='O20':
             min_b=np.zeros(size_a+size_b)
-            
             indices=[0,1,4,5]
             min_b[indices]=1.
             print(min_b)
             psi_index=TargetHamiltonian.encode[tuple(indices)]
             psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
             psi_base[psi_index]=1
-            
             min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
-        
+            
+        elif labels[g]==r'Li8':
+            min_b=np.zeros(size_a+size_b)    
+            min_b[[0,1,3,2+size_a]]=1
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[TargetHamiltonian._get_index(min_b)]=1
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+        elif labels[g]==r'B6':
+            min_b=np.zeros(size_a+size_b)    
+            min_b[[0,1,2,3,5,1+size_a]]=1
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[TargetHamiltonian._get_index(min_b)]=1
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
+        elif labels[g]==r'B12':
+            min_b=np.zeros(size_a+size_b)    
+            min_b[[0,1,2,3,5,1+size_a,size_a,size_a+3]]=1
+            psi_base=np.zeros(TargetHamiltonian.basis.shape[0])
+            psi_base[TargetHamiltonian._get_index(min_b)]=1
+            min = np.conj(psi_base) @ TargetHamiltonian.hamiltonian @ psi_base
         else:
             min = 10000
             min_b=0.
@@ -230,11 +285,11 @@ for g in range(len(nparts)):
                 value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
                 if value < min:
                     min = value
-                    print(value)
-                    print(b)
                     psi_base = psi
                     min_b=b
-    
+                    
+            
+            print('min basis=',min_b,'min=',min,'\n')
 
     
 
@@ -278,16 +333,16 @@ for g in range(len(nparts)):
 
     count_tf=0
     
-    tfs = np.linspace(0.5,40,50)#/average_unit_energy
+    tfs = np.linspace(1,40,30)#/average_unit_energy
 
     nsteps =10*(tfs)
-    if nparts[g]==(3,3):
-        nlevels=15
+    if nparts[g][0]%2!=0:
+        nlevels=6
     else:
         if labels[g]=='O22':
             nlevels=10
         else:
-            nlevels=2
+            nlevels=4
 
     #gamma=1/(tf/2)
     #lambd=np.exp(-gamma*time)
@@ -315,8 +370,10 @@ for g in range(len(nparts)):
                 psi.conjugate().transpose() @ time_hamiltonian @ time_hamiltonian @ psi
             )
 
-            if labels[g]=='O22':
-                gap=values[7]-values[0]
+            if labels[g]=='O22' or labels[g]==r'Si30':
+                gap=values[2]-values[0]
+            elif labels[g]==r'C12':
+                gap=values[3]-values[0]
             else:
                 gap=values[1]-values[0]
                     
@@ -343,12 +400,12 @@ for g in range(len(nparts)):
         
             total_tau.append(tau_min)#*average_unit_energy)
             total_gap.append(min_gap)#/average_unit_energy)
-            print('gap=',min_gap,'tau=',tau_min,'fidelity=',degenerate_fidelity,'\n')
+            print('gap=',min_gap,'tau=',tau_min,'fidelity=',degenerate_fidelity,'nucleus=',labels[g],'\n')
             break
 
     count_tf=0
 
     
-np.savez(f'data/quantum_annealing_results/gap_vs_tau_'+name,tau=total_tau,gap=total_gap,labels=labels)
+np.savez(f'data/quantum_annealing_results/gap_vs_tau_more_'+name,tau=total_tau,gap=total_gap,labels=labels)
 
     

@@ -47,20 +47,25 @@ name='heavy'
 
 if name=='cki':
     file_name='data/cki'
-    nparts=[(2,2),(2,4),(2,6),(3,3)]
-    labels=[r'Be8',r'Be10',r'Be12',r'B10']
+    nparts=[(2,2),(2,4),(2,6),(4,4)]
+    labels=[r'Be8',r'Be10',r'Be12',r'C12']
 elif name=='usdb':
     file_name='data/usdb.nat'
     nparts=[(2,0),(4,0),(6,0),(2,2)]
     labels=[r'O18',r'O20',r'O22',r'Ne20']
 elif name=='heavy':
     file_name='data/usdb.nat'
-    nparts=[(4,2),(4,4),(6,6)]
-    labels=[r'Ne22',r'Mg24',r'Si28']
+    # original study
+    # nparts=[(4,2),(4,4),(6,6)]
+    # labels=[r'Ne22',r'Mg24',r'Si28']
+
+    nparts=[(6,10),(6,2),(6,4),(6,8),]
+    labels=[r'Ar32',r'Ne24',r'Mg26',r'Si30']
+
 
 SPS=SingleParticleState(file_name=file_name)
 energies=SPS.energies
-
+print(SPS.state_encoding)
 size_a=energies.shape[0]//2
 size_b=size_a
 
@@ -77,13 +82,13 @@ size_b=size_a
 npart_fidelities=[]
 npart_errors=[]
 
-if file_name=='cki':
+if name=='cki':
     twobody_matrix,energies=get_twobody_nuclearshell_model(file_name=file_name)
 
     habcd=np.zeros((energies.shape[0],energies.shape[0],energies.shape[0],energies.shape[0]))
     iso_dict={-0.5:'n',0.5:'p'}
     values=np.asarray(list(twobody_matrix.values()))
-    print(np.average(np.abs(values)))
+    #print(np.average(np.abs(values)))
     for key in twobody_matrix.keys():
         i,j,k,l=key
         habcd[i,j,k,l]=twobody_matrix[key]
@@ -92,8 +97,8 @@ if file_name=='cki':
         (n,_,jc,mc,_,tzc)=SPS.state_encoding[k]
         (n,_,jd,md,_,tzd)=SPS.state_encoding[l]
 
-        print(ja,ma,iso_dict[tza]+'+'+iso_dict[tzb],jb,mb,'-->',jc,mc,iso_dict[tzc]+'+'+iso_dict[tzd],jd,md)
-        print('cross section=',twobody_matrix[key],'\n')
+        #print(ja,ma,iso_dict[tza]+'+'+iso_dict[tzb],jb,mb,'-->',jc,mc,iso_dict[tzc]+'+'+iso_dict[tzd],jd,md)
+        #print('cross section=',twobody_matrix[key],'\n')
         
 
 
@@ -106,7 +111,19 @@ for g in range(len(nparts)):
     
     if nparts[g]==(6,6):
         indices=(0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5)
-        
+    
+    if nparts[g]==(6,2):
+        indices=(0,1,2,3,4,5,size_a,size_a+5)
+    
+    if nparts[g]==(6,4):
+        indices=(0,1,2,3,4,5,size_a,size_a+1,size_a+4,size_a+5)
+    
+    if nparts[g]==(6,8):
+        indices=(0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5,size_a+6,size_a+7)
+    
+    if nparts[g]==(6,10):
+        indices=(0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5,size_a+6,size_a+7,size_a+8,size_a+11)    
+    
     if nparts[g]==(4,4):
         indices=(0,1,4,5,size_a,size_a+1,size_a+4,size_a+5)
         
@@ -118,7 +135,7 @@ for g in range(len(nparts)):
     print('size=',size_a+size_b,size_b)
     TargetHamiltonian.get_external_potential(external_potential=energies[:size_a+size_b])
     # just for the CKI interaction
-    if file_name=='cki':
+    if name=='cki':
         TargetHamiltonian.get_twobody_interaction(twobody_dict=twobody_matrix)
     ###
     
@@ -136,7 +153,7 @@ for g in range(len(nparts)):
     psi0=psis[:,0]
 
 
-    print('total_m=',SPS.compute_m_exp_value(psi=psi0,basis=TargetHamiltonian.basis))
+    #print('total_m=',SPS.compute_m_exp_value(psi=psi0,basis=TargetHamiltonian.basis))
 
     # We select the product state of the basis that minimizes the Hamiltonian
     #USEFUL FOR THE CKI BASIS
@@ -157,11 +174,11 @@ for g in range(len(nparts)):
             value = np.conj(psi) @ TargetHamiltonian.hamiltonian @ psi
             if value < min:
                 min = value
-                print(value)
-                print(b)
+                #print(value)
+                #print(b)
                 psi_base = psi
                 min_b=b
-                
+        print('MIN B=',min_b)     
     #min_b=np.zeros(size_a+size_b)
     #indices=indices_initial_state[g]
     
@@ -198,7 +215,7 @@ for g in range(len(nparts)):
     InitialHamiltonian.get_external_potential(external_field)
     InitialHamiltonian.get_hamiltonian()
 
-    nlevels=8
+    nlevels=2
 
     es,psis=InitialHamiltonian.get_spectrum(n_states=nlevels)
     einitial=es[0]
@@ -259,7 +276,7 @@ for g in range(len(nparts)):
     npart_fidelities.append(fidelities)
     npart_errors.append(relative_err)
     
-np.savez('data/quantum_annealing_results/plot_results_fig2_heavy_nuclei',fidelity=npart_fidelities,errors=npart_errors,particles=nparts,labels=labels)
+np.savez('data/quantum_annealing_results/plot_results_fig2_other_heavy_nuclei',fidelity=npart_fidelities,errors=npart_errors,particles=nparts,labels=labels)
 
     
 
