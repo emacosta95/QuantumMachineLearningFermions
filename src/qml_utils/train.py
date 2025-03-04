@@ -61,6 +61,7 @@ class Fit:
                 print("Optimization Success=", res.success)
                 print('weights=',self.model.weights)
                 print(f"energy={energy:.5f}")
+                print(f"energy={self.model.exact_energy:.5f}")
                 print(f"de={de:.9f}")
                 #print(f"average gradient={np.average(np.abs(grad_energy)):.15f} ")
                 #print(f"grad tolerance={self.model.grad_tolerance:.15f} ")
@@ -117,6 +118,6 @@ class Fit:
                 self.model.weights -= grad * 0.1
                 energy = self.model.forward(self.model.weights)
 
-                print(f"energy={energy:.5f}")
+                print(f"energy={energy:.5f}, gs energy={self.model.exact_energy:.5f}")
                 print(f"average gradient={np.average(np.abs(grad)):.15f} \n")
                 print(f"grad tolerance={self.model.grad_tolerance:.15f} \n")
