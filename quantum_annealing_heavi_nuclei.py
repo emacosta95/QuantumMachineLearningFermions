@@ -111,11 +111,8 @@ min_b[0:5]=1
 min_b[size_a:5+size_a]=1
 print(min_b)
 psi_index=InitialHamiltonian.encode[tuple([0,1,2,3,4,5,size_a,size_a+1,size_a+2,size_a+3,size_a+4,size_a+5])]
-
 min_psi=np.zeros(InitialHamiltonian.basis.shape[0])
-
 min_psi[psi_index]=1
-
 value= value = np.conj(min_psi) @ TargetHamiltonian.hamiltonian @ min_psi
 
 

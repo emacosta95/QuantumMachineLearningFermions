@@ -3,7 +3,7 @@ from itertools import combinations
 import numpy as np
 from scipy.sparse import lil_matrix
 import scipy.sparse as sparse
-from typing import List, Dict, Callable,Optional
+from typing import List, Dict, Callable,Optional,Tuple
 from scipy.sparse.linalg import eigsh, lobpcg
 from itertools import product
 import multiprocessing
@@ -75,10 +75,10 @@ class FemionicBasis:
         return basis
 
     def adag_a_matrix(self, i: int, j: int) -> np.ndarray:
-
+        operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
         charge_conservation = self.charge_computation([i], [j])
         if charge_conservation:
-            operator = lil_matrix((self.basis.shape[0], self.basis.shape[0]))
+            
             for index, psi in enumerate(self.basis):
                 new_psi = np.zeros_like(psi)
                 if self.basis[index, j] != 0:
@@ -397,6 +397,24 @@ class FemionicBasis:
 
         return mutual_info
 
+    def generalized_mutual_info(self,subsets:Tuple[List],psi:np.ndarray):
+        
+        indices_a,indices_b=subsets
+        
+        s_a=self.entanglement_entropy(indices=indices_a,psi=psi)
+        s_b=self.entanglement_entropy(indices=indices_b,psi=psi)
+        s_ab=self.entanglement_entropy(indices=indices_a+indices_b,psi=psi)
+        
+        mutual_info=-s_ab + (s_a + s_b)
+        return mutual_info
+
+    def entanglement_entropy(self,indices:List,psi:np.ndarray):
+        
+        rho=self.reduced_state(indices=indices,psi=psi)
+        lambd, _ = np.linalg.eigh(rho)
+        s = -1 * np.sum(np.log(lambd + 10**-20) * lambd)
+        return s
+    
     def _get_the_encode(self):
 
         encode = {}

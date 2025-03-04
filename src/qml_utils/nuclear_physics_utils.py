@@ -5,10 +5,15 @@ from src.cg_utils import ClebschGordan, SelectCG
 import matplotlib.pyplot as plt
 from tqdm import trange,tqdm
 from src.fermi_hubbard_library import FemionicBasis
+from src.hamiltonian_utils import FermiHubbardHamiltonian
 import numpy as np
 from scipy.sparse.linalg import eigsh
 
 from typing import List, Dict, Tuple, Text, Optional,Callable
+
+
+
+
 
 
 class SingleParticleState:
@@ -26,8 +31,8 @@ class SingleParticleState:
         #self.energies_dictionary:Dict={}
         for i_z in [1 / 2, -1 / 2]:
             for i, label in enumerate(labels[2:]):
-                n = int(label[0])
-                l = int(label[1])
+                n = int(label[1])
+                l = int(label[0])
                 two_j = int(label[-1])
                 two_m_range = -1 * two_j + np.arange(0, 2 * two_j + 2, 2)
                 # we put the n=1 restriction
@@ -65,30 +70,6 @@ class SingleParticleState:
             m_initial += m
 
         condition = (m_initial == m_final) and (t_z_final == t_z_initial)
-
-        return condition
-    
-    def projection_m_zero(self, idxs: List[int]):
-
-        nbody = len(idxs) // 2
-
-        t_z_final = 0.0
-        m_final = 0
-        for idx in idxs[:nbody]:
-
-            (n, l, j, m, t, t_z) = self.state_encoding[idx]
-            t_z_final += t_z
-            m_final += m
-
-        t_z_initial = 0.0
-        m_initial = 0
-        for idx in idxs[nbody:]:
-
-            (n, l, j, m, t, t_z) = self.state_encoding[idx]
-            t_z_initial += t_z
-            m_initial += m
-
-        condition = (m_initial == m_final) and (m_initial==0)  and (t_z_final == t_z_initial)
 
         return condition
 
@@ -166,17 +147,20 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
         tot_iso_range = np.arange(int(matrix_info[i][0]), int(matrix_info[i][1]) + 1)
         # print('iso range=',tot_iso_range,'\n')
         tot_j_range = np.arange(int(matrix_info[i][-2]), int(matrix_info[i][-1]) + 1)
-        n1f = int(matrix_info[i][2][0])
-        n2f = int(matrix_info[i][3][0])
-        n1i = int(matrix_info[i][4][0])
-        n2i = int(matrix_info[i][5][0])
+        
+        # principal quantum number (radial quantum number)
+        n1f = int(matrix_info[i][2][1])
+        n2f = int(matrix_info[i][3][1])
+        n1i = int(matrix_info[i][4][1])
+        n2i = int(matrix_info[i][5][1])
 
-        l1f = int(matrix_info[i][2][1])
-        l2f = int(matrix_info[i][3][1])
-        l1i = int(matrix_info[i][4][1])
-        l2i = int(matrix_info[i][5][1])
+        # orbital angular momentum
+        l1f = int(matrix_info[i][2][0])
+        l2f = int(matrix_info[i][3][0])
+        l1i = int(matrix_info[i][4][0])
+        l2i = int(matrix_info[i][5][0])
 
-        # print('j range=',tot_j_range,'\n')
+        # total angular momentum
         j1f = int(matrix_info[i][2][-1]) / 2
         j2f = int(matrix_info[i][3][-1]) / 2
         j1i = int(matrix_info[i][4][-1]) / 2
@@ -436,129 +420,191 @@ def get_twobody_nuclearshell_model(file_name: str):
     return twobody_matrix, SPG.energies
 
 
-class FermiHubbardHamiltonian(FemionicBasis):
 
-    def __init__(
-        self, size_a: int, size_b: int, nparticles_a: int, nparticles_b: int,symmetries:Optional[List[Callable]]=None
-    ) -> None:
-
-        super().__init__(size_a, size_b, nparticles_a, nparticles_b)
-
-        self.kinetic_operator = None
-        self.external_potential = None
-        self.twobody_operator = None
-
-        self.hamiltonian = None
-
-        self.dim_hilbert_space = self.basis.shape[0]
-        
-        self.basis = self.generate_fermi_hubbard_basis(symmetries)
-        self.encode = self._get_the_encode()
-
-    def get_kinetic_operator(
-        self, hopping_term: Optional[float] = None, adj_matrix: Optional[Dict] = None
-    ):
-
-        if adj_matrix is None:
-
-            adj_matrix = {}
-            # spin down (proton)
-            for i in range(self.size_a - 1):
-
-                adj_matrix[(i, i + 1)] = hopping_term
-
-            # spin up (neutron)
-            for i in range(self.size_a, self.size_a + self.size_b - 1):
-
-                adj_matrix[(i, i + 1)] = hopping_term
-
-        operator = 0.0
-        for element in adj_matrix.items():
-
-            (i, j), value = element
-            operator = operator + value * self.adag_a_matrix(i=i, j=j)
-
-        self.kinetic_operator = operator #+ operator.transpose().conjugate()
-
-    def get_external_potential(self, external_potential: np.ndarray):
-
-        operator = 0.0
-        for i, v in enumerate(external_potential):
-
-            operator = operator + v * self.adag_a_matrix(i=i, j=i)
-
-        self.external_potential = operator
-
-    def get_twobody_interaction(self, twobody_dict: Dict):
-
-        matrix_keys = twobody_dict.keys()
-        matrix_values = list(twobody_dict.values())
-        ham_int=0.
-        tbar=tqdm(enumerate(matrix_keys))
-        for q, indices in tbar:
-            i1, i2, i3, i4 = indices
-            
-            if any(idx> self.size_a+self.size_b-1 for idx in indices):
-                continue
-            value = matrix_values[q]
-
-            ham_int = (
-                ham_int
-                + (value * (self.adag_adag_a_a_matrix(i1=i1, i2=i2, j1=i4, j2=i3)))
-                / 4
-            )
-            tbar.refresh()
-
-        self.twobody_operator = ham_int
-
-    def get_hamiltonian(
-        self,
-    ):
-
-        self.hamiltonian = 0.0
-        if self.kinetic_operator is not None:
-            self.hamiltonian = self.kinetic_operator.copy()
-        if self.external_potential is not None:
-            self.hamiltonian = self.hamiltonian + self.external_potential.copy()
-        if self.twobody_operator is not None:
-            self.hamiltonian = self.hamiltonian + self.twobody_operator.copy()
-
-        # we can add all the double check for the hamiltonian
-
-    def get_spectrum(self, n_states: int):
-
-        e, states = eigsh(self.hamiltonian, k=n_states, which="SA")
-
-        return e, states
+def write_j_square_twobody_file(filename:str):
     
-    def generate_fermi_hubbard_basis(self,symmetries:Optional[List[Callable]]=None):
-        combinations_list = []
-        for indices_part1 in list(combinations(range(self.size_a), self.nparticles_a)):
-            for indices_part2 in list(
-                combinations(range(self.size_b), self.nparticles_b)
-            ):
-                base = [0] * (self.size_a + self.size_b)
-                for idx in indices_part1:
-                    base[idx] = 1
-                for idx in indices_part2:
-                    # because the second subsystem is related to the other species
-                    base[idx + self.size_a] = 1
-                combinations_list.append(base)
-                
-        basis=np.asarray(combinations_list)
-        if symmetries is not None:
-            basis_with_symmetry=[]
-            for b in basis:
-                idxs=np.nonzero(b)[0]
-                full_cond=True
-                for sym in symmetries:
-                    cond=sym(idxs)
-                    full_cond=cond*full_cond
-                
-                if full_cond:
-                    #print(idxs)
-                    basis_with_symmetry.append(b)
-            
-            basis=np.asarray(basis_with_symmetry)
+    file=open(filename)
+
+    title=file.readline()
+    jsquare_title='J^2'+title
+
+    singleparticlestate_info=file.readline().strip().split()
+
+    singleparticlestate_number=int(singleparticlestate_info[1])
+
+    states=singleparticlestate_info[-singleparticlestate_number:]
+
+    double_j_states=[]
+
+    for state in states:
         
-        return basis
+        double_j=int(state[-1])
+        double_j_states.append(double_j)
+        
+    fileJ2=open(filename+'_j2','w')
+    fileJ2.write('   J^2 ' + title )
+    fileJ2.write('%i %i '  % (1, len(states)))
+    for state in states:
+        fileJ2.write('%s '% state)
+    fileJ2.write('\n')
+    fileJ2.write('0. 0. 0. \n')
+    fileJ2.write('0. 0. 0. \n')
+    for a in range(singleparticlestate_number):
+        for b in range(singleparticlestate_number):
+            double_ja=double_j_states[a]
+            double_jb=double_j_states[b]
+            totalj=np.arange(np.abs(double_ja-double_jb),np.abs(double_ja+double_jb)+2,2)/2
+            fileJ2.write('%2i %2i %s %s %s %s %i %i \n'  % (0, 1, states[a], states[b], states[a], states[b], totalj[0], totalj[-1]))
+            
+            print('J=',totalj)
+            for t in [0,1]:
+                for j in totalj:
+                    # is this a constrain (???)
+                    tpj = t + j
+                    if ( tpj % 2 == 0 and double_ja == double_jb ):
+                        j_square_value = 0
+                    else:
+                        j_square_value=j*(j+1)-double_ja*(double_ja/2+1)/2-double_jb*(double_jb/2+1)/2
+                    fileJ2.write(' %f '  %  j_square_value )
+                fileJ2.write('\n')
+            
+    fileJ2.close()
+      
+      
+class J2operator(FermiHubbardHamiltonian):
+    
+    def __init__(self, size_a, size_b, nparticles_a, nparticles_b, single_particle_states:List,j_square_filename:str,symmetries = None):
+        super().__init__(size_a, size_b, nparticles_a, nparticles_b, symmetries)
+        
+        
+        self.__get_single_particle_term(single_particle_states=single_particle_states)
+        self.__get_twobody_matrix(j_square_filename=j_square_filename)
+        self.get_hamiltonian()
+    
+    def __get_single_particle_term(self,single_particle_states:List):
+        diag_j=np.zeros(len(single_particle_states))
+        label=[]
+        for i in range(diag_j.shape[0]):
+            n,l,j,m,_,tz=single_particle_states[i]
+            diag_j[i]=j*(j+1)
+            self.get_external_potential(diag_j)
+        
+    def __get_twobody_matrix(self,j_square_filename:str):
+        matrix_j,_=get_twobody_nuclearshell_model(file_name=j_square_filename)
+        self.get_twobody_interaction(twobody_dict=matrix_j)    
+        
+    def j2_operator(self):
+        return self.hamiltonian
+    
+    def j_value(self,psi:np.ndarray):
+        
+        j2=psi.transpose().conjugate().dot(self.j2_operator().dot(psi))
+        print(j2.shape)
+        jvalue=0.5 * ( np.sqrt(4.0 * j2 + 1) - 1 )
+        return jvalue
+    
+    
+
+
+class QuadrupoleOperator(FermiHubbardHamiltonian):
+    
+    def __init__(self, size_a, size_b, nparticles_a, nparticles_b, symmetries = None,single_particle_basis:List=None,operator_symmetries:List=None):
+        super().__init__(size_a, size_b, nparticles_a, nparticles_b, symmetries)
+        
+        self.single_particle_basis=single_particle_basis
+        
+        self.__load_quadrupole_matrix()
+        self.__get_manybody_operator(operator_symmetries=operator_symmetries)
+        
+    def __load_quadrupole_matrix(self,):
+        
+        self.quadrupole_reduced_matrix_dictionary={}
+        
+        # nlj_a nlj_b structure
+        self.quadrupole_reduced_matrix_dictionary[(0,1,3/2),(0,1,3/2)]=-1.410
+        self.quadrupole_reduced_matrix_dictionary[(0,1,3/2),(0,1,1/2)]=-1.410
+        self.quadrupole_reduced_matrix_dictionary[(0,1,1/2),(0,1,3/2)]=1.410
+        
+        self.quadrupole_reduced_matrix_dictionary[(0,2,5/2),(0,2,5/2)]=-2.585
+        self.quadrupole_reduced_matrix_dictionary[(0,2,5/2),(1,0,1/2)]=-2.185
+        self.quadrupole_reduced_matrix_dictionary[(0,2,5/2),(0,2,3/2)]=-1.293
+        
+        self.quadrupole_reduced_matrix_dictionary[(1,0,1/2),(0,2,5/2)]=1.293
+        self.quadrupole_reduced_matrix_dictionary[(1,0,1/2),(0,2,3/2)]=-1.784
+        
+        self.quadrupole_reduced_matrix_dictionary[(0,2,3/2),(0,2,5/2)]=1.293
+        self.quadrupole_reduced_matrix_dictionary[(0,2,3/2),(1,0,1/2)]=1.784
+        self.quadrupole_reduced_matrix_dictionary[(0,2,3/2),(0,2,3/2)]=-1.975
+        
+        
+    def __get_the_quadrupole_matrix(self,mu:int):
+        
+        state_encoding=self.single_particle_basis
+        
+        self.quadrupole_matrix={}
+        for idx_a,a in enumerate(state_encoding):
+            for idx_b,b in enumerate(state_encoding):
+                na,la,ja,ma,ta,tza=a
+                nb,lb,jb,mb,tb,tzb=b
+                
+                
+                # get the Clebasch Gordan coefficient related to the transition a-b
+                # (we have to double check if the W-E theorem returns the order of the variables
+                # in the C-G in this way)
+                if ja >= np.abs(jb-2) and ja <= np.abs(jb+2):
+
+                    cg_term_j=ClebschGordan(j1=jb,j2=2,J=ja)
+                    cg_value=SelectCG(cg_term_j,j1=jb,m1=mb,j2=2,m2=mu,J=ja,M=ma)
+                else:
+                    cg_value=0.
+                
+                    
+                if tza==tzb:
+                    if ((na,la,ja),(nb,lb,jb)) in self.quadrupole_reduced_matrix_dictionary.keys():
+                        quadrupole_value= self.quadrupole_reduced_matrix_dictionary[(na,la,ja),(nb,lb,jb)]*cg_value/np.sqrt(2*ja+1)
+                else:
+                    quadrupole_value=0.
+                
+                if np.abs(quadrupole_value)<10*-10:
+                    continue
+                else:
+                    self.quadrupole_matrix[(idx_a,idx_b)]=quadrupole_value
+                    
+            
+                
+    def __get_manybody_operator(self,operator_symmetries:List):
+        
+        self.quadrupole_operator={} # it is gonna be a dictionary
+        self.quadrupole_matrices={} # same for the matrix in the single particle basis
+        mus=[-2,-1,0,1,2]
+        
+        for mu in mus:
+            self.__get_the_quadrupole_matrix(mu=mu)
+            self.quadrupole_matrices[mu]=self.quadrupole_matrix
+            
+            qab=0.
+            for a in range(self.size_a+self.size_b):
+                for b in range(self.size_a+self.size_b):
+                    if (a,b) in self.quadrupole_matrices[mu].keys():
+                        
+                        full_cond=True
+                        if operator_symmetries is not None:
+                            idxs=[a,b]
+                            for sym in operator_symmetries:
+                                cond=sym(idxs)
+                                full_cond=cond*full_cond
+                        if full_cond:
+                            qab+=self.quadrupole_matrices[mu][(a,b)]*self.adag_a_matrix(i=a,j=b)
+            self.quadrupole_operator[mu]=qab
+            
+    
+    def deformation_value(self,psi:np.ndarray):
+        
+        tot_value=0.
+        for _,op in self.quadrupole_operator.items():
+            print('op=',op)
+            value=psi.transpose().conjugate().dot(op.dot(psi))
+            tot_value+=value**2
+            
+        return np.sqrt(tot_value)
+            
