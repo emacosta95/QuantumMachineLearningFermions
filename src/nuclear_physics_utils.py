@@ -131,6 +131,7 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
         float_line_1 = [(element) for element in lines[i].split()]
         float_line_2 = [float(element) for element in lines[i + 1].split()]
         float_line_3 = [float(element) for element in lines[i + 2].split()]
+        
 
         line_2 = [(element) for element in lines[i + 1].split()]
         line_3 = [(element) for element in lines[i + 2].split()]

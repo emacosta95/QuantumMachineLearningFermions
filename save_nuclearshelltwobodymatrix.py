@@ -1,4 +1,4 @@
-from src.hamiltonian_utils import get_twobody_nuclearshell_model,FermiHubbardHamiltonian,SingleParticleState
+from src.nuclear_physics_utils import get_twobody_nuclearshell_model,FermiHubbardHamiltonian,SingleParticleState
 import scipy
 
 

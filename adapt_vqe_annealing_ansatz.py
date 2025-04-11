@@ -135,13 +135,12 @@ def miquel_constrainer_2(idxs:List[int]):
 
 operator_pool:Dict={}
 operator_pool=TargetHamiltonian.set_operator_pool(operator_pool=operator_pool,conditions=[SPS.projection_conservation,miquel_constrainer,miquel_constrainer_2],nbody='two')
-model=AdaptVQEFermiHubbard()
-model.set_operators_pool(operator_pool=operator_pool,random=False)
+
 
 #%%
 ### fix the time steps
 tf=10
-nsteps=100
+nsteps=5
 
 time=np.linspace(0,tf,nsteps)
 psi=psi_configuration
@@ -149,19 +148,20 @@ history_total=[]
 history_weights=[]
 history_operators=[]
 #%%
-for i in range(nsteps):
+for i in trange(nsteps):
     hamiltonian_t=TargetHamiltonian.hamiltonian*time[i]/tf+(1-time[i]/tf)*InitialHamiltonian.hamiltonian
     values, _ = eigsh(hamiltonian_t, k=1, which="SA")
-
+    model=AdaptVQEFermiHubbard()
+    model.set_operators_pool(operator_pool=operator_pool,random=False)
     model.set_hamiltonian(hamiltonian=hamiltonian_t)
     model.set_reference_psi(psi,energy_gs=values[0])
     model.weights=None
-    print('psi0=',model.psi0)
+
     
     
 
 
-    fit=Fit(method='L-BFGS-B',tolerance_opt=10**-4)
+    fit=Fit(method='L-BFGS-B',tolerance_opt=10**-4,tolerance_adapt=10**-4)
     fit.configuration_checkpoint=model.callback
     fit.init_model(model)
     history_energy,history_grad=fit.run()

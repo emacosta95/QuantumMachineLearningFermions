@@ -73,7 +73,7 @@ class FermiHubbardHamiltonian(FemionicBasis):
         for q, indices in tbar:
             i1, i2, i3, i4 = indices
             
-            if any(idx> self.size_a+self.size_b-1 for idx in indices):
+            if any(idx> self.size_a+self.size_b for idx in indices):
                 continue
             value = matrix_values[q]
 

@@ -10,11 +10,11 @@ from tqdm import trange
 
 class Fit:
 
-    def __init__(self, method: str, tolerance_opt: float, e_ref: float = None) -> None:
+    def __init__(self, method: str, tolerance_opt: float, e_ref: float = None,tolerance_adapt=None) -> None:
 
         self.method: str = method
         self.tolerance = tolerance_opt
-
+        self.tolerance_adapt=tolerance_adapt
         self.model = None
 
         self.configuration_checkpoint: Callable = None
@@ -32,7 +32,7 @@ class Fit:
 
         if epochs is None:
 
-            while de > 10**-4:
+            while de > self.tolerance_adapt:
 
                 self.model.model_preparation()
                 
@@ -49,7 +49,7 @@ class Fit:
                 energy = self.model.forward(self.model.weights)
                 grad_energy = self.model.backward(self.model.weights)
 
-                de = np.abs(energy - self.model.exact_energy)/np.abs(self.model.exact_energy)
+                de = np.abs(energy - e_old)
                 e_old = energy
 
                 
@@ -57,7 +57,7 @@ class Fit:
                 # for i in range(12):
                 #     print(SPS.state_encoding[i],i,'\n')
                     
-                print('Operator:',translator[self.model.operator_action_info[-1][0]],translator[self.model.operator_action_info[-1][1]],translator[self.model.operator_action_info[-1][2]],translator[self.model.operator_action_info[-1][3]],)
+                #print('Operator:',translator[self.model.operator_action_info[-1][0]],translator[self.model.operator_action_info[-1][1]],translator[self.model.operator_action_info[-1][2]],translator[self.model.operator_action_info[-1][3]],)
                 print("Optimization Success=", res.success)
                 print('weights=',self.model.weights)
                 print(f"energy={energy:.5f}")

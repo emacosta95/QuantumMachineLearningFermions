@@ -125,7 +125,6 @@ class AdaptVQEFermiHubbard:
         psi = self.psi0.copy()
         if weights is not (None):
             for i, w in enumerate(weights):
-                print('weights=',weights)
                 # print(np.conj(expm(self.weights[i] * op).T) @ expm(self.weights[i] * op))
                 psi = scipy.sparse.linalg.expm_multiply(
                     w * self.operator_action[i], psi
