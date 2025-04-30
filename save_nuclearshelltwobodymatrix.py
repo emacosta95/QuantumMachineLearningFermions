@@ -17,8 +17,8 @@ print(twobody_matrix)
 
 size_a=energies.shape[0]//2
 size_b=size_a
-nparticles_a=6
-nparticles_b=10
+nparticles_a=8
+nparticles_b=0
 
 TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
 print('size=',size_a+size_b,size_b)
