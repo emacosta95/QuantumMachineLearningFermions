@@ -58,9 +58,9 @@ class FermiHubbardHamiltonian(FemionicBasis):
     def get_external_potential(self, external_potential: np.ndarray):
 
         operator = 0.0
-        for i, v in enumerate(external_potential):
+        for i in range(external_potential.shape[0]):
 
-            operator = operator + v * self.adag_a_matrix(i=i, j=i)
+            operator = operator + external_potential[i] * self.adag_a_matrix(i=i, j=i)
 
         self.external_potential = operator
 

@@ -147,6 +147,23 @@ class SingleParticleState:
                 m_ave = m_ave + m * psi[basis_index].conjugate() * psi[basis_index]
 
         return  m_ave 
+    
+    def total_M_zero(self,idxs:np.ndarray)->bool:
+        """Restrict the basis to the M=0 subspace
+
+        Args:
+            idxs (np.ndarray): set of orbitals occupied in a many-body basis element
+
+        Returns:
+            bool: True if M=0 in the basis element
+        """
+        
+        total_m=0.
+        for idx in idxs:
+            (n, l, j, m, t, t_z) = self.state_encoding[idx]
+            total_m+=m
+            
+        return np.isclose(total_m,0.)
 
 
 # 
