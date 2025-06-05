@@ -561,6 +561,19 @@ class HardcoreBosonsBasis:
 
         return index
 
+    def charge_computation(self, initial_indices: List, final_indices: List):
+
+        initial_tot_charge = 0
+        for idx in initial_indices:
+            if idx >= self.size_a:
+                initial_tot_charge += 1
+        final_tot_charge = 0
+        for idx in final_indices:
+            if idx >= self.size_a:
+                final_tot_charge += 1
+
+        return initial_tot_charge == final_tot_charge
+
 
 
     def set_operator_pool(
