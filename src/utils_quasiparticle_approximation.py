@@ -1,7 +1,7 @@
 from itertools import combinations
 
 from src.hamiltonian_utils import FermiHubbardHamiltonian
-from src.nuclear_physics_utils import get_twobody_nuclearshell_model,SingleParticleState,QuadrupoleOperator,J2operator
+from src.nuclear_physics_utils import get_twobody_nuclearshell_model,SingleParticleState,J2operator
 import numpy as np
 import torch
 from typing import Dict
@@ -291,6 +291,8 @@ class HardcoreBosonsBasis:
         
         self.encode = self._get_the_encode()
 
+        self.size_a=self.size//2
+        self.size_b=self.size//2
    
 
     

@@ -218,7 +218,7 @@ class HartreeFockVariational(nn.Module):
 
         self.hamiltonian = None
 
-        self.size = nspecies * size
+        self.size = size
         # self.initialize_weights(size=self.size)
 
         self.nspecies = nspecies
@@ -382,3 +382,29 @@ class HartreeFockVariational(nn.Module):
         psi = psi / np.linalg.norm(psi)
 
         return psi
+
+
+class HFEnergyFunctional(nn.Module):
+    def __init__(self, h_vec, V_dict, num_particles):
+        super().__init__()
+        self.h = h_vec  # [M]
+        self.V_dict = V_dict
+        self.M = h_vec.shape[0]
+        self.N = num_particles
+
+        # Unconstrained parameter matrix
+        A_init = torch.randn(self.M, self.N)
+        self.A = nn.Parameter(A_init)
+
+    def forward(self):
+        # Reparametrize with QR for orthonormal C
+        C, _ = torch.linalg.qr(self.A)  # C is [M, N], orthonormal
+        rho = C @ C.T
+        self.C=C.clone()
+        E1 = torch.dot(self.h.to(rho.dtype), torch.diagonal(rho))
+
+        E2 = 0.0
+        for (a, b, c, d), V_abcd in self.V_dict.items():
+            E2 += (1/2) * V_abcd * rho[c, a] * rho[d, b]
+
+        return E1 + E2
