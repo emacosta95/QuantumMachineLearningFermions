@@ -387,24 +387,30 @@ class HartreeFockVariational(nn.Module):
 class HFEnergyFunctional(nn.Module):
     def __init__(self, h_vec, V_dict, num_particles):
         super().__init__()
-        self.h = h_vec  # [M]
-        self.V_dict = V_dict
+        self.h = h_vec  # shape [M]
         self.M = h_vec.shape[0]
         self.N = num_particles
 
-        # Unconstrained parameter matrix
+        # Convert V_dict → dense tensor [M, M, M, M]
+        self.V_tensor = torch.zeros((self.M, self.M, self.M, self.M), dtype=h_vec.dtype)
+        for (a, b, c, d), val in V_dict.items():
+            self.V_tensor[a, b, c, d] = val
+
+        # Learnable parameter A → orthonormal C via QR
         A_init = torch.randn(self.M, self.N)
         self.A = nn.Parameter(A_init)
 
     def forward(self):
-        # Reparametrize with QR for orthonormal C
-        C, _ = torch.linalg.qr(self.A)  # C is [M, N], orthonormal
-        rho = C @ C.T
-        self.C=C.clone()
+        # Reparametrize with QR → orthonormal orbitals
+        C, _ = torch.linalg.qr(self.A)
+        self.C = C.clone()  # optional: save for external use
+
+        rho = C @ C.T  # Density matrix: [M, M]
+
+        # One-body term: sum_a h_a * rho_aa
         E1 = torch.dot(self.h.to(rho.dtype), torch.diagonal(rho))
 
-        E2 = 0.0
-        for (a, b, c, d), V_abcd in self.V_dict.items():
-            E2 += (1/2) * V_abcd * rho[c, a] * rho[d, b]
+        # Two-body term: 0.5 * sum_abcd V_abcd * rho_ca * rho_db
+        E2 = 0.5 * torch.einsum('abcd,ca,db->', self.V_tensor.to(rho.dtype), rho, rho)
 
         return E1 + E2
