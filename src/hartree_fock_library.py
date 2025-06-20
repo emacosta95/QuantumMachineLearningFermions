@@ -414,3 +414,46 @@ class HFEnergyFunctional(nn.Module):
         E2 = 0.5 * torch.einsum('abcd,ca,db->', self.V_tensor.to(rho.dtype), rho, rho)
 
         return E1 + E2
+    
+    
+class HFEnergyFunctionalNuclear(nn.Module):
+    def __init__(self, h_vec, V_dict, num_neutrons, num_protons, neutron_indices, proton_indices):
+        super().__init__()
+        self.h = h_vec  # [M]
+        self.M = h_vec.shape[0]
+        self.Nn = num_neutrons
+        self.Np = num_protons
+
+        self.proton_idx = proton_indices
+
+        self.V_tensor = torch.zeros((self.M, self.M, self.M, self.M), dtype=h_vec.dtype)
+        for (a, b, c, d), val in V_dict.items():
+            self.V_tensor[a, b, c, d] = val
+
+        self.A_n = nn.Parameter(torch.randn(self.proton_idx, self.Nn,dtype=h_vec.dtype))
+        self.A_p = nn.Parameter(torch.randn(self.proton_idx, self.Np,dtype=h_vec.dtype))
+
+    def forward(self):
+        C_n_local, _ = torch.linalg.qr(self.A_n)
+        C_p_local, _ = torch.linalg.qr(self.A_p)
+
+        C_n = torch.zeros((self.M, self.Nn), dtype=C_n_local.dtype, device=C_n_local.device)
+        C_p = torch.zeros((self.M, self.Np), dtype=C_p_local.dtype, device=C_p_local.device)
+        
+        
+        C_n[:self.proton_idx, :] = C_n_local
+        C_p[self.proton_idx:, :] = C_p_local
+        print(torch.sum(torch.abs(C_p)))
+        rho_n = C_n @ C_n.T
+        rho_p = C_p @ C_p.T
+
+        E1 = torch.dot(self.h, torch.diagonal(rho_n + rho_p))
+        E2 = (
+            0.5 * torch.einsum('abcd,ca,db->', self.V_tensor, rho_n, rho_n) +
+            0.5 * torch.einsum('abcd,ca,db->', self.V_tensor, rho_p, rho_p) +
+            torch.einsum('abcd,ca,db->', self.V_tensor, rho_n, rho_p)
+        )
+        
+        self.C_n=C_n.clone()
+        self.C_p=C_p.clone()
+        return E1 + E2
