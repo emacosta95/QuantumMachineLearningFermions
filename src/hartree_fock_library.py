@@ -430,8 +430,8 @@ class HFEnergyFunctionalNuclear(nn.Module):
         for (a, b, c, d), val in V_dict.items():
             self.V_tensor[a, b, c, d] = val
 
-        self.A_n = nn.Parameter(torch.randn(self.proton_idx, self.Nn,dtype=h_vec.dtype))
-        self.A_p = nn.Parameter(torch.randn(self.proton_idx, self.Np,dtype=h_vec.dtype))
+        self.A_n = nn.Parameter(torch.ones(self.proton_idx, self.Nn,dtype=h_vec.dtype))
+        self.A_p = nn.Parameter(torch.ones(self.proton_idx, self.Np,dtype=h_vec.dtype))
 
     def forward(self):
         C_n_local, _ = torch.linalg.qr(self.A_n)
