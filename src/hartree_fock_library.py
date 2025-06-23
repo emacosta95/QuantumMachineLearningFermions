@@ -392,6 +392,7 @@ class HFEnergyFunctional(nn.Module):
         self.N = num_particles
 
         # Convert V_dict → dense tensor [M, M, M, M]
+
         self.V_tensor = torch.zeros((self.M, self.M, self.M, self.M), dtype=h_vec.dtype)
         for (a, b, c, d), val in V_dict.items():
             self.V_tensor[a, b, c, d] = val
@@ -425,35 +426,55 @@ class HFEnergyFunctionalNuclear(nn.Module):
         self.Np = num_protons
 
         self.proton_idx = proton_indices
-
-        self.V_tensor = torch.zeros((self.M, self.M, self.M, self.M), dtype=h_vec.dtype)
-        for (a, b, c, d), val in V_dict.items():
-            self.V_tensor[a, b, c, d] = val
-
-        self.A_n = nn.Parameter(torch.ones(self.proton_idx, self.Nn,dtype=h_vec.dtype))
-        self.A_p = nn.Parameter(torch.ones(self.proton_idx, self.Np,dtype=h_vec.dtype))
+        if num_protons!=0:
+            self.V_tensor = torch.zeros((self.M, self.M, self.M, self.M), dtype=h_vec.dtype)
+            for (a, b, c, d), val in V_dict.items():
+                self.V_tensor[a, b, c, d] = val
+        else:
+            self.V_tensor = torch.zeros((self.M//2, self.M//2, self.M//2, self.M//2), dtype=h_vec.dtype)
+            for (a, b, c, d), val in V_dict.items():
+                if a<self.M//2 and a<self.M//2 and b<self.M//2 and c<self.M//2  and d<self.M//2: 
+                    self.V_tensor[a, b, c, d] = val
+        self.A_n = nn.Parameter(torch.randn(self.proton_idx, self.Nn,dtype=h_vec.dtype))
+        if num_protons!=0:
+            self.A_p = nn.Parameter(torch.randn(self.proton_idx, self.Np,dtype=h_vec.dtype))
 
     def forward(self):
         C_n_local, _ = torch.linalg.qr(self.A_n)
-        C_p_local, _ = torch.linalg.qr(self.A_p)
+        if self.Np!=0:
+            C_p_local, _ = torch.linalg.qr(self.A_p)
 
-        C_n = torch.zeros((self.M, self.Nn), dtype=C_n_local.dtype, device=C_n_local.device)
-        C_p = torch.zeros((self.M, self.Np), dtype=C_p_local.dtype, device=C_p_local.device)
+            C_n = torch.zeros((self.M, self.Nn), dtype=C_n_local.dtype, device=C_n_local.device)
+        else:
+             C_n = torch.zeros((self.M//2, self.Nn), dtype=C_n_local.dtype, device=C_n_local.device)
+        if self.Np!=0:
+            C_p = torch.zeros((self.M, self.Np), dtype=C_p_local.dtype, device=C_p_local.device)
         
         
         C_n[:self.proton_idx, :] = C_n_local
-        C_p[self.proton_idx:, :] = C_p_local
-        print(torch.sum(torch.abs(C_p)))
-        rho_n = C_n @ C_n.T
-        rho_p = C_p @ C_p.T
+        if self.Np!=0:
+            C_p[self.proton_idx:, :] = C_p_local
+            print(torch.sum(torch.abs(C_p)))
+            rho_p = C_p @ C_p.T
 
-        E1 = torch.dot(self.h, torch.diagonal(rho_n + rho_p))
-        E2 = (
+        rho_n = C_n @ C_n.T
+        if self.Np!=0:
+            E1 = torch.dot(self.h, torch.diagonal(rho_n + rho_p))
+            E2 = (
             0.5 * torch.einsum('abcd,ca,db->', self.V_tensor, rho_n, rho_n) +
             0.5 * torch.einsum('abcd,ca,db->', self.V_tensor, rho_p, rho_p) +
             torch.einsum('abcd,ca,db->', self.V_tensor, rho_n, rho_p)
-        )
+            )
+            self.C_p=C_p.clone()
         
-        self.C_n=C_n.clone()
-        self.C_p=C_p.clone()
+        
+        else:
+            E1 = torch.dot(self.h, torch.diagonal(rho_n ))
+            E2 = (
+            0.5 * torch.einsum('abcd,ca,db->', self.V_tensor, rho_n, rho_n) 
+            )
+            
+        self.C_n=C_n.clone()        
+        print(E1,E2)
+        
         return E1 + E2
