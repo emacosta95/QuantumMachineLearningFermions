@@ -454,7 +454,7 @@ class HFEnergyFunctionalNuclear(nn.Module):
         C_n[:self.proton_idx, :] = C_n_local
         if self.Np!=0:
             C_p[self.proton_idx:, :] = C_p_local
-            print(torch.sum(torch.abs(C_p)))
+
             rho_p = C_p @ C_p.T
 
         rho_n = C_n @ C_n.T
@@ -475,6 +475,6 @@ class HFEnergyFunctionalNuclear(nn.Module):
             )
             
         self.C_n=C_n.clone()        
-        print(E1,E2)
+
         
         return E1 + E2
