@@ -446,6 +446,7 @@ class HFEnergyFunctionalNuclear(nn.Module):
 
             C_n = torch.zeros((self.M, self.Nn), dtype=C_n_local.dtype, device=C_n_local.device)
         else:
+             C_n_local=C_n_local[ :self.M//2]
              C_n = torch.zeros((self.M//2, self.Nn), dtype=C_n_local.dtype, device=C_n_local.device)
         if self.Np!=0:
             C_p = torch.zeros((self.M, self.Np), dtype=C_p_local.dtype, device=C_p_local.device)
@@ -459,6 +460,7 @@ class HFEnergyFunctionalNuclear(nn.Module):
 
         rho_n = C_n @ C_n.T
         if self.Np!=0:
+            
             E1 = torch.dot(self.h, torch.diagonal(rho_n + rho_p))
             E2 = (
             0.5 * torch.einsum('abcd,ca,db->', self.V_tensor, rho_n, rho_n) +
@@ -469,7 +471,7 @@ class HFEnergyFunctionalNuclear(nn.Module):
         
         
         else:
-            E1 = torch.dot(self.h, torch.diagonal(rho_n ))
+            E1 = torch.dot(self.h[:self.M//2], torch.diagonal(rho_n ))
             E2 = (
             0.5 * torch.einsum('abcd,ca,db->', self.V_tensor, rho_n, rho_n) 
             )

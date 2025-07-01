@@ -272,7 +272,7 @@ class CCVQEFermiHubbard:
         self.weights=np.zeros(len(self.operator_pool))
 
         self.random = random
-        self.count=0
+
     
     def __select_random_new_operator(self):
 
@@ -342,16 +342,14 @@ class CCVQEFermiHubbard:
         # print(f"energy value={self.energy:.3f} \n")
         self.energy = psi.transpose().conj() @ self.hamiltonian @ psi
         self.total_operation_miquel+=len(self.operator_action_info)
-        if self.count % 10==0:
-            print(self.energy)
-            self.count+=1
+
         return self.energy
 
     def callback(self,*args):
 
         self.history_grad.append(self.grad)
         self.history_energy.append(self.energy)
-        #print('energy value=',self.energy,'\n')
+        print('energy value=',self.energy,'\n',flush=True)
         
         
         #self.total_operation_metric+=1
