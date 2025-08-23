@@ -48,7 +48,7 @@ class SingleParticleState:
             for i, label in enumerate(labels[2:]): # loop over the label (single particle state in strings)
                 n = int(label[1]) # these positions are defined by the structure of the .txt file (e.g cki or usdb.nat)
                 l = int(label[0])
-                two_j = int(label[-1]) # the j value is encoded as 2j
+                two_j = int(label[-2:]) # the j value is encoded as 2j
                 two_m_range = -1 * two_j + np.arange(0, 2 * two_j + 2, 2) # we define the range of possible m values
                 
                 # explicit the m value (projection of the total angular)
@@ -247,10 +247,10 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
         l2i = int(matrix_info[i][5][0])
 
         # total angular momentum (2j, we need to divide)
-        j1f = int(matrix_info[i][2][-1]) / 2
-        j2f = int(matrix_info[i][3][-1]) / 2
-        j1i = int(matrix_info[i][4][-1]) / 2
-        j2i = int(matrix_info[i][5][-1]) / 2
+        j1f = int(matrix_info[i][2][-2:]) / 2
+        j2f = int(matrix_info[i][3][-2:]) / 2
+        j1i = int(matrix_info[i][4][-2:]) / 2
+        j2i = int(matrix_info[i][5][-2:]) / 2
 
         # initialize the dict (J,I)_{labels}
         j_tot_i_tot[
@@ -338,6 +338,7 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
                         matrix_jdx
                     ]
 
+
     return j_tot_i_tot, scattering_values
 
 
@@ -357,7 +358,6 @@ def compute_nuclear_twobody_matrix(
 
     matrix: Dict = {}
     print('Computing the matrix, pls wait... (u_u) \n')
-
     # run over all the nucleon modes of the two-body interaction
     for i in trange(len(spg.state_encoding)):
         for j in range(i, len(spg.state_encoding)):
@@ -399,7 +399,6 @@ def compute_nuclear_twobody_matrix(
                         # run over the J and I range
                         for j_tot in j_tot_range:
                             for i_tot in i_tot_range:
-                                
                                 # compute all the CB coefficients
                                 # for the basis transformation (see Suhonen's book)
                                 cg_final_list = ClebschGordan(
