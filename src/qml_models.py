@@ -3,6 +3,7 @@ import numpy as np
 from typing import List, Dict
 from scipy.linalg import expm
 import scipy
+from scipy import sparse
 from scipy.sparse.linalg import expm_multiply
 from scipy.optimize import minimize
 
@@ -355,3 +356,72 @@ class CCVQEFermiHubbard:
         #self.total_operation_metric+=1
         #print(f'total operations={self.total_operation_metric} \n')
 
+
+
+class NSMconstrains:
+    def __init__(self,SPS,NSMHamiltonian):
+        self.SPS=SPS
+        self.NSMHamiltonian=NSMHamiltonian
+        
+    def miquel_constrainer(self,idxs:List[int]):
+
+        if self.SPS.projection_conservation(idxs=idxs):
+            if self.NSMHamiltonian.charge_computation(initial_indices=idxs[:2],final_indices=idxs[2:]):
+                op=self.NSMHamiltonian.adag_adag_a_a_matrix(idxs[0],idxs[1],idxs[2],idxs[3])
+                diag_op = sparse.diags(op.diagonal())
+
+                non_diag_op =np.abs( op - diag_op)
+                if not(np.isclose(non_diag_op.sum(),0.)):
+                    condition=True
+                else:
+                    condition=False
+            
+            else:
+                condition=False
+        else:
+            condition=False
+                    
+        return condition
+
+
+    def miquel_constrainer_2(self,idxs:List[int]):
+        _,_,j0,_,_,tz0=self.SPS.state_encoding[idxs[0]]
+        _,_,j1,_,_,tz1=self.SPS.state_encoding[idxs[1]]
+        _,_,j2,_,_,tz2=self.SPS.state_encoding[idxs[2]]
+        _,_,j3,_,_,tz3=self.SPS.state_encoding[idxs[3]]
+        
+        j_tot_i = np.arange(start=int(np.abs(j0 - j1)), stop=int(j0 + j1) + 1)  # Include j0 + j1
+        j_tot_f = np.arange(start=int(np.abs(j2 - j3)), stop=int(j2 + j3) + 1)  # Include j2 + j3
+        #print(j_tot_i,j0,j1)
+        if tz0==tz1:
+            if j0==j1:
+                j_tot_i=[j for j in j_tot_i if j % 2==0 ]
+                #print('i=',j_tot_i,j0,j1)
+            if j2==j3:
+                j_tot_f=[j for j in j_tot_f if j % 2==0 ]
+                #print('f=',j_tot_f,j2,j3,'\n')
+            if set(j_tot_i) & set(j_tot_f):
+                condition=True
+            else:
+                
+                condition=False
+        else:
+        
+            if set(j_tot_i) & set(j_tot_f):
+                condition=True
+            else:
+
+                condition=False
+
+
+                
+        return condition
+
+    def miquel_constrainer_3(self,idxs:List[int]):
+        condition=False
+        p=np.random.uniform(0,1)
+        if self.SPS.projection_conservation(idxs=idxs):
+            if p<1:
+                condition=True
+                    
+        return condition
