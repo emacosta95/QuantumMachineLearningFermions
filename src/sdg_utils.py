@@ -125,6 +125,7 @@ class NSM_SQD_circuit_ansatz:
     def SQD(self, weights): #output è energia stimata con SQD (compute energy functional)
         psi = self.forward(weights)
         prob = (np.conjugate(psi) * psi).real # .real needed to change data type from complex to float
+        self.prob=prob.copy()
         Ham = self.H.copy()
         np.random.seed(self.seed) # seed con cui calcolo il vettore random i cui elementi sono i seed dei diversi batch
         seeds = np.random.randint(1, 30002, size=self.batches)
@@ -196,8 +197,9 @@ class NSM_SQD_circuit_ansatz:
         print(f"Current COBYLA weights: {np.linalg.norm(x)}, SQD: {self.SQD(x)} Variance energy {self.variance}")
         if  self.save_file_name is not None:
             if self.counts%100==0:
-                np.savez(self.save_file_name,weights=self.weights,energy=self.E,variance=self.variance,psi=self.psi,history=self.history,history_variance=self.history_variance)
-        self.counts+=1      
+                np.savez(self.save_file_name,weights=self.weights,energy=self.E,variance=self.variance,psi=self.psi,history=self.history,history_variance=self.history_variance,prob=self.prob)
+        self.counts+=1
+              
     def optimization(self):
 
                     
