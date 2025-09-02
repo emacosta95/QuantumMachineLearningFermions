@@ -12,6 +12,76 @@ import matplotlib.pyplot as plt
 #     Q, R = torch.linalg.qr(matrix)
 #     return Q
 
+def slater_determinants_combined(C_n, C_p, fock_basis):
+    """
+    C_n: [M_half, N_n]  -- neutron orbitals
+    C_p: [M_half, N_p]  -- proton orbitals
+    fock_basis: [F, M]  -- full occupation basis (neutrons + protons)
+
+    Returns:
+        psi: [F]  -- Slater determinant amplitudes
+    """
+    F, M = fock_basis.shape
+    M_half = M // 2
+    N_n = C_n.shape[1]
+    N_p = C_p.shape[1]
+
+    psi = torch.zeros(F, dtype=C_n.dtype)
+
+    for i in range(F):
+        occ = fock_basis[i]  # [M]
+
+        occ_n = torch.nonzero(occ[:M_half]).squeeze()
+        occ_p = torch.nonzero(occ[M_half:]).squeeze()+M_half
+
+        Cn_sub = C_n[occ_n, :]  # shape [N_n, N_n]
+        Cp_sub = C_p[occ_p, :]  # shape [N_p, N_p]
+
+        if Cn_sub.shape[0] != N_n or Cp_sub.shape[0] != N_p:
+            # Skip invalid configurations (e.g., wrong number of particles)
+            continue
+
+        det_n = torch.det(Cn_sub)
+        det_p = torch.det(Cp_sub)
+        psi[i] = det_n * det_p
+
+
+    return psi  # [F]
+
+def slater_determinants_only_neutrons(C_n, fock_basis):
+    """
+    C_n: [M_half, N_n]  -- neutron orbitals
+    C_p: [M_half, N_p]  -- proton orbitals
+    fock_basis: [F, M]  -- full occupation basis (neutrons + protons)
+
+    Returns:
+        psi: [F]  -- Slater determinant amplitudes
+    """
+    F, M = fock_basis.shape
+    M_half = M // 2
+    N_n = C_n.shape[1]
+
+
+    psi = torch.zeros(F, dtype=C_n.dtype)
+
+    for i in range(F):
+        occ = fock_basis[i]  # [M]
+
+        occ_n = torch.nonzero(occ[:M_half]).squeeze()
+
+
+        Cn_sub = C_n[occ_n, :]  # shape [N_n, N_n]
+
+
+
+
+        det_n = torch.det(Cn_sub)
+
+        psi[i] = det_n 
+
+    return psi  # [F]
+
+
 
 def gram_schmidt(V):
     """
