@@ -116,6 +116,7 @@ def main(args):
         twobody_matrix=twobody_matrix,
         NSMHamiltonian=NSMHamiltonian,
     )
+    m.set_save_file_name(args.save_file_name)
     m.initialize_state_hartreefock(psi_hf)
     m.create_operator_pool_twobody_symmetry(operator_pool)
     m.optimization()
@@ -125,6 +126,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SDG Nuclear Shell Model Simulation")
 
     parser.add_argument("--file_name", type=str, default="data/usdb.nat", help="Input file for single-particle states")
+    parser.add_argument("--save_file_name", type=str, default="data/sdg/usdb_8_2_200_samples_10_steps_300_parameters_1000_batches", help="Input save file for the run")
     parser.add_argument("--nparticles_a", type=int, default=8, help="Number of neutrons")
     parser.add_argument("--nparticles_b", type=int, default=2, help="Number of protons")
     parser.add_argument("--num_steps", type=int, default=600, help="Number of Hartree-Fock optimization steps")

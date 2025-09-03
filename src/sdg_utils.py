@@ -63,7 +63,6 @@ class NSM_SQD_circuit_ansatz:
         
     def set_save_file_name(self,save_file_name):
         self.save_file_name=save_file_name
-        self.counts=0
         return None
 
     def initialize_state_minslater(self): # ref state is the element of the basis with the minimum energy
@@ -195,10 +194,7 @@ class NSM_SQD_circuit_ansatz:
         self.history.append(self.SQD(x))
         self.history_variance.append(self.variance)
         print(f"Current COBYLA weights: {np.linalg.norm(x)}, SQD: {self.SQD(x)} Variance energy {self.variance}")
-        if  self.save_file_name is not None:
-            if self.counts%100==0:
-                np.savez(self.save_file_name,weights=self.weights,energy=self.E,variance=self.variance,psi=self.psi,history=self.history,history_variance=self.history_variance,prob=self.prob)
-        self.counts+=1
+        np.savez(self.save_file_name,weights=self.weights,energy=self.E,variance=self.variance,psi=self.psi,history=self.history,history_variance=self.history_variance,prob=self.prob,psis=self.psi_batches)
               
     def optimization(self):
 
