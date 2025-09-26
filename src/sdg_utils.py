@@ -49,7 +49,15 @@ class NSM_SQD_circuit_ansatz:
         self.l = len(self.basis[0]) # lunghezza un elemento base
         self.psi = np.zeros(len(self.basis))
         self.E = 0.
-
+        self.E_old=1E10
+        self.prob=None
+        self.psi_batches=None
+        self.variance=None
+        self.operator_pool=None
+        self.operator_pool_list=None
+        self.weights=None
+  
+        
         self.seed = 1024
 
         self.samples = samples # number of samples for sqd energy estimation
@@ -61,8 +69,10 @@ class NSM_SQD_circuit_ansatz:
         self.history = []
         self.history_variance=[]
         
+        
     def set_save_file_name(self,save_file_name):
         self.save_file_name=save_file_name
+        self.counts=0
         return None
 
     def initialize_state_minslater(self): # ref state is the element of the basis with the minimum energy
@@ -84,6 +94,7 @@ class NSM_SQD_circuit_ansatz:
         return None
 
     def initialize_state_hartreefock(self,psi_hf): # ref state is the element of the basis with the minimum energy
+        self.psi_initial=psi_hf.copy()
         self.psi = psi_hf
         self.E = self.psi.transpose().conj() @ self.H @ self.psi
         return None
@@ -194,16 +205,19 @@ class NSM_SQD_circuit_ansatz:
         self.history.append(self.SQD(x))
         self.history_variance.append(self.variance)
         print(f"Current COBYLA weights: {np.linalg.norm(x)}, SQD: {self.SQD(x)} Variance energy {self.variance}")
-        np.savez(self.save_file_name,weights=self.weights,energy=self.E,variance=self.variance,psi=self.psi,history=self.history,history_variance=self.history_variance,prob=self.prob,psis=self.psi_batches)
-              
+        if self.counts % 100 ==0:
+            if self.E_old > self.SQD(x):
+                np.savez(self.save_file_name,weights=self.weights,energy=self.E,variance=self.variance,psi=self.psi,history=self.history,history_variance=self.history_variance,prob=self.prob,psis=self.psi_batches,psi_initial=self.psi_initial)
+                self.E_old=self.E
+        self.counts += 1  
     def optimization(self):
 
                     
         for i in range(self.train_steps):
             # COBYLA optimization
-            res2 = minimize(self.SQD, x0=self.weights, method='COBYLA', options={'disp':True},callback=self.cobyla_callback)
+            res2 = minimize(self.SQD, x0=self.weights, method='COBYLA', options={'disp':True, 'maxiter': 100000},callback=self.cobyla_callback)
 
-            self.weights = res2.x  # update weights
+            self.weights = res2.x.copy()  # update weights
             self.E = self.SQD(self.weights)
             self.psi = self.forward(self.weights)
 
@@ -230,8 +244,8 @@ class NSM_SQD_circuit_ansatz:
             res = dual_annealing(
                 self.SQD,
                 bounds=bounds,
-                maxiter=200,       # number of annealing iterations
-                maxfun=5000,       # max evaluations
+                #maxiter=200,       # number of annealing iterations
+                #maxfun=5000,       # max evaluations
                 seed=self.seed+i,  # different seed per step for exploration
                 callback=self.annealing_callback,
             )
@@ -247,8 +261,29 @@ class NSM_SQD_circuit_ansatz:
             print("Current weights =", self.weights)
             print("Number of function evaluations =", res.nfev)
 
+    def annealing_callback(self, x, f, context):
+        # Append values to history (use f, not recomputing SQD)
+        self.history.append(f)
+        self.history_variance.append(self.variance)
 
-    def annealing_callback(self,x, f, context,*args):
-        print(f"Step context: {context} | Energy: {f} \n")
-        self.weights=x.copy()
-        #print(f"Weights: {x}\n")
+        # Log every iteration
+        print(f"Step  | ||weights||={np.linalg.norm(x):.4f} | Energy={f:.6f} | Variance={self.variance:.6f}", flush=True)
+
+        # Periodic saving
+        if self.counts % 100 == 0:
+            if self.E_old > f:
+                np.savez(self.save_file_name,
+                        weights=self.weights,
+                        energy=self.E,
+                        variance=self.variance,
+                        psi=self.psi,
+                        history=self.history,
+                        history_variance=self.history_variance,
+                        prob=self.prob,
+                        psis=self.psi_batches,
+                        psi_initial=self.psi_initial)
+                self.E_old = f
+
+        # Update counts and current weights
+        self.counts += 1
+        self.weights = x.copy()

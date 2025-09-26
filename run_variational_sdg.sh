@@ -12,7 +12,8 @@ SAMPLES=${6:-200}
 TRAIN_STEPS=${7:-10}
 NUM_PARAMETERS=${8:-300}
 BATCHES=${9:-1000}
-SAVE_FILE_NAME=${1:-data/sdg/usdb_8_2_200_samples_10_steps_300_parameters_1000_batches}
+SAVE_FILE_NAME=${10:-data/sdg/usdb_8_2_200_samples_10_steps_300_parameters_1000_batches}
+SDLOG_FILE=${11:-sdg_run.log}
 # Run with nohup so process survives even after logout
 nohup python variational_sdg_nsm.py \
     --file_name "$FILE_NAME" \
@@ -25,7 +26,7 @@ nohup python variational_sdg_nsm.py \
     --num_parameters "$NUM_PARAMETERS" \
     --batches "$BATCHES" \
     --save_file_name "$SAVE_FILE_NAME" \
-    > sdg_run.log 2>&1 &
+    > $SDLOG_FILE 2>&1 &
     
 echo "Simulation started with PID $!"
 echo "Logs are being written to sdg_run.log"

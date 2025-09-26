@@ -120,7 +120,7 @@ def main(args):
     m.initialize_state_hartreefock(psi_hf)
     m.create_operator_pool_twobody_symmetry(operator_pool)
     m.optimization()
-
+    #m.optimization_annealing()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SDG Nuclear Shell Model Simulation")
