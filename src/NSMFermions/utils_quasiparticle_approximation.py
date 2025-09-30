@@ -1,14 +1,14 @@
 from itertools import combinations
 
-from src.hamiltonian_utils import FermiHubbardHamiltonian
-from src.nuclear_physics_utils import get_twobody_nuclearshell_model,SingleParticleState,J2operator
+from .hamiltonian_utils import FermiHubbardHamiltonian
+from .nuclear_physics_utils import get_twobody_nuclearshell_model,SingleParticleState,J2operator
 import numpy as np
 import torch
 from typing import Dict
 import scipy
-from src.qml_models import AdaptVQEFermiHubbard
-from src.qml_utils.train import Fit
-from src.qml_utils.utils import configuration
+from .qml_models import AdaptVQEFermiHubbard
+from .qml_utils.train import Fit
+from .qml_utils.utils import configuration
 from scipy.sparse.linalg import eigsh,expm_multiply
 from tqdm import trange
 import matplotlib.pyplot as plt
