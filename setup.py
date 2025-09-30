@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="QuantumMachineLearningFermions",
+    name="NSMFermions",
     version="0.1.0",
     description="Quantum Machine Learning for Fermions",
     author="Emanuele Costa",
