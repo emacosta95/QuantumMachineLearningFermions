@@ -10,6 +10,7 @@ authors = [
     { name = "Emanuele Costa", email = "emanuele.costa@icc.ub.edu" }
 ]
 dependencies = []
+requires-python = ">=3.8"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
