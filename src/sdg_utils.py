@@ -1,17 +1,17 @@
-from src.hamiltonian_utils import FermiHubbardHamiltonian
-from src.utils_quasiparticle_approximation import HardcoreBosonsBasis
-from src.nuclear_physics_utils import get_twobody_nuclearshell_model,SingleParticleState
+from .hamiltonian_utils import FermiHubbardHamiltonian
+from .utils_quasiparticle_approximation import HardcoreBosonsBasis
+from .nuclear_physics_utils import get_twobody_nuclearshell_model,SingleParticleState
 import numpy as np
 import torch
 from typing import Dict
 import scipy
-from src.qml_models import AdaptVQEFermiHubbard
-from src.qml_utils.train import Fit
-from src.qml_utils.utils import configuration
+from .qml_models import AdaptVQEFermiHubbard
+from .qml_utils.train import Fit
+from .qml_utils.utils import configuration
 from scipy.sparse.linalg import eigsh,expm_multiply
 from tqdm import trange
 import matplotlib.pyplot as plt
-from src.fermi_hubbard_library import FemionicBasis
+from .fermi_hubbard_library import FemionicBasis
 import numpy as np
 from typing import List, Dict
 from scipy.linalg import expm
@@ -22,7 +22,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse import lil_matrix
 from scipy.optimize import minimize
 from scipy import sparse
-from src.hartree_fock_library import HFEnergyFunctional,HFEnergyFunctionalNuclear
+from .hartree_fock_library import HFEnergyFunctional,HFEnergyFunctionalNuclear
 import torch
 import torch.nn as nn
 import torch.optim as optim

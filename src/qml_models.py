@@ -1,4 +1,4 @@
-from src.fermi_hubbard_library import FemionicBasis
+from .fermi_hubbard_library import FemionicBasis
 import numpy as np
 from typing import List, Dict
 from scipy.linalg import expm

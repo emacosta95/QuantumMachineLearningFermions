@@ -1,10 +1,10 @@
 import numpy as np
 import itertools
 from itertools import combinations
-from src.cg_utils import ClebschGordan, SelectCG
+from .cg_utils import ClebschGordan, SelectCG
 import matplotlib.pyplot as plt
 from tqdm import trange,tqdm
-from src.fermi_hubbard_library import FemionicBasis
+from .fermi_hubbard_library import FemionicBasis
 import numpy as np
 from scipy.sparse.linalg import eigsh
 
