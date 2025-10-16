@@ -33,7 +33,7 @@ class SingleParticleState:
         # particle states
         
         labels = lines[1].split()
-        
+        print('labels=',labels)
         # we encode the single particle energy values
         
         energy_values = [float(element) for element in lines[2].split()]
@@ -45,9 +45,16 @@ class SingleParticleState:
         self.energies: List = []
         
         for i_z in [1 / 2, -1 / 2]: # loop over the isospin projection
+            new_labels=labels[:2]
+            for label in labels[2:]:
+                if len(label)==3:
+                    label='0'+label
+                new_labels.append(label)
+            labels=new_labels
+            
             for i, label in enumerate(labels[2:]): # loop over the label (single particle state in strings)
-                n = int(label[1]) # these positions are defined by the structure of the .txt file (e.g cki or usdb.nat)
-                l = int(label[0])
+                n = int(label[0]) # these positions are defined by the structure of the .txt file (e.g cki or usdb.nat)
+                l = int(label[1])
                 two_j = int(label[-2:]) # the j value is encoded as 2j
                 two_m_range = -1 * two_j + np.arange(0, 2 * two_j + 2, 2) # we define the range of possible m values
                 
@@ -212,7 +219,15 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
     matrix_entries_string: List = []
 
     for i in range(4, len(lines), 3):
-        float_line_1 = [(element) for element in lines[i].split()]
+        
+        float_line_1 = []
+        titles=lines[i].split()
+        for element in titles:
+            if len(element)==3:
+                float_line_1.append('0'+element)
+            else:
+                float_line_1.append(element)
+        
         float_line_2 = [float(element) for element in lines[i + 1].split()]
         float_line_3 = [float(element) for element in lines[i + 2].split()]
         
@@ -235,23 +250,22 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
         tot_j_range = np.arange(int(matrix_info[i][-2]), int(matrix_info[i][-1]) + 1)
         
         # principal quantum number (radial quantum number)
-        n1f = int(matrix_info[i][2][1]) # the encoding depends on the structure of the .txt file (e.g: cki, usdb.nat)
-        n2f = int(matrix_info[i][3][1])
-        n1i = int(matrix_info[i][4][1])
-        n2i = int(matrix_info[i][5][1])
+        n1f = int(matrix_info[i][2][0]) # the encoding depends on the structure of the .txt file (e.g: cki, usdb.nat)
+        n2f = int(matrix_info[i][3][0])
+        n1i = int(matrix_info[i][4][0])
+        n2i = int(matrix_info[i][5][0])
 
         # orbital angular momentum
-        l1f = int(matrix_info[i][2][0])
-        l2f = int(matrix_info[i][3][0])
-        l1i = int(matrix_info[i][4][0])
-        l2i = int(matrix_info[i][5][0])
+        l1f = int(matrix_info[i][2][1])
+        l2f = int(matrix_info[i][3][1])
+        l1i = int(matrix_info[i][4][1])
+        l2i = int(matrix_info[i][5][1])
 
         # total angular momentum (2j, we need to divide)
         j1f = int(matrix_info[i][2][-2:]) / 2
         j2f = int(matrix_info[i][3][-2:]) / 2
         j1i = int(matrix_info[i][4][-2:]) / 2
         j2i = int(matrix_info[i][5][-2:]) / 2
-
         # initialize the dict (J,I)_{labels}
         j_tot_i_tot[
             (n1f, l1f, j1f), (n2f, l2f, j2f), (n1i, l1i, j1i), (n2i, l2i, j2i)
