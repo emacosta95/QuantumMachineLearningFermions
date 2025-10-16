@@ -33,7 +33,6 @@ class SingleParticleState:
         # particle states
         
         labels = lines[1].split()
-        print('labels=',labels)
         # we encode the single particle energy values
         
         energy_values = [float(element) for element in lines[2].split()]

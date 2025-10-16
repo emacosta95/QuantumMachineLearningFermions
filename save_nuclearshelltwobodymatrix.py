@@ -1,4 +1,4 @@
-from src.nuclear_physics_utils import get_twobody_nuclearshell_model,FermiHubbardHamiltonian,SingleParticleState
+from src.NSMFermions.nuclear_physics_utils import get_twobody_nuclearshell_model,FermiHubbardHamiltonian,SingleParticleState
 import scipy
 
 
@@ -14,8 +14,8 @@ twobody_matrix,energies=get_twobody_nuclearshell_model(file_name=file_name)
 
 size_a=energies.shape[0]//2
 size_b=size_a
-nparticles_a=10
-nparticles_b=8
+nparticles_a=8
+nparticles_b=2
 
 TargetHamiltonian=FermiHubbardHamiltonian(size_a=size_a,size_b=size_b,nparticles_a=nparticles_a,nparticles_b=nparticles_b,symmetries=[SPS.total_M_zero])
 print('size=',size_a+size_b,size_b)
