@@ -3,13 +3,16 @@ from itertools import combinations
 import numpy as np
 from scipy.sparse import lil_matrix
 import scipy.sparse as sparse
-from typing import List, Dict, Callable,Optional,Tuple
+from typing import List, Callable,Optional,Tuple
 from scipy.sparse.linalg import eigsh, lobpcg
 from itertools import product
 import multiprocessing
 from tqdm import tqdm, trange
-
-
+from scipy.sparse import coo_matrix
+from numba import njit
+from numba import njit, int64, uint64, float64
+from numba.typed import Dict
+from numba import types
 
 
 class FemionicBasis:
@@ -24,6 +27,9 @@ class FemionicBasis:
         self.nparticles_b = nparticles_b
 
         self.basis = self.generate_fermi_hubbard_basis()
+        
+        self.prefix_sums = np.cumsum(self.basis, axis=1)
+        self.masks, self.mask2index = build_mask_mapping(self.basis)
 
         self.encode = self._get_the_encode()
 
@@ -421,6 +427,16 @@ class FemionicBasis:
         for i, b in enumerate(self.basis):
             indices = np.nonzero(b)[0]
             encode[tuple(indices)] = i
+    
+        # # You can also precompute prefix sums if basis never changes:
+        # self.prefix_sums = np.cumsum(self.basis, axis=1)    
+        #         # Convert encode dictionary to numeric arrays (Numba cannot use dicts)
+        # max_len = max(len(k) for k in encode.keys())
+        # self.encode_keys = -np.ones((len(encode), max_len), dtype=np.int64)
+        # self.encode_vals = np.zeros(len(encode), dtype=np.int64)
+        # for idx, (k, v) in enumerate(encode.items()):
+        #     self.encode_keys[idx, :len(k)] = np.array(k, dtype=np.int64)
+        #     self.encode_vals[idx] = v
 
         return encode
 
@@ -522,3 +538,165 @@ class FemionicBasis:
                         continue
 
         return operator_pool
+
+
+    def adag_adag_a_a_matrix_optimized(self, i1: int, i2: int, j1: int, j2: int) -> coo_matrix:
+        """
+        Fully optimized version using numba Dict lookup.
+        """
+        n_states, _ = self.basis.shape
+
+        if not self.charge_computation([i1, i2], [j1, j2]):
+            print("Does not conserve particles.")
+            return coo_matrix((n_states, n_states))
+
+        rows, cols, data = _adag_adag_a_a_loop_numba_with_dict(
+            self.basis,
+            self.prefix_sums,
+            i1, i2, j1, j2,
+            self.masks,
+            self.mask2index
+        )
+
+        return coo_matrix((data, (rows, cols)), shape=(n_states, n_states))
+
+
+
+
+
+def build_mask_mapping(basis: np.ndarray, allow_overwrite: bool = False):
+    """
+    Build uint64 bitmask per basis row and a fast numba dictionary for O(1) lookup.
+    Validates that no index exceeds n_states.
+
+    Parameters
+    ----------
+    basis : ndarray[int8 or uint8], shape (n_basis, n_sites)
+        0/1 occupation vectors.
+    allow_overwrite : bool
+        If True, allow building even if the basis length changes relative to previously
+        saved mapping (useful if deliberately rebuilding). Default False only matters
+        if you keep a previous mapping in memory — typical usage doesn't need it.
+    """
+    n_basis, n_sites = basis.shape
+    if n_sites > 64:
+        raise ValueError("Bitmask version only supports n_sites <= 64. Use multiword mask or combinadic ranking.")
+
+    # Ensure dtype compactness: uint8 is good for packing and speed
+    if basis.dtype != np.uint8:
+       basis = basis.astype(np.uint8)
+
+    masks = np.zeros(n_basis, dtype=np.uint64)
+    for i in range(n_basis):
+        m = np.uint64(0)
+        # pack bits: site j -> bit j
+        for j in range(n_sites):
+            if basis[i, j]:
+                m |= np.uint64(1) << np.uint64(j)
+        masks[i] = m
+
+    mask2index = Dict.empty(key_type=types.uint64, value_type=types.int64)
+    for i, m in enumerate(masks):
+        # defensive: if same mask appears multiple times (shouldn't happen for unique basis),
+        # last write wins — but we warn.
+        if m in mask2index:
+            # warn about duplicates (should not occur in valid occupation-basis)
+            print(f"Warning: duplicate mask for index {i}; previous index {mask2index[m]} will be overwritten.")
+        mask2index[m] = i
+
+    # Validation: ensure mapping values are within [0, n_basis-1]
+    vals = [mask2index[k] for k in mask2index.keys()]
+    max_val = max(vals) if vals else -1
+    if max_val >= n_basis:
+        raise RuntimeError(f"mask2index contains index {max_val} >= n_basis {n_basis}. "
+                           "This means mapping was built against a different basis. "
+                           "Rebuild mapping after finalizing self.basis.")
+
+    return masks, mask2index
+
+
+# ============================================================
+# === Numba helper functions for phase + packing bits      ===
+# ============================================================
+
+@njit(inline='always')
+def sign_from_phase(phase: int) -> float64:
+    # much faster than (-1)**phase
+    return 1.0 if (phase & 1) == 0 else -1.0
+
+
+@njit(inline='always')
+def pack_row_to_mask(row: np.ndarray) -> uint64:
+    m = np.uint64(0)
+    for j in range(row.shape[0]):
+        if row[j]:
+            m |= np.uint64(1) << np.uint64(j)
+    return m
+
+
+# ============================================================
+# === Numba core kernel with O(1) lookup using numba.Dict   ===
+# ============================================================
+
+@njit
+def _adag_adag_a_a_loop_numba_with_dict(
+    basis: np.ndarray,
+    prefix_sums: np.ndarray,
+    i1: int, i2: int, j1: int, j2: int,
+    masks: np.ndarray,
+    mask2index: Dict
+):
+    """
+    Numba-optimized kernel for constructing adag adag a a matrix elements
+    using O(1) lookup via a numba typed.Dict.
+
+    Returns rows, cols, data arrays for sparse COO construction.
+    """
+    n_basis, n_sites = basis.shape
+    rows = np.empty(n_basis, dtype=np.int64)
+    cols = np.empty(n_basis, dtype=np.int64)
+    data = np.empty(n_basis, dtype=np.float64)
+    count = 0
+
+    for idx in range(n_basis):
+        psi = basis[idx]
+
+        # Skip if creation/annihilation violates occupancy
+        if psi[j2] == 0 or psi[j1] == 0 or psi[i2] == 1 or psi[i1] == 1:
+            continue
+
+        # Copy and apply operators
+        new_basis = psi.copy()
+        new_basis[j2] = 0
+        new_basis[j1] = 0
+        new_basis[i2] = 1
+        new_basis[i1] = 1
+
+        # Compute fermionic phase efficiently
+        phase = 0
+        if j2 > 0:
+            phase += prefix_sums[idx, j2 - 1]
+        if j1 > 0:
+            phase += prefix_sums[idx, j1 - 1]
+        if i2 > 0:
+            phase += prefix_sums[idx, i2 - 1]
+        if i1 > 0:
+            phase += prefix_sums[idx, i1 - 1]
+
+        # Bitpack and lookup new index
+        m = pack_row_to_mask(new_basis)
+        new_index = mask2index.get(m, -1)
+
+
+        if new_index >= 0:
+            rows[count] = new_index
+            cols[count] = idx
+            data[count] = sign_from_phase(phase)
+            count += 1
+
+    return rows[:count], cols[:count], data[:count]
+
+
+# ============================================================
+# === Integration into your FemionicBasis class             ===
+# ============================================================

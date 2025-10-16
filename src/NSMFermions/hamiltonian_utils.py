@@ -7,8 +7,14 @@ from tqdm import trange,tqdm
 from .fermi_hubbard_library import FemionicBasis
 import numpy as np
 from scipy.sparse.linalg import eigsh
-
+from scipy.sparse import coo_matrix
+from tqdm import tqdm
+import numpy as np
 from typing import List, Dict, Tuple, Text, Optional,Callable
+from joblib import Parallel, delayed
+import sys, time
+from tqdm_joblib import tqdm_joblib
+from src.NSMFermions.fermi_hubbard_library import build_mask_mapping
 
 
 class FermiHubbardHamiltonian(FemionicBasis):
@@ -28,6 +34,9 @@ class FermiHubbardHamiltonian(FemionicBasis):
         self.dim_hilbert_space = self.basis.shape[0]
         
         self.basis = self.generate_fermi_hubbard_basis(symmetries)
+        
+        self.prefix_sums = np.cumsum(self.basis, axis=1)
+        self.masks, self.mask2index = build_mask_mapping(self.basis)
         self.encode = self._get_the_encode()
 
     def get_kinetic_operator(
@@ -86,6 +95,35 @@ class FermiHubbardHamiltonian(FemionicBasis):
 
         self.twobody_operator = ham_int
 
+
+    def get_twobody_interaction_optimized(self, twobody_dict):
+        """Constructs the two-body operator as a sparse matrix."""
+        N = self.size_a + self.size_b
+
+        row_accum = []
+        col_accum = []
+        data_accum = []
+
+        matrix_keys = list(twobody_dict.keys())
+        matrix_values = list(twobody_dict.values())
+
+        for q, indices in tqdm(enumerate(matrix_keys), total=len(matrix_keys), desc="Building two-body operator"):
+            i1, i2, i3, i4 = indices
+            value = matrix_values[q]
+
+            # Get the sparse term from the Numba-optimized function
+            term = self.adag_adag_a_a_matrix_optimized(i1=i1, i2=i2, j1=i4, j2=i3).tocoo()
+
+            # Accumulate scaled values
+            row_accum.extend(term.row)
+            col_accum.extend(term.col)
+            data_accum.extend(term.data * value / 4)
+
+        # Combine into a single CSR sparse matrix
+        self.twobody_operator = coo_matrix((data_accum, (row_accum, col_accum)), shape=(N, N)).tocsr()
+        print(f"Two-body operator constructed: shape={self.twobody_operator.shape}, nnz={self.twobody_operator.nnz}")
+
+    
     def get_hamiltonian(
         self,
     ):
