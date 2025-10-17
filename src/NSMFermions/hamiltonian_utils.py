@@ -4,7 +4,7 @@ from itertools import combinations
 from .cg_utils import ClebschGordan, SelectCG
 import matplotlib.pyplot as plt
 from tqdm import trange,tqdm
-from .fermi_hubbard_library import FemionicBasis
+from .fermi_hubbard_library import FemionicBasis,FermionicBasisOptimized
 import numpy as np
 from scipy.sparse.linalg import eigsh
 from scipy.sparse import coo_matrix
@@ -199,3 +199,86 @@ class FermiHubbardHamiltonian(FemionicBasis):
             operator = operator + external_potential[i] * self.adag_a_matrix_optimized(i=i, j=i).tocsr()
 
         self.external_potential = operator
+        
+        
+        
+
+class FermiHubbardHamiltonianOptimized(FermionicBasisOptimized):
+    def __init__(
+        self, size_a: int, size_b: int, nparticles_a: int, nparticles_b: int,
+        symmetries: Optional[List[Callable]] = None
+    ):
+        # Initialize bit-based basis from optimized class
+        super().__init__(size_a, nparticles_a, size_b, nparticles_b)
+        
+        # Apply symmetries if provided
+        if symmetries is not None:
+            keep_indices = []
+            for idx in range(len(self.basis_bits)):
+                vec = self.get_bitstring(idx)
+                keep = all(sym(np.nonzero(vec)[0]) for sym in symmetries)
+                if keep:
+                    keep_indices.append(idx)
+            self.basis_bits = self.basis_bits[keep_indices]
+            # Rebuild bit->index map
+            self.bit2index = self._make_bit2index(self.basis_bits)
+        
+        self.dim_hilbert_space = len(self.basis_bits)
+        self.kinetic_operator = None
+        self.external_potential = None
+        self.twobody_operator = None
+        self.hamiltonian = None
+
+    def get_kinetic_operator(self, hopping_term: float, adj_matrix: Optional[Dict] = None):
+        if adj_matrix is None:
+            adj_matrix = {}
+            # spin down / subsystem A
+            for i in range(self.nsites_a - 1):
+                adj_matrix[(i, i + 1)] = hopping_term
+            # spin up / subsystem B
+            for i in range(self.nsites_a, self.nsites_a + self.nsites_b - 1):
+                adj_matrix[(i, i + 1)] = hopping_term
+
+        operator = 0.0
+        for (i, j), value in adj_matrix.items():
+            operator += value * self.adag_a_matrix_optimized(i, j)
+        self.kinetic_operator = operator
+
+    def get_external_potential(self, external_potential: np.ndarray):
+        operator = 0.0
+        for i in range(len(external_potential)):
+            operator += external_potential[i] * self.adag_a_matrix_optimized(i, i)
+        self.external_potential = operator
+
+    def get_twobody_interaction(self, twobody_dict: Dict):
+        row_accum = []
+        col_accum = []
+        data_accum = []
+
+        for (i1, i2, j1, j2), value in tqdm(twobody_dict.items()):
+            term = self.adag_adag_a_a_matrix_optimized(i1, i2, j1, j2).tocoo()
+            row_accum.append(term.row)
+            col_accum.append(term.col)
+            data_accum.append(term.data * value / 4.0)
+
+        if len(data_accum) == 0:
+            self.twobody_operator = coo_matrix((len(self.basis_bits), len(self.basis_bits))).tocsr()
+            return
+
+        rows = np.concatenate(row_accum)
+        cols = np.concatenate(col_accum)
+        data = np.concatenate(data_accum)
+        self.twobody_operator = coo_matrix((data, (rows, cols)), shape=(len(self.basis_bits), len(self.basis_bits))).tocsr()
+
+    def get_hamiltonian(self):
+        self.hamiltonian = 0.0
+        if self.kinetic_operator is not None:
+            self.hamiltonian = self.kinetic_operator.copy()
+        if self.external_potential is not None:
+            self.hamiltonian += self.external_potential.copy()
+        if self.twobody_operator is not None:
+            self.hamiltonian += self.twobody_operator.copy()
+
+    def get_spectrum(self, n_states: int):
+        e, states = eigsh(self.hamiltonian, k=n_states, which="SA")
+        return e, states

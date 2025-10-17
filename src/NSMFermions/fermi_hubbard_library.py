@@ -13,7 +13,7 @@ from numba import njit
 from numba import njit, int64, uint64, float64
 from numba.typed import Dict
 from numba import types
-
+from src.NSMFermions.numba_utils import _adag_a_loop_numba_bits,_count_bits,_phase_for_annihilation,_adag_adag_a_a_loop_numba_bits
 
 class FemionicBasis:
 
@@ -774,3 +774,69 @@ def _adag_a_loop_numba(
             count += 1
 
     return rows[:count], cols[:count], data[:count]
+
+
+
+import numpy as np
+from numba.typed import Dict
+from numba import njit, int64
+from src.NSMFermions.numba_utils import generate_bit_basis_numba
+
+class FermionicBasisOptimized:
+    def __init__(self, nsites_a, nparticles_a, nsites_b, nparticles_b):
+        self.nsites_a = nsites_a
+        self.nparticles_a = nparticles_a
+        self.nsites_b = nsites_b
+        self.nparticles_b = nparticles_b
+        
+        # Generate basis as bitstrings
+        self.basis_bits = generate_bit_basis_numba(
+            nsites_a, nparticles_a, nsites_b, nparticles_b
+        )
+        
+        # Create bit → index dictionary
+        self.bit2index = self._make_bit2index(self.basis_bits)
+        
+
+        
+    @staticmethod
+    def _make_bit2index(basis_bits):
+        """
+        Create a numba-compatible dictionary mapping bit → index.
+        """
+        bit2index = Dict.empty(key_type=int64, value_type=int64)
+        for idx, b in enumerate(basis_bits):
+            bit2index[b] = idx
+        return bit2index
+
+    def get_bitstring(self, index: int) -> np.ndarray:
+        """
+        Given an index in the basis, return the corresponding occupation vector
+        as a 0/1 array.
+        """
+        b = self.basis_bits[index]
+        n_sites_total = self.nsites_a + self.nsites_b
+        vec = np.zeros(n_sites_total, dtype=np.int64)
+        for s in range(n_sites_total):
+            if (b >> s) & 1:
+                vec[s] = 1
+        return vec
+    
+    def adag_a_matrix_optimized(self, i: int, j: int) -> coo_matrix:
+        """Compute <basis_new | a^†_i a_j | basis> using bit basis."""
+        rows, cols, data = _adag_a_loop_numba_bits(
+            self.basis_bits, i, j, self.bit2index, self.nsites_a + self.nsites_b
+        )
+        return coo_matrix((data, (rows, cols)), shape=(len(self.basis_bits), len(self.basis_bits)))
+
+    def adag_adag_a_a_matrix_optimized(self, i1: int, i2: int, j1: int, j2: int) -> coo_matrix:
+        """Compute <basis_new | a^†_i a^†_j a_k a_l | basis> using bit basis."""
+        rows, cols, data = _adag_adag_a_a_loop_numba_bits(
+            self.basis_bits, i1, i2, j1, j2, self.bit2index, self.nsites_a + self.nsites_b
+        )
+        return coo_matrix((data, (rows, cols)), shape=(len(self.basis_bits), len(self.basis_bits)))
+
+# ===============================
+# === Numba kernels (bitwise) ===
+# ===============================
+
