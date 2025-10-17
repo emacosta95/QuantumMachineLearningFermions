@@ -28,7 +28,6 @@ class FemionicBasis:
 
         self.basis = self.generate_fermi_hubbard_basis()
         
-        self.prefix_sums = np.cumsum(self.basis, axis=1)
         self.masks, self.mask2index = build_mask_mapping(self.basis)
 
         self.encode = self._get_the_encode()
@@ -552,14 +551,23 @@ class FemionicBasis:
 
         rows, cols, data = _adag_adag_a_a_loop_numba_with_dict(
             self.basis,
-            self.prefix_sums,
             i1, i2, j1, j2,
             self.masks,
             self.mask2index
         )
+        
 
         return coo_matrix((data, (rows, cols)), shape=(n_states, n_states))
 
+    def adag_a_matrix_optimized(self, i, j):
+        rows, cols, data = _adag_a_loop_numba(
+            self.basis,        # basis array
+            i, j,
+            self.masks,
+            self.mask2index
+        )
+        from scipy.sparse import coo_matrix
+        return coo_matrix((data, (rows, cols)), shape=(self.basis.shape[0], self.basis.shape[0]))
 
 
 
@@ -641,7 +649,6 @@ def pack_row_to_mask(row: np.ndarray) -> uint64:
 @njit
 def _adag_adag_a_a_loop_numba_with_dict(
     basis: np.ndarray,
-    prefix_sums: np.ndarray,
     i1: int, i2: int, j1: int, j2: int,
     masks: np.ndarray,
     mask2index: Dict
@@ -662,36 +669,47 @@ def _adag_adag_a_a_loop_numba_with_dict(
         psi = basis[idx]
 
         # Skip if creation/annihilation violates occupancy
-        if psi[j2] == 0 or psi[j1] == 0 or psi[i2] == 1 or psi[i1] == 1:
+        if psi[j1]==0 or psi[j2]==0:
             continue
+        
+        if i1!=j1 and i1!=j2 and psi[i1]==1:
+            continue
+        
+        if i2!=j1 and i2!=j2 and psi[i2]==1:
+            continue
+        
+        
+        
+        # if psi[j2] == 0 or psi[j1] == 0 or psi[i2] == 1 or psi[i1] == 1:
+        #     continue
 
         # Copy and apply operators
+        phase = 0
         new_basis = psi.copy()
+        if j2 > 0:
+            phase += np.sum(psi[ :j2 ])
         new_basis[j2] = 0
+        if j1 > 0:
+            phase += np.sum(new_basis[ :j1 ])
         new_basis[j1] = 0
+        if i2 > 0:
+            phase += np.sum(new_basis[: i2 ])
         new_basis[i2] = 1
+        if i1>0:
+            phase += np.sum(new_basis[: i1 ])
         new_basis[i1] = 1
 
-        # Compute fermionic phase efficiently
-        phase = 0
-        if j2 > 0:
-            phase += prefix_sums[idx, j2 - 1]
-        if j1 > 0:
-            phase += prefix_sums[idx, j1 - 1]
-        if i2 > 0:
-            phase += prefix_sums[idx, i2 - 1]
-        if i1 > 0:
-            phase += prefix_sums[idx, i1 - 1]
 
         # Bitpack and lookup new index
         m = pack_row_to_mask(new_basis)
         new_index = mask2index.get(m, -1)
 
 
+
         if new_index >= 0:
             rows[count] = new_index
             cols[count] = idx
-            data[count] = sign_from_phase(phase)
+            data[count] = (-1) ** phase
             count += 1
 
     return rows[:count], cols[:count], data[:count]
@@ -700,3 +718,59 @@ def _adag_adag_a_a_loop_numba_with_dict(
 # ============================================================
 # === Integration into your FemionicBasis class             ===
 # ============================================================
+
+@njit
+def _adag_a_loop_numba(
+    basis: np.ndarray,
+    i: int, j: int,
+    masks: np.ndarray,
+    mask2index: Dict
+):
+    """
+    Numba-optimized kernel for constructing a single creation/annihilation matrix element
+    <basis_new | a^dag_i a_j | basis>.
+    
+    Returns rows, cols, data arrays for sparse COO construction.
+    """
+    n_basis, n_sites = basis.shape
+    rows = np.empty(n_basis, dtype=np.int64)
+    cols = np.empty(n_basis, dtype=np.int64)
+    data = np.empty(n_basis, dtype=np.float64)
+    count = 0
+
+    for idx in range(n_basis):
+        psi = basis[idx]
+
+        # Skip if annihilation is not allowed
+        if psi[j] == 0:
+            continue
+
+        # Skip if creation is not allowed (avoid double occupancy)
+        if i != j and psi[i] == 1:
+            continue
+
+        # Copy and apply operators
+        new_basis = psi.copy()
+         # Compute fermionic phase
+        phase = 0
+        if j > 0:
+            phase += np.sum(psi[: j ])
+        new_basis[j] = 0
+        if i > 0:
+            phase += np.sum(new_basis[: i ])
+        new_basis[i] = 1
+
+        # Bitpack and lookup new index
+        m = 0
+        for s in range(n_sites):
+            if new_basis[s]:
+                m |= 1 << s
+        new_index = mask2index.get(m, -1)
+
+        if new_index >= 0:
+            rows[count] = new_index
+            cols[count] = idx
+            data[count] = (-1) ** phase
+            count += 1
+
+    return rows[:count], cols[:count], data[:count]

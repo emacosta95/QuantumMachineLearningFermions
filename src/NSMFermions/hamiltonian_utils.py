@@ -35,10 +35,10 @@ class FermiHubbardHamiltonian(FemionicBasis):
         
         self.basis = self.generate_fermi_hubbard_basis(symmetries)
         
-        self.prefix_sums = np.cumsum(self.basis, axis=1)
-        self.masks, self.mask2index = build_mask_mapping(self.basis)
         self.encode = self._get_the_encode()
 
+        self.masks, self.mask2index = build_mask_mapping(self.basis)
+        
     def get_kinetic_operator(
         self, hopping_term: Optional[float] = None, adj_matrix: Optional[Dict] = None
     ):
@@ -97,31 +97,46 @@ class FermiHubbardHamiltonian(FemionicBasis):
 
 
     def get_twobody_interaction_optimized(self, twobody_dict):
-        """Constructs the two-body operator as a sparse matrix."""
-        N = self.size_a + self.size_b
+        """
+        Build the two-body Hamiltonian efficiently using the precomputed
+        adag_adag_a_a_matrix_optimized kernel with bitmask lookup.
+        """
+        N = self.basis.shape[0]  # total Hilbert-space dimension
 
         row_accum = []
         col_accum = []
         data_accum = []
 
-        matrix_keys = list(twobody_dict.keys())
-        matrix_values = list(twobody_dict.values())
+        matrix_items = list(twobody_dict.items())
 
-        for q, indices in tqdm(enumerate(matrix_keys), total=len(matrix_keys), desc="Building two-body operator"):
-            i1, i2, i3, i4 = indices
-            value = matrix_values[q]
+        print(f"Building two-body operator with {len(matrix_items)} terms...")
 
-            # Get the sparse term from the Numba-optimized function
-            term = self.adag_adag_a_a_matrix_optimized(i1=i1, i2=i2, j1=i4, j2=i3).tocoo()
+        for (i1, i2, i3, i4), value in tqdm(matrix_items):
+            # Generate term from Numba-optimized kernel
+            term = self.adag_adag_a_a_matrix_optimized(
+                i1=i1, i2=i2, j1=i4, j2=i3
+            ).tocoo()
 
-            # Accumulate scaled values
-            row_accum.extend(term.row)
-            col_accum.extend(term.col)
-            data_accum.extend(term.data * value / 4)
 
-        # Combine into a single CSR sparse matrix
-        self.twobody_operator = coo_matrix((data_accum, (row_accum, col_accum)), shape=(N, N)).tocsr()
-        print(f"Two-body operator constructed: shape={self.twobody_operator.shape}, nnz={self.twobody_operator.nnz}")
+            # Accumulate contributions, scaled by 1/4
+            row_accum.append(term.row)
+            col_accum.append(term.col)
+            data_accum.append(term.data * (value / 4.0))
+        # Concatenate all term arrays in one shot
+
+        if len(data_accum) == 0:
+            print("Warning: no nonzero two-body terms generated.")
+            self.twobody_operator = coo_matrix((N, N)).tocsr()
+            return
+
+        rows = np.concatenate(row_accum)
+        cols = np.concatenate(col_accum)
+        data = np.concatenate(data_accum)
+
+        # Final sparse matrix build
+        self.twobody_operator = coo_matrix((data, (rows, cols)), shape=(N, N)).tocsr()
+
+        print(f"✅ Two-body operator built: shape={self.twobody_operator.shape}, nnz={self.twobody_operator.nnz}")
 
     
     def get_hamiltonian(
@@ -175,3 +190,12 @@ class FermiHubbardHamiltonian(FemionicBasis):
             basis=np.asarray(basis_with_symmetry)
         
         return basis
+
+    def get_external_potential_optimized(self, external_potential: np.ndarray):
+
+        operator = 0.0
+        for i in range(external_potential.shape[0]):
+
+            operator = operator + external_potential[i] * self.adag_a_matrix_optimized(i=i, j=i).tocsr()
+
+        self.external_potential = operator
