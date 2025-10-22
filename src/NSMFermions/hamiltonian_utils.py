@@ -14,7 +14,7 @@ from typing import List, Dict, Tuple, Text, Optional,Callable
 from joblib import Parallel, delayed
 import sys, time
 from tqdm_joblib import tqdm_joblib
-from src.NSMFermions.fermi_hubbard_library import build_mask_mapping
+from .fermi_hubbard_library import build_mask_mapping
 
 
 class FermiHubbardHamiltonian(FemionicBasis):
