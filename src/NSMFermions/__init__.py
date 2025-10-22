@@ -7,6 +7,7 @@ from .qml_models import *
 from .qml_utils import *
 from .utils_quasiparticle_approximation import *
 from .sdg_utils import *
+from .numba_utils import *
 
 __all__ = [
     "hamiltonian_utils",
@@ -18,4 +19,5 @@ __all__ = [
     "qml_utils",
     "utils_quasiparticle_approximation",
     "sdg_utils",
+    "numba_utils",
 ]

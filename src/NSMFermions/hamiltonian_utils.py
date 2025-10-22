@@ -203,6 +203,9 @@ class FermiHubbardHamiltonian(FemionicBasis):
         
         
 
+
+
+
 class FermiHubbardHamiltonianOptimized(FermionicBasisOptimized):
     def __init__(
         self, size_a: int, size_b: int, nparticles_a: int, nparticles_b: int,
