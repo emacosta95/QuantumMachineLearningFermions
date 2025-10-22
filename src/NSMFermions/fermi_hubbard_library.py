@@ -13,7 +13,7 @@ from numba import njit
 from numba import njit, int64, uint64, float64
 from numba.typed import Dict
 from numba import types
-from src.NSMFermions.numba_utils import _adag_a_loop_numba_bits,_count_bits,_phase_for_annihilation,_adag_adag_a_a_loop_numba_bits
+from .numba_utils import _adag_a_loop_numba_bits,_count_bits,_phase_for_annihilation,_adag_adag_a_a_loop_numba_bits
 
 class FemionicBasis:
 
@@ -780,7 +780,7 @@ def _adag_a_loop_numba(
 import numpy as np
 from numba.typed import Dict
 from numba import njit, int64
-from src.NSMFermions.numba_utils import generate_bit_basis_numba
+from .numba_utils import generate_bit_basis_numba
 
 class FermionicBasisOptimized:
     def __init__(self, nsites_a, nparticles_a, nsites_b, nparticles_b):
