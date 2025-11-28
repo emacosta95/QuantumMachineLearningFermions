@@ -665,7 +665,7 @@ class J2operator(FermiHubbardHamiltonian):
         # get the J^2 off-diagonal matrix
         matrix_j,_=get_twobody_nuclearshell_model(file_name=j_square_filename)
         # compute the two-body interaction of the J^2 off-diagonal
-        self.get_twobody_interaction(twobody_dict=matrix_j)    
+        self.get_twobody_interaction_optimized(twobody_dict=matrix_j)    
         
     def j2_operator(self):
         """get the J^2 operator as a Scipy.sparse matrix in the many-body basis
