@@ -24,9 +24,11 @@ from scipy.sparse.linalg import  lobpcg
 from itertools import product
 import multiprocessing
 from tqdm import tqdm, trange
-from scipy.sparse import identity
-from .fermi_hubbard_library import _adag_adag_a_a_loop_numba_with_dict,build_mask_mapping
-from scipy.sparse import coo_matrix
+from scipy.sparse import identity,coo_matrix
+from .fermi_hubbard_library import build_mask_mapping,pack_row_to_mask
+from numba import njit
+from numba import njit, int64, uint64, float64
+
 
 class QuasiParticlesConverter():
     
@@ -655,3 +657,58 @@ class HardcoreBosonsBasis:
                         continue
 
         return operator_pool
+
+
+@njit
+def _adag_adag_a_a_loop_numba_with_dict(
+    basis: np.ndarray,
+    i1: int, i2: int, j1: int, j2: int,
+    masks: np.ndarray,
+    mask2index: Dict
+):
+    """
+    Numba-optimized kernel for constructing adag adag a a matrix elements
+    using O(1) lookup via a numba typed.Dict.
+
+    Returns rows, cols, data arrays for sparse COO construction.
+    """
+    n_basis, n_sites = basis.shape
+    rows = np.empty(n_basis, dtype=np.int64)
+    cols = np.empty(n_basis, dtype=np.int64)
+    data = np.empty(n_basis, dtype=np.float64)
+    count = 0
+
+    for idx in range(n_basis):
+        psi = basis[idx]
+
+        # Skip if creation/annihilation violates occupancy
+        if psi[j1]==0 or psi[j2]==0:
+            continue
+        
+        if i1!=j1 and i1!=j2 and psi[i1]==1:
+            continue
+        
+        if i2!=j1 and i2!=j2 and psi[i2]==1:
+            continue
+        
+        
+        
+        # if psi[j2] == 0 or psi[j1] == 0 or psi[i2] == 1 or psi[i1] == 1:
+        #     continue
+
+        # Copy and apply operators
+        new_basis = psi.copy()
+        new_basis[i1] = 1
+
+
+        # Bitpack and lookup new index
+        m = pack_row_to_mask(new_basis)
+        new_index = mask2index.get(m, -1)
+
+        if new_index >= 0:
+            rows[count] = new_index
+            cols[count] = idx
+            data[count] = 1
+            count += 1
+
+    return rows[:count], cols[:count], data[:count]
