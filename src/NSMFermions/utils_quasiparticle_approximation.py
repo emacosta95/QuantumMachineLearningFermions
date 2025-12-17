@@ -26,7 +26,7 @@ import multiprocessing
 from tqdm import tqdm, trange
 from scipy.sparse import identity
 from .fermi_hubbard_library import _adag_adag_a_a_loop_numba_with_dict,build_mask_mapping
-
+from scipy.sparse import coo_matrix
 
 class QuasiParticlesConverter():
     
