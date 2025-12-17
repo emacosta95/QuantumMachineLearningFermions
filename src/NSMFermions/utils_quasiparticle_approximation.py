@@ -690,20 +690,22 @@ def _adag_adag_a_a_loop_numba_with_dict(
         
         if i2!=j1 and i2!=j2 and psi[i2]==1:
             continue
-        
-        
-        
-        # if psi[j2] == 0 or psi[j1] == 0 or psi[i2] == 1 or psi[i1] == 1:
-        #     continue
+
 
         # Copy and apply operators
+        phase = 0
         new_basis = psi.copy()
+        new_basis[j2] = 0
+        new_basis[j1] = 0
+        new_basis[i2] = 1
         new_basis[i1] = 1
 
 
         # Bitpack and lookup new index
         m = pack_row_to_mask(new_basis)
         new_index = mask2index.get(m, -1)
+
+
 
         if new_index >= 0:
             rows[count] = new_index
