@@ -25,6 +25,9 @@ from itertools import product
 import multiprocessing
 from tqdm import tqdm, trange
 from scipy.sparse import identity
+from .fermi_hubbard_library import _adag_adag_a_a_loop_numba_with_dict,build_mask_mapping
+
+
 class QuasiParticlesConverter():
     
     def __init__(self,):
@@ -293,6 +296,8 @@ class HardcoreBosonsBasis:
 
         self.size_a=self.size//2
         self.size_b=self.size//2
+        
+        self.masks, self.mask2index = build_mask_mapping(self.basis)
    
 
     
@@ -344,7 +349,28 @@ class HardcoreBosonsBasis:
                                                 operator[new_index, idx] = 1
 
         return operator
+    
+    def adag_adag_a_a_matrix_optimized(self, i1: int, i2: int, j1: int, j2: int) -> coo_matrix:
+        """
+        Fully optimized version using numba Dict lookup.
+        """
+        n_states, _ = self.basis.shape
+
+        if not self.charge_computation([i1, i2], [j1, j2]):
+            print("Does not conserve particles.")
+            return coo_matrix((n_states, n_states))
+
+        rows, cols, data = _adag_adag_a_a_loop_numba_with_dict(
+            self.basis,
+            i1, i2, j1, j2,
+            self.masks,
+            self.mask2index
+        )
         
+
+        return coo_matrix((data, (rows, cols)), shape=(n_states, n_states))
+    
+    
     def three_body_matrix(
         self, i1: int, i2: int, i3: int, j1: int, j2: int, j3: int
     ) -> np.ndarray:
