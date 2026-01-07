@@ -358,10 +358,6 @@ class HardcoreBosonsBasis:
         """
         n_states, _ = self.basis.shape
 
-        if not self.charge_computation([i1, i2], [j1, j2]):
-            print("Does not conserve particles.")
-            return coo_matrix((n_states, n_states))
-
         rows, cols, data = _adag_adag_a_a_loop_numba_with_dict(
             self.basis,
             i1, i2, j1, j2,
