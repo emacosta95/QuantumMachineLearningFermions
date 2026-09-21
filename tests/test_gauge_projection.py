@@ -1,9 +1,9 @@
 import unittest
 import numpy as np
-from test_number_projection import pairing_model
-from number_projection import NumberProjectedSpace
+from test_number_projection import pairing_model, FermiHubbardHamiltonian
+from number_projection import project_particle_numbers
 from gauge_projection import GaugeProjectedEnergy, pfaffian
-from hfb import HFBHamiltonian
+from hfb import HFBHamiltonian, HFBState
 
 
 class TestGaugeProjection(unittest.TestCase):
@@ -16,20 +16,18 @@ class TestGaugeProjection(unittest.TestCase):
 
     def test_complex_grid_against_exact_projection(self):
         ham=pairing_model()
-        space=NumberProjectedSpace(ham,[0,1],[1,1])
+        exact=FermiHubbardHamiltonian(ham,[0,1],[1,1])
+        evaluator=GaugeProjectedEnergy(ham,[0,1],[1,1])
         for seed in range(3):
             x=np.random.default_rng(seed).normal(size=12)*.3
-            z=space.unpack(x)
-            expected=space.energy_and_gradient(x)[0]
+            z=evaluator.unpack(x)
+            # Explicit FermiHubbardHamiltonian PAV is the reference for the
+            # polynomial-memory gauge-kernel energy.
+            expected=project_particle_numbers(
+                HFBState.from_thouless(z),exact).energy
             for grid,offset in [((3,3),.137),((4,5),.319)]:
                 actual=GaugeProjectedEnergy(ham,[0,1],[1,1],grid,offset).energy(z)
                 self.assertAlmostEqual(expected,actual,places=10)
-
-    def test_polynomial_grid_optimizer(self):
-        evaluator=GaugeProjectedEnergy(pairing_model(),[0,1],[1,1])
-        fit=evaluator.solve(seed=7,maxiter=100,tolerance=1e-13)
-        self.assertTrue(fit.success,fit.message)
-        self.assertAlmostEqual(fit.fun,-.2-np.sqrt(4+.2**2),places=8)
 
     def test_undersized_grid_rejected(self):
         with self.assertRaises(ValueError):
@@ -46,10 +44,11 @@ class TestGaugeProjection(unittest.TestCase):
         charges=species[:,None]+species[None,:]
         v*=charges[:,:,None,None]==charges[None,None,:,:]
         ham=HFBHamiltonian(h,v)
-        space=NumberProjectedSpace(ham,[0,1,2],[2,2])
+        exact=FermiHubbardHamiltonian(ham,[0,1,2],[2,2])
         x=rng.normal(size=30)*.3
-        z=space.unpack(x)
         grid=GaugeProjectedEnergy(ham,[0,1,2],[2,2])
-        self.assertAlmostEqual(grid.energy(z),space.energy_and_gradient(x)[0],places=10)
+        z=grid.unpack(x)
+        expected=project_particle_numbers(HFBState.from_thouless(z),exact).energy
+        self.assertAlmostEqual(grid.energy(z),expected,places=10)
         d=np.exp([.2,.2,.2,-.4,-.4,-.4])
         self.assertAlmostEqual(grid.energy(d[:,None]*z*d[None,:]),grid.energy(z),places=10)

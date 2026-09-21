@@ -1,111 +1,167 @@
+"""Projection-after-variation tests using the fermionic-Hamiltonian interface."""
+
+from itertools import combinations
 import sys
 from pathlib import Path
 import unittest
+
 import numpy as np
-from scipy.optimize._numdiff import approx_derivative
+from scipy import sparse
 
-sys.path.insert(0,str(Path(__file__).parents[1]/'src/NSMFermions'))
-from hfb import HFBHamiltonian, HFBState, solve_hfb
-from number_projection import NumberProjectedSpace, solve_number_vap, state_from_thouless
-from test_hfb import annihilators
+sys.path.insert(0, str(Path(__file__).parents[1] / "src/NSMFermions"))
+from hfb import HFBHamiltonian, HFBState
+from number_projection import exact_ground_state, project_particle_numbers
 
 
-def pairing_model(g=.2):
-    v=np.zeros((4,)*4)
-    for i,j in [(0,2),(1,3)]:
-        for k,l in [(0,2),(1,3)]:
-            v[i,j,k,l]=v[j,i,l,k]=-g
-            v[j,i,k,l]=v[i,j,l,k]=g
-    return HFBHamiltonian(np.diag([-1.,1.,-1.,1.]),v)
+def pairing_model(g=0.2):
+    """Return raw h,v tensors for the four-mode regression pairing model."""
+    # Couple the two proton-neutron pairs (0,2) and (1,3) with strength -g.
+    interaction = np.zeros((4,) * 4)
+    for i, j in [(0, 2), (1, 3)]:
+        for k, l in [(0, 2), (1, 3)]:
+            # Fill all antisymmetric permutations expected by HFBHamiltonian.
+            interaction[i, j, k, l] = interaction[j, i, l, k] = -g
+            interaction[j, i, k, l] = interaction[i, j, l, k] = g
+    return HFBHamiltonian(np.diag([-1.0, 1.0, -1.0, 1.0]), interaction)
+
+
+class FermiHubbardHamiltonian:
+    """Minimal test double for the production projection-facing interface."""
+
+    def __init__(self, raw_hamiltonian, neutron_modes, targets):
+        # Generate the exact fixed-N,Z determinant basis in the same mode order
+        # used by the production FermiHubbardHamiltonian class.
+        self.modes = len(raw_hamiltonian.h)
+        neutrons = list(neutron_modes)
+        protons = [i for i in range(self.modes) if i not in neutrons]
+        # Expose the same two-block metadata used by the production Hamiltonian.
+        self.species_modes = (tuple(neutrons), tuple(protons))
+        # Store the fixed counts in the identical species order.
+        self.particle_numbers = tuple(int(number) for number in targets)
+        self.occupations = [
+            tuple(sorted(neutron_occupation + proton_occupation))
+            for neutron_occupation in combinations(neutrons, targets[0])
+            for proton_occupation in combinations(protons, targets[1])
+        ]
+        self.masks = np.array([
+            sum(1 << mode for mode in occupation)
+            for occupation in self.occupations
+        ])
+
+        # Build the reference many-body matrix independently by applying every
+        # second-quantized one- and two-body operator to every determinant.
+        lookup = {mask: index for index, mask in enumerate(self.masks)}
+        terms = [
+            ([(j, False), (i, True)], raw_hamiltonian.h[i, j])
+            for i, j in zip(*np.nonzero(raw_hamiltonian.h))
+        ]
+        terms += [
+            (
+                [(k, False), (l, False), (j, True), (i, True)],
+                raw_hamiltonian.v[i, j, k, l] / 4,
+            )
+            for i, j, k, l in zip(*np.nonzero(raw_hamiltonian.v))
+        ]
+        rows, columns, values = [], [], []
+        for column, initial in enumerate(self.masks):
+            for operations, value in terms:
+                state, phase = int(initial), 1
+                for mode, create in operations:
+                    # Invalid creation/annihilation makes this term vanish.
+                    if bool(state & (1 << mode)) == create:
+                        break
+                    # Count occupied lower modes to obtain the fermionic sign.
+                    phase *= (-1) ** bin(state & ((1 << mode) - 1)).count("1")
+                    state ^= 1 << mode
+                else:
+                    if state in lookup:
+                        rows.append(lookup[state])
+                        columns.append(column)
+                        values.append(value * phase)
+        self.hamiltonian = sparse.coo_matrix(
+            (values, (rows, columns)),
+            shape=(len(self.masks),) * 2,
+        ).tocsr()
+        self.hamiltonian.sum_duplicates()
+
+    @property
+    def matrix(self):
+        """Expose the assembled fixed-sector matrix expected by PAV."""
+        return self.hamiltonian
+
+
+def fermionic_pairing_model():
+    """Return matching raw and fixed-sector Hamiltonian representations."""
+    raw = pairing_model()
+    exact = FermiHubbardHamiltonian(raw, [0, 1], [1, 1])
+    return raw, exact
 
 
 class TestNumberProjection(unittest.TestCase):
-    def test_analytic_gradient(self):
-        space=NumberProjectedSpace(pairing_model(),[0,1],[1,1])
-        x=np.random.default_rng(3).normal(size=12)
-        _,gradient=space.energy_and_gradient(x)
-        numerical=approx_derivative(lambda y:space.energy_and_gradient(y)[0],x).ravel()
-        np.testing.assert_allclose(gradient,numerical,atol=2e-9)
-        a,_=space.amplitudes_and_jacobian(x)
-        z=space.unpack(x)
-        np.testing.assert_allclose(a,[z[occ] for occ in space.occupations])
-        projected=space.projected_state(z)
-        np.testing.assert_allclose(projected,a/np.linalg.norm(a))
-        self.assertAlmostEqual(space.projected_fidelity(z,projected),1.)
-        state=state_from_thouless(z)
-        np.testing.assert_allclose(
-            state.occupation_amplitudes(space.occupations),a)
-        # U,V determine the same chart when U is nonsingular, even if the
-        # original Z is not retained explicitly on the state object.
-        recovered=HFBState(state.U,state.V).thouless_matrix
-        np.testing.assert_allclose(recovered,z,atol=1e-12)
-        self.assertLess(state.canonical_error(),1e-12)
+    def test_paired_state_projection_energy_and_fidelity(self):
+        raw, exact = fermionic_pairing_model()
 
-    def test_four_particle_pfaffian_gradient(self):
-        space=NumberProjectedSpace(HFBHamiltonian(np.diag(np.arange(6.)),np.zeros((6,)*4)),
-                                   [0,1,2],[2,2])
-        x=np.random.default_rng(10).normal(size=30)
-        a,_=space.amplitudes_and_jacobian(x)
-        z=space.unpack(x)
-        expected=[z[i,j]*z[k,l]-z[i,k]*z[j,l]+z[i,l]*z[j,k]
-                  for i,j,k,l in space.occupations]
-        np.testing.assert_allclose(a,expected)
-        _,g=space.energy_and_gradient(x)
-        num=approx_derivative(lambda y:space.energy_and_gradient(y)[0],x).ravel()
-        np.testing.assert_allclose(g,num,atol=2e-9)
+        # Construct a general finite-Z paired vacuum before applying projection.
+        rng = np.random.default_rng(3)
+        z = rng.normal(size=(4, 4)) + 1j * rng.normal(size=(4, 4))
+        z = 0.3 * (z - z.T)
+        state = HFBState.from_thouless(z)
 
-    def test_weak_pairing_collapse_and_vap_recovery(self):
-        ham=pairing_model()
-        hfb=solve_hfb(ham,[0,1],[1,1],starts=2,seed=3)
-        self.assertTrue(hfb.converged)
-        self.assertLess(np.linalg.norm(hfb.state.kappa),1e-3)
-        space=NumberProjectedSpace(ham,[0,1],[1,1])
-        vap=solve_number_vap(space,starts=2,seed=7,tolerance=1e-13)
-        self.assertTrue(vap.converged,vap.attempts)
-        exact=np.linalg.eigvalsh(space.matrix.toarray())[0]
-        self.assertAlmostEqual(exact,-.2-np.sqrt(4+.2**2),places=12)
-        self.assertAlmostEqual(vap.energy,exact,places=9)
-        self.assertLess(vap.energy,hfb.energy-.005)
+        # Diagonalize the exact fermionic Hamiltonian only to provide a target.
+        ground_energy, target = exact_ground_state(exact)
+        result = project_particle_numbers(state, exact, target)
 
-    def test_guards(self):
-        ham=pairing_model()
+        # Projection returns a normalized vector in exact.occupations order.
+        self.assertAlmostEqual(np.linalg.norm(result.projected_vector), 1.0)
+        self.assertGreater(result.sector_weight, 0.0)
+        self.assertGreaterEqual(result.fidelity, 0.0)
+        self.assertLessEqual(result.fidelity, 1.0 + 1e-12)
+        self.assertGreaterEqual(result.energy, ground_energy - 1e-12)
+        # Four modes split into two blocks require the exact 3 x 3 Fourier grid.
+        self.assertEqual(result.grid, (3, 3))
+
+        # Independently form the expected Pfaffian coefficient of each two-body
+        # determinant; for two particles it is simply Z_ij.
+        expected = np.array([z[occupation] for occupation in exact.occupations])
+        expected /= np.linalg.norm(expected)
+        np.testing.assert_allclose(result.projected_vector, expected)
+
+        # A larger shifted grid represents the same continuous U(1) x U(1)
+        # projector and must therefore return the same normalized vector.
+        larger = project_particle_numbers(
+            state, exact, grid=(5, 4), offset=0.319
+        )
+        np.testing.assert_allclose(larger.projected_vector, result.projected_vector)
+        self.assertAlmostEqual(larger.energy, result.energy)
+
+        # The intrinsic U,V remain canonical before and after projection.
+        self.assertLess(state.canonical_error(), 1e-12)
+        self.assertTrue(np.allclose(raw.h, raw.h.conj().T))
+
+    def test_collapsed_hf_state_uses_slater_amplitudes(self):
+        _, exact = fermionic_pairing_model()
+
+        # Occupy modes 0 and 2. This is a nonempty HF determinant with kappa=0,
+        # singular U, and therefore no finite particle-vacuum Thouless matrix.
+        orbitals = np.eye(4, dtype=complex)[:, [0, 2]]
+        state = HFBState.from_slater(orbitals)
         with self.assertRaises(ValueError):
-            NumberProjectedSpace(ham,[0,1],[1,0])
-        with self.assertRaises(ValueError):
-            NumberProjectedSpace(ham,[0,1],[1,1],max_dimension=1)
-        space=NumberProjectedSpace(ham,[0,1],[1,1])
-        with self.assertRaises(ValueError):
-            space.energy_and_gradient(np.zeros(12))
+            _ = state.thouless_matrix
 
-    def test_legacy_hamiltonian_matrix_comparison_reorders_basis(self):
-        space=NumberProjectedSpace(pairing_model(),[0,1],[1,1])
-        permutation=np.array([2,0,3,1])
-        class LegacyHamiltonian:
-            pass
-        legacy=LegacyHamiltonian()
-        legacy.basis=np.array([
-            [int(space.masks[i]>>mode & 1) for mode in range(space.modes)]
-            for i in permutation
-        ])
-        legacy.hamiltonian=space.matrix[permutation][:,permutation]
-        self.assertEqual(space.many_body_matrix_error(legacy),0.)
+        # PAV nevertheless works because HFBState switches from Pfaffians to
+        # determinants of occupied-orbital submatrices at the Slater boundary.
+        result = project_particle_numbers(state, exact)
+        expected = np.zeros(len(exact.occupations), complex)
+        expected[exact.occupations.index((0, 2))] = 1.0
+        np.testing.assert_allclose(abs(result.projected_vector), expected)
+        self.assertAlmostEqual(result.sector_weight, 1.0)
+        self.assertLess(np.linalg.norm(state.kappa), 1e-12)
 
-    def test_thouless_amplitudes_are_bogoliubov_vacuum(self):
-        rng=np.random.default_rng(2)
-        z=rng.normal(size=(4,4))+1j*rng.normal(size=(4,4)); z=(z-z.T)*.2
-        state=state_from_thouless(z)
-        psi=np.zeros(16,complex); psi[0]=1
-        for i in range(4):
-            for j in range(i+1,4):
-                psi[(1<<i)+(1<<j)]=z[i,j]
-        psi[15]=z[0,1]*z[2,3]-z[0,2]*z[1,3]+z[0,3]*z[1,2]
-        norm=np.exp(.5*np.linalg.slogdet(np.eye(4)+z.conj().T@z)[1])
-        self.assertAlmostEqual(np.vdot(psi,psi).real,norm,places=12)
-        a=annihilators(4)
-        for j in range(4):
-            beta=sum(state.U[i,j].conjugate()*a[i]+state.V[i,j].conjugate()*a[i].T for i in range(4))
-            self.assertLess(np.linalg.norm(beta@psi),1e-12)
+    def test_wrong_container_is_rejected(self):
+        state = HFBState.from_thouless(np.zeros((2, 2)))
+        with self.assertRaises(TypeError):
+            project_particle_numbers(state, object())
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     unittest.main()

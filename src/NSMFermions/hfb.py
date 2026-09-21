@@ -9,7 +9,7 @@ solver currently covers even total number parity only, not blocked odd states.
 from dataclasses import dataclass
 import numpy as np
 from pfapack import pfaffian as pf
-from scipy.linalg import expm
+from scipy.linalg import expm, null_space
 from scipy.optimize import minimize
 
 
@@ -47,6 +47,62 @@ class HFBState:
         values, vectors = np.linalg.eigh(metric)
         u = (vectors / np.sqrt(values)) @ vectors.conj().T
         return cls(u, z.conj() @ u, Z=z.copy())
+
+    @classmethod
+    def from_slater(cls, orbitals):
+        """Construct the singular-U Bogoliubov vacuum of a Slater determinant.
+
+        ``orbitals`` has shape ``(modes, particles)`` and contains orthonormal
+        occupied orbitals.  Occupied-orbital creation operators are hole-like
+        quasiparticle annihilators; the orthogonal complement supplies the
+        ordinary particle-like quasiparticles.
+        """
+        # Convert lists or real arrays to the complex matrix used by HFB algebra.
+        occupied = np.asarray(orbitals, complex)
+        # A Slater state is specified by one finite two-dimensional orbital matrix.
+        if occupied.ndim != 2 or not np.isfinite(occupied).all():
+            raise ValueError("Slater orbitals must be a finite matrix")
+        # Read the one-body dimension and number of occupied orbitals from C.
+        modes, particles = occupied.shape
+        # Canonical creation operators require C^dagger C = I.
+        if particles > modes or not np.allclose(
+            occupied.conj().T @ occupied, np.eye(particles), atol=1e-10
+        ):
+            raise ValueError("Slater orbitals must have orthonormal columns")
+
+        # Complete the occupied columns with an orthonormal empty-orbital basis.
+        empty = null_space(occupied.conj().T)
+        # Allocate the particle-like block of the Bogoliubov transformation.
+        u = np.zeros((modes, modes), complex)
+        # Allocate the hole-like block of the Bogoliubov transformation.
+        v = np.zeros((modes, modes), complex)
+        # beta_h = d_h^dagger for occupied orbitals and beta_p = d_p for empty
+        # orbitals.  This makes every beta annihilate the Slater determinant.
+        v[:, :particles] = occupied.conj()
+        u[:, particles:] = empty
+        # HFBState validation and observables now use the same canonical U,V API.
+        return cls(u, v)
+
+    @property
+    def slater_orbitals(self):
+        """Return occupied orbitals when this state is an exact Slater state."""
+        # A number-conserving Slater determinant has kappa=0 and rho^2=rho.
+        rho = self.rho
+        if np.linalg.norm(self.kappa) > 1e-8 or not np.allclose(
+            rho @ rho, rho, atol=1e-8
+        ):
+            raise ValueError("Bogoliubov state is not an unpaired Slater state")
+        # Hermitize roundoff before extracting natural occupations and orbitals.
+        hermitian_rho = (rho + rho.conj().T) / 2
+        occupations, orbitals = np.linalg.eigh(hermitian_rho)
+        # Eigenvalue one identifies an occupied natural orbital.
+        selected = occupations > 0.5
+        if not np.all(
+            (occupations[selected] > 1 - 1e-8)
+        ) or not np.all(occupations[~selected] < 1e-8):
+            raise ValueError("One-body density is not an idempotent Slater density")
+        # Return only the occupied columns; their phases do not affect fidelity.
+        return orbitals[:, selected]
 
     @property
     def thouless_matrix(self):
@@ -93,7 +149,22 @@ class HFBState:
         # order.  The caller normally supplies sorted determinant occupations.
         if occupied != tuple(sorted(occupied)):
             raise ValueError("Occupied modes must be in increasing order")
-        z = self.thouless_matrix
+        # A finite particle-vacuum Thouless chart covers paired vacua with
+        # nonzero vacuum overlap.  A nonempty HF determinant has singular U;
+        # calculate that boundary state's coefficients as orbital determinants.
+        try:
+            z = self.thouless_matrix
+        except ValueError as chart_error:
+            try:
+                orbitals = self.slater_orbitals
+            except ValueError:
+                raise chart_error
+            if len(occupied) != orbitals.shape[1]:
+                # A fixed-number Slater determinant vanishes in every other sector.
+                return 0j
+            # The coefficient of determinant I is the occupied-orbital minor det C_I.
+            return complex(np.linalg.det(orbitals[list(occupied), :]))
+
         if occupied:
             submatrix = z[np.ix_(occupied, occupied)]
             amplitude = pf.pfaffian(

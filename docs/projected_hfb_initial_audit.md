@@ -3,15 +3,23 @@
 Date: 2026-09-16. Scope: preliminary static inspection; no numerical validation or solver changes performed.
 
 Update: the initial audit below is retained as a record. A new complex,
-species-unrestricted HFB reference solver and five small numerical tests now
-exist; see `hfb_reference_solver.md` for verified behavior and limitations.
+species-unrestricted HFB reference solver and a PAV-only projection workflow now
+exist; see `hfb_reference_solver.md` and `particle_number_pav.md` for verified
+behavior and limitations. Variation after projection is not in the current
+scope.
 The agreed target allows full neutron-proton normal and pairing mixing with
 separate average-N,Z constraints. Existing HF is a validation limit, not the
 development objective.
 
 ## Context and working rules
 
-The objective is to extend NSMFermions with HFB, symmetry projection, variation after projection, and comparisons with exact nuclear-shell-model states. The prior ChatGPT discussion supplies the following working preferences: consult project/Notion context at session start; communicate concisely and rigorously; explain code structure and purpose before implementation; ask before expensive computations. These are a summary from that conversation, not a separately verified project-instructions file. No tracked AGENTS.md was found.
+The objective is to extend NSMFermions with HFB, projection after variation,
+and comparisons with exact nuclear-shell-model states. The prior ChatGPT
+discussion supplies the following working preferences: consult project/Notion
+context at session start; communicate concisely and rigorously; explain code
+structure and purpose before implementation; ask before expensive computations.
+These are a summary from that conversation, not a separately verified
+project-instructions file. No tracked AGENTS.md was found.
 
 Sources consulted:
 - ChatGPT conversation: Notion access confirmation.
@@ -45,7 +53,8 @@ These observations do not establish the cause of the collaborators' HFB energy d
 1. Specify and test complex U,V conventions and canonical constraints, with HF as a limiting case.
 2. Implement phase-consistent overlap and Hamiltonian kernels; explicitly address singular U and zero overlaps.
 3. Implement N,Z projection, with gauge-grid exactness/convergence checks.
-4. Implement PAV followed by particle-number VAP, checking gradients and optimizer convergence separately from kernel correctness.
+4. Implement particle-number PAV, checking the explicit fixed-sector vector
+   against polynomial gauge-angle kernels without reoptimizing after projection.
 5. Add exact-basis fidelity benchmarks with explicit sector weights and normalization. Distinguish N,Z projection from M=0 restriction and total-J projection.
 6. Choose the non-Gaussianity definition explicitly; fidelity to the energy-minimizing HFB state is not automatically fidelity to the closest Gaussian state.
 7. Add angular-momentum projection after validating the preceding layers.

@@ -38,6 +38,39 @@ class FermiHubbardHamiltonian(FemionicBasis):
         self.encode = self._get_the_encode()
 
         self.masks, self.mask2index = build_mask_mapping(self.basis)
+
+    @property
+    def modes(self):
+        """Total number of one-body modes represented by the basis."""
+        # Subsystem A occupies the first block and subsystem B the second block.
+        return self.size_a + self.size_b
+
+    @property
+    def species_modes(self):
+        """Mode indices of the two independently number-conserved species."""
+        # The legacy basis concatenates subsystem A followed by subsystem B.
+        species_a = tuple(range(self.size_a))
+        species_b = tuple(range(self.size_a, self.size_a + self.size_b))
+        # Returning immutable tuples prevents projection code from changing the basis.
+        return species_a, species_b
+
+    @property
+    def particle_numbers(self):
+        """Fixed particle counts for subsystem A and subsystem B."""
+        # These are exactly the counts used to generate every determinant row.
+        return int(self.nparticles_a), int(self.nparticles_b)
+
+    @property
+    def occupations(self):
+        """Occupied-mode tuples in the exact order of the Hamiltonian matrix."""
+        return [tuple(np.flatnonzero(row)) for row in self.basis]
+
+    @property
+    def matrix(self):
+        """Assembled fixed-sector many-body Hamiltonian matrix."""
+        if self.hamiltonian is None:
+            raise ValueError("Call get_hamiltonian() before using projections")
+        return self.hamiltonian
         
     def get_kinetic_operator(
         self, hopping_term: Optional[float] = None, adj_matrix: Optional[Dict] = None
@@ -231,6 +264,50 @@ class FermiHubbardHamiltonianOptimized(FermionicBasisOptimized):
         self.external_potential = None
         self.twobody_operator = None
         self.hamiltonian = None
+
+    @property
+    def modes(self):
+        """Total number of one-body modes represented by the basis."""
+        # The optimized bit basis uses the same A-then-B mode convention.
+        return self.nsites_a + self.nsites_b
+
+    @property
+    def species_modes(self):
+        """Mode indices of the two independently number-conserved species."""
+        # Construct the contiguous A block used by generate_bit_basis_numba.
+        species_a = tuple(range(self.nsites_a))
+        # Construct the following contiguous B block in the same bit ordering.
+        species_b = tuple(
+            range(self.nsites_a, self.nsites_a + self.nsites_b)
+        )
+        # Expose immutable metadata to the discrete gauge projector.
+        return species_a, species_b
+
+    @property
+    def particle_numbers(self):
+        """Fixed particle counts for subsystem A and subsystem B."""
+        # Preserve the constructor order rather than assigning physics labels here.
+        return int(self.nparticles_a), int(self.nparticles_b)
+
+    @property
+    def masks(self):
+        """Integer occupation masks in Hamiltonian-matrix order."""
+        return np.asarray(self.basis_bits, dtype=np.int64)
+
+    @property
+    def occupations(self):
+        """Occupied-mode tuples in the exact order of the Hamiltonian matrix."""
+        return [
+            tuple(mode for mode in range(self.modes) if int(mask) & (1 << mode))
+            for mask in self.basis_bits
+        ]
+
+    @property
+    def matrix(self):
+        """Assembled fixed-sector many-body Hamiltonian matrix."""
+        if self.hamiltonian is None:
+            raise ValueError("Call get_hamiltonian() before using projections")
+        return self.hamiltonian
 
     def get_kinetic_operator(self, hopping_term: float, adj_matrix: Optional[Dict] = None):
         if adj_matrix is None:

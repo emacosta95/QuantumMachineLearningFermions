@@ -10,9 +10,11 @@ import numpy as np
 from scipy.optimize import minimize
 
 if __package__:
-    from .number_projection import state_from_thouless
+    from .hfb import HFBState
+    from .number_projection import fermionic_basis_data
 else:
-    from number_projection import state_from_thouless
+    from hfb import HFBState
+    from number_projection import fermionic_basis_data
 
 
 @dataclass
@@ -42,84 +44,66 @@ class SlaterFidelityResult:
 class GaussianFidelityObjective:
     """Maximize raw |<target|Omega(Z)>|^2 over unrestricted complex Z.
 
-    `space` supplies the target's fixed-N,Z occupation basis and Pfaffian
-    amplitudes. No number constraint, species block, energy, or projection is
-    included in the objective. The determinant normalizes the complete Gaussian
-    vacuum across every even particle-number sector.
+    ``hamiltonian`` supplies the target's fixed-N,Z determinant ordering. No
+    energy minimization or projection is included in the objective: the raw
+    overlap includes the probability that the intrinsic Gaussian occupies the
+    target sector.
     """
-    def __init__(self, space, target):
-        # The target coefficients must use exactly the determinant ordering of
-        # NumberProjectedSpace.  Normalize here so the objective is a fidelity.
+    def __init__(self, hamiltonian, target):
+        # Obtain the canonical determinant ordering directly from the assembled
+        # FermiHubbardHamiltonian; no projection-specific space is rebuilt.
+        occupations, _, _ = fermionic_basis_data(hamiltonian)
+
+        # The target coefficients must use exactly that determinant ordering.
+        # Normalize here so every subsequent overlap is a fidelity.
         target=np.asarray(target,complex)
-        if target.shape!=(len(space.occupations),) or not np.isfinite(target).all():
-            raise ValueError('Target must match the projected-space basis')
+        if target.shape!=(len(occupations),) or not np.isfinite(target).all():
+            raise ValueError('Target must match the fermionic Hamiltonian basis')
         norm=np.linalg.norm(target)
         if norm<1e-14:
             raise ValueError('Target cannot vanish')
-        self.space=space
+        self.hamiltonian=hamiltonian
+        self.occupations=occupations
+        self.modes=hamiltonian.modes
         self.target=target/norm
-        # Row/column arrays selecting the independent upper-triangular entries
-        # of Z; reused in the analytic normalization derivative below.
-        self.ij=np.array(space.pairs).T
 
-    def fidelity_and_gradient(self,x):
-        """Return raw Gaussian fidelity and its real-coordinate gradient."""
-        # Convert real optimizer coordinates to Z and obtain the target-sector
-        # Pfaffian coefficients plus their analytic derivatives.
-        z=self.space.unpack(x)
-        amplitudes,derivative=self.space.amplitudes_and_jacobian(x)
+        # Every unordered mode pair contributes one complex Z entry, stored as
+        # consecutive real and imaginary blocks in the optimizer vector.
+        self.ij=np.triu_indices(self.modes,1)
+        self.pairs=list(zip(*self.ij))
 
-        # Only the target's fixed-N,Z sector contributes to <target|Phi(Z)>.
-        # ``amplitudes`` are still coefficients of the unnormalized exponential.
-        overlap=np.vdot(self.target,amplitudes)
+    def unpack(self,x):
+        """Convert real optimizer coordinates into antisymmetric complex Z."""
+        pair_count=len(self.pairs)
+        x=np.asarray(x,float)
+        if x.shape!=(2*pair_count,) or not np.isfinite(x).all():
+            raise ValueError('Invalid Gaussian Thouless parameters')
 
-        # The squared norm of the complete Thouless exponential, including all
-        # even particle-number sectors, is sqrt(det(I+Z^dagger Z)).
-        b=np.eye(self.space.modes)+z.conj().T@z
-        # Remove roundoff-level anti-Hermitian noise before Cholesky factorization.
-        b=(b+b.conj().T)/2
-        try:
-            cholesky=np.linalg.cholesky(b)
-        except np.linalg.LinAlgError as error:
-            raise ValueError('Invalid Gaussian normalization matrix') from error
-        logdet=2*np.log(np.diag(cholesky).real).sum()
-        normalization=np.exp(.5*logdet)
-        fidelity=float(abs(overlap)**2/normalization)
+        # Fill only i<j, then impose Z^T=-Z exactly.
+        z=np.zeros((self.modes,self.modes),complex)
+        z[self.ij]=x[:pair_count]+1j*x[pair_count:]
+        return z-z.T
 
-        # At exactly zero overlap the fidelity derivative also vanishes; avoid
-        # dividing by overlap in the logarithmic derivative formulas.
-        if abs(overlap)<1e-15:
-            return fidelity,np.zeros_like(x)
-
-        # Derivative of log|<target|Phi>|^2 with respect to Re(Z) and Im(Z).
-        da=self.target.conj()@derivative
-        log_overlap_x=2*np.real(da/overlap)
-        log_overlap_y=2*np.real(1j*da/overlap)
-        # Derivative of log sqrt(det B).  Antisymmetrizing the two selected
-        # entries accounts for Z_ji=-Z_ij when varying one independent pair.
-        c=np.linalg.solve(b,z.conj().T)
-        antisymmetric_trace=c[self.ij[1],self.ij[0]]-c[self.ij[0],self.ij[1]]
-        log_norm_x=np.real(antisymmetric_trace)
-        log_norm_y=-np.imag(antisymmetric_trace)
-        # dF = F [d log|overlap|^2 - d log(normalization)].
-        gradient=fidelity*np.r_[log_overlap_x-log_norm_x,
-                                log_overlap_y-log_norm_y]
-        return fidelity,gradient
+    def fidelity(self,x):
+        """Return raw fidelity between the intrinsic Gaussian and target."""
+        # HFBState owns construction, normalization, Pfaffian amplitudes, and
+        # the sector overlap; the objective only maps optimizer coordinates.
+        state=HFBState.from_thouless(self.unpack(x))
+        return state.fixed_sector_fidelity(self.target,self.occupations)
 
     def minimize(self,x):
-        """Negate value and gradient for SciPy's minimization interface."""
-        fidelity,gradient=self.fidelity_and_gradient(x)
-        return -fidelity,-gradient
+        """Negate fidelity for SciPy's minimization interface."""
+        return -self.fidelity(x)
 
 
-def maximize_gaussian_fidelity(space,target,*,starts=8,seed=0,maxiter=1000,
+def maximize_gaussian_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=1000,
                                tolerance=1e-13,gradient_tolerance=1e-6,
                                initial_parameters=None,parameter_bound=8.):
     """Multi-start local optimization of the unrestricted Gaussian fidelity."""
     if (starts<1 or maxiter<1 or tolerance<=0 or gradient_tolerance<=0
             or parameter_bound<=0):
         raise ValueError('Positive optimizer settings required')
-    objective=GaussianFidelityObjective(space,target)
+    objective=GaussianFidelityObjective(hamiltonian,target)
     rng=np.random.default_rng(seed)
     attempts=[]; candidates=[]
 
@@ -132,15 +116,17 @@ def maximize_gaussian_fidelity(space,target,*,starts=8,seed=0,maxiter=1000,
             # Include both ordinary and large-norm starts to probe Slater-like
             # boundaries of the Thouless chart.
             scale=.35 if attempt%2==0 else 1.5
-            x=rng.normal(scale=scale,size=2*len(space.pairs))
-        fit=minimize(objective.minimize,x,jac=True,method='L-BFGS-B',
+            x=rng.normal(scale=scale,size=2*len(objective.pairs))
+
+        # SciPy finite-differences this scalar fidelity objective. Keeping the
+        # optimizer separate from projection avoids reintroducing VAP logic.
+        fit=minimize(objective.minimize,x,jac=False,method='L-BFGS-B',
                      bounds=[(-parameter_bound,parameter_bound)]*len(x),
                      options={'maxiter':maxiter,'ftol':tolerance,
                               'gtol':gradient_tolerance/10,'maxls':50})
-        fidelity,gradient=objective.fidelity_and_gradient(fit.x)
-        # Re-evaluate the analytic gradient at SciPy's returned point instead of
-        # relying only on its success flag.
-        residual=float(np.linalg.norm(gradient))
+        fidelity=objective.fidelity(fit.x)
+        # L-BFGS-B reports its numerical objective gradient at the returned point.
+        residual=float(np.linalg.norm(fit.jac))
         ok=bool(fit.success and residual<=gradient_tolerance)
         attempts.append({'fidelity':fidelity,'converged':ok,
                          'gradient_norm':residual,'iterations':int(fit.nit),
@@ -149,8 +135,8 @@ def maximize_gaussian_fidelity(space,target,*,starts=8,seed=0,maxiter=1000,
     # Report the largest-fidelity point found, even if no attempt met the strict
     # convergence threshold; ``converged`` communicates that distinction.
     fidelity,ok,residual,x=max(candidates,key=lambda item:item[0])
-    z=space.unpack(x)
-    return GaussianFidelityResult(fidelity,x,z,state_from_thouless(z),ok,
+    z=objective.unpack(x)
+    return GaussianFidelityResult(fidelity,x,z,HFBState.from_thouless(z),ok,
                                   residual,attempts)
 
 
@@ -188,7 +174,7 @@ def _slater_value_gradient(orbitals,occupations,target):
     return value,gradient
 
 
-def maximize_slater_fidelity(space,target,*,starts=8,seed=0,maxiter=2000,
+def maximize_slater_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=2000,
                              gradient_tolerance=1e-7,initial_orbitals=None):
     """Optimize the number-conserving Slater boundary of Gaussian states.
 
@@ -196,11 +182,13 @@ def maximize_slater_fidelity(space,target,*,starts=8,seed=0,maxiter=2000,
     manifold. Orbitals may mix neutron and proton modes; only total particle
     number equals the target sector's total number.
     """
+    # Reuse the exact basis owned by FermiHubbardHamiltonian.
+    occupations,_,_=fermionic_basis_data(hamiltonian)
     target=np.asarray(target,complex)
-    if target.shape!=(len(space.occupations),) or np.linalg.norm(target)<1e-14:
+    if target.shape!=(len(occupations),) or np.linalg.norm(target)<1e-14:
         raise ValueError('Target must match the fixed-sector basis')
     target=target/np.linalg.norm(target)
-    particles=sum(space.targets); modes=space.modes
+    particles=len(occupations[0]); modes=hamiltonian.modes
     rng=np.random.default_rng(seed)
     seeds=[]
     if initial_orbitals is not None:
@@ -210,7 +198,7 @@ def maximize_slater_fidelity(space,target,*,starts=8,seed=0,maxiter=2000,
         seeds.append(np.linalg.qr(c)[0])
     # Include the determinant with largest target coefficient as a deterministic
     # physically meaningful seed, then fill remaining starts randomly.
-    dominant=space.occupations[int(np.argmax(abs(target)))]
+    dominant=occupations[int(np.argmax(abs(target)))]
     c=np.zeros((modes,particles),complex); c[list(dominant),range(particles)]=1
     seeds.append(c)
     while len(seeds)<starts:
@@ -220,7 +208,7 @@ def maximize_slater_fidelity(space,target,*,starts=8,seed=0,maxiter=2000,
     for c in seeds[:starts]:
         value=0.; residual=np.inf
         for iteration in range(maxiter):
-            value,g=_slater_value_gradient(c,space.occupations,target)
+            value,g=_slater_value_gradient(c,occupations,target)
 
             # Project the Euclidean gradient onto the tangent space of the
             # complex Stiefel manifold C^dagger C=I.
@@ -235,13 +223,13 @@ def maximize_slater_fidelity(space,target,*,starts=8,seed=0,maxiter=2000,
             # orbital orthonormality after every trial step.
             for _ in range(30):
                 trial=np.linalg.qr(c+step*tangent)[0]
-                trial_value,_=_slater_value_gradient(trial,space.occupations,target)
+                trial_value,_=_slater_value_gradient(trial,occupations,target)
                 if trial_value>=value+1e-4*step*residual**2:
                     c=trial; accepted=True; break
                 step*=.5
             if not accepted:
                 break
-        value,g=_slater_value_gradient(c,space.occupations,target)
+        value,g=_slater_value_gradient(c,occupations,target)
         ctg=c.conj().T@g
         residual=float(np.linalg.norm(g-c@((ctg+ctg.conj().T)/2)))
         ok=bool(residual<=gradient_tolerance)

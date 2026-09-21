@@ -30,6 +30,62 @@ def legacy_definitions(filename, names, namespace):
     exec(compile(ast.Module(body=nodes, type_ignores=[]), filename, 'exec'), namespace)
 
 
+def build_fermionic_hamiltonian(interaction, eps, particles=(2, 2)):
+    """Build CKI in the repository's FermiHubbardHamiltonian container.
+
+    The benchmark loads only the two required legacy class definitions by AST
+    so optional machine-learning imports in ``NSMFermions.__init__`` are not
+    executed. The class implementation itself is otherwise unchanged.
+    """
+    # Supply the names referenced by the extracted class bodies. A lightweight
+    # Python mask map is sufficient for this small benchmark and avoids loading
+    # the optional Numba dictionary implementation.
+    namespace = dict(globals())
+
+    def build_mask_mapping(basis):
+        # Encode occupation row j as integer bit j, preserving basis order.
+        masks = np.array([
+            sum(int(bit) << mode for mode, bit in enumerate(row))
+            for row in basis
+        ], dtype=np.uint64)
+        # The legacy class expects both directions of the basis lookup.
+        return masks, {int(mask): index for index, mask in enumerate(masks)}
+
+    namespace['build_mask_mapping'] = build_mask_mapping
+    # Class annotations and sparse constructors refer to these names directly.
+    namespace['lil_matrix'] = sparse.lil_matrix
+    namespace['coo_matrix'] = sparse.coo_matrix
+    # Both extracted basis generators enumerate fixed-particle combinations.
+    namespace['combinations'] = itertools.combinations
+
+    # Load the established fermionic basis first because the Hamiltonian class
+    # inherits from it, then load FermiHubbardHamiltonian into the same namespace.
+    legacy_definitions('fermi_hubbard_library.py', ['FemionicBasis'], namespace)
+    legacy_definitions('hamiltonian_utils.py', ['FermiHubbardHamiltonian'], namespace)
+    cls = namespace['FermiHubbardHamiltonian']
+
+    # CKI orders six proton modes first and six neutron modes second. The legacy
+    # constructor names these generic subsystems a and b, respectively.
+    fermionic = cls(6, 6, particles[1], particles[0])
+
+    # The one-body CKI contribution is diagonal in the supplied spherical basis.
+    fermionic.get_external_potential(np.asarray(eps))
+
+    # Assemble the antisymmetrized two-body operator with the same 1/4 factor and
+    # operator order used by FermiHubbardHamiltonian.get_twobody_interaction.
+    two_body = sparse.csr_matrix((len(fermionic.basis),) * 2)
+    for (i1, i2, i3, i4), value in interaction.items():
+        term = fermionic.adag_adag_a_a_matrix(
+            i1=i1, i2=i2, j1=i4, j2=i3
+        )
+        two_body = two_body + (value / 4) * term
+    fermionic.twobody_operator = two_body
+
+    # Combine one- and two-body pieces into the matrix consumed by PAV.
+    fermionic.get_hamiltonian()
+    return fermionic
+
+
 def annihilators(m):
     result = []
     for i in range(m):

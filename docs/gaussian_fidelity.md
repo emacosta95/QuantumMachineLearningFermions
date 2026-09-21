@@ -13,7 +13,7 @@ searched. The implementation handles two parts of the even Gaussian manifold:
 
 - `maximize_gaussian_fidelity`: unrestricted Thouless vacua with nonzero vacuum
   overlap. It uses Pfaffian sector amplitudes, exact full-Gaussian normalization,
-  analytic gradients and multiple ordinary/large-norm starts.
+  finite-difference optimization and multiple ordinary/large-norm starts.
 - `maximize_slater_fidelity`: the singular number-conserving Slater boundary.
   It optimizes four complex occupied orbitals on the Stiefel manifold, permits
   proton-neutron orbital mixing, and uses analytic determinant gradients.
@@ -30,9 +30,8 @@ N_G = 1 - F_G.
 
 This is different from HFB energy optimization. The lowest-energy Gaussian need
 not be the Gaussian with largest ground-state fidelity. Likewise, the intrinsic
-vacuum underlying a PN-VAP state is optimized only after projection and can have
-small raw overlap with the exact state even when its normalized projected state
-has much larger fidelity.
+vacuum produced by intrinsic HFB variation can have small raw overlap with the
+exact state even when its normalized PAV state has much larger fidelity.
 
 The problem is non-convex. Multiple starts and small gradients establish a
 reproducible best-found stationary value, not a mathematical certificate of the
@@ -47,16 +46,17 @@ that the closest Gaussian belongs to the Slater boundary.
 from NSMFermions.gaussian_fidelity import (
     maximize_gaussian_fidelity, maximize_slater_fidelity)
 
-interior = maximize_gaussian_fidelity(space, exact_ground_state, starts=16)
-boundary = maximize_slater_fidelity(space, exact_ground_state, starts=10)
+interior = maximize_gaussian_fidelity(fermionic_hamiltonian, target, starts=16)
+boundary = maximize_slater_fidelity(fermionic_hamiltonian, target, starts=10)
 best_fidelity = max(interior.fidelity, boundary.fidelity)
 non_gaussianity = 1 - best_fidelity
 ```
 
-`space` is a small-system `NumberProjectedSpace`, which supplies occupation
-ordering and Pfaffian polynomials. Consequently, this implementation is an exact
-benchmark tool whose target representation scales combinatorially. It is not
-the polynomial gauge-kernel backend used for projected-energy evaluation.
+`fermionic_hamiltonian` is an existing `FermiHubbardHamiltonian` (or optimized
+variant). It supplies the determinant ordering used by `target`; the fidelity
+code does not build a second projected-space Hamiltonian. Consequently, this is
+an exact benchmark tool whose target representation scales combinatorially. It
+is not the polynomial gauge-kernel backend used for projected-energy evaluation.
 
 The state-level calculation is also available directly:
 
@@ -64,7 +64,9 @@ The state-level calculation is also available directly:
 from NSMFermions.hfb import HFBState
 
 state = HFBState.from_thouless(Z)
-fidelity = state.fixed_sector_fidelity(target, space.occupations)
+fidelity = state.fixed_sector_fidelity(
+    target, fermionic_hamiltonian.occupations
+)
 ```
 
 This returns the raw intrinsic-Gaussian fidelity optimized by
@@ -75,7 +77,7 @@ multiple starts rather than intrinsic state data.
 
 ## Verification
 
-The analytic Gaussian and Slater gradients are checked against finite
-differences. Full 4096-dimensional quasiparticle-vacuum reconstruction verifies
-the CKI overlaps independently. Twenty-one regression tests pass. Numerical CKI
-results are in `benchmarks/results/cki_be8_best_gaussian.md`.
+The analytic Slater gradient is checked against finite differences. Full
+4096-dimensional quasiparticle-vacuum reconstruction can verify CKI overlaps
+independently after the new PAV benchmark has been run. The unit tests also
+compare the Gaussian objective directly with the `HFBState` amplitude API.

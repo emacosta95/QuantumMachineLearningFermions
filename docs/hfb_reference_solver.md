@@ -8,8 +8,9 @@ All mode pairs are allowed in complex U,V: nn, pp, and np anomalous densities,
 and neutron-proton normal mixing. Species indices define number constraints,
 not variational blocks. This first implementation covers even total fermion
 parity. It does not fix neutron or proton parity separately. Odd-total blocked
-states, particle-number projection, angular-momentum projection, and VAP are
-not implemented.
+states are not implemented. Particle-number and J=0 projection after variation
+are implemented in the projection modules; variation after projection is
+deliberately outside the current scope.
 
 The optimizer minimizes the physical energy subject to average N and Z using
 SLSQP equality constraints. These are Lagrange-multiplier constraints, not a
@@ -80,8 +81,8 @@ The first CKI Be8 benchmark is now recorded in
 `benchmarks/results/cki_be8.md`: it reproduces a collapsed HF solution in a
 bounded local optimization. No large computation has been run. Pairing
 collapse is a permissible result: inspect paired starts, convergence and
-stability rather than forcing a nonzero anomalous density. After future
-number projection, use number-conserving pairing diagnostics because the
+stability rather than forcing a nonzero anomalous density. After number
+projection, use number-conserving pairing diagnostics because the
 projected state's anomalous expectation vanishes by number conservation.
 
 Primary methodological references:

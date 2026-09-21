@@ -53,5 +53,5 @@ state arrays are saved alongside this report in `cki_be8.json` and
 `cki_be8_state.npz`; script: `benchmarks/cki_be8.py`.
 
 Next scientific step: pairing stability around the collapsed state, followed
-by implementing particle-number VAP. PAV alone leaves this almost fixed-N,Z
-state's energy unchanged, as expected.
+by particle-number PAV. Because this solution is already almost fixed in N,Z,
+projection is expected to leave its energy nearly unchanged.

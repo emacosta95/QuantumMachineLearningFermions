@@ -3,11 +3,12 @@ import numpy as np
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parents[1]/'src/NSMFermions'))
-from hfb import HFBHamiltonian
-from number_projection import NumberProjectedSpace
+from hfb import HFBHamiltonian, HFBState
+from number_projection import project_particle_numbers
+from test_number_projection import FermiHubbardHamiltonian
 from angular_momentum import (single_particle_angular_momentum,
     polynomial_j0_grid, ParticleNumberJ0ProjectedEnergy, exact_j0_projector,
-    projected_observables, project_thouless_observables)
+    projected_observables, project_state_observables)
 
 
 def spin_half_model():
@@ -36,17 +37,20 @@ class TestAngularMomentum(unittest.TestCase):
 
     def test_gauge_euler_kernel_against_exact_projector(self):
         states,ham=spin_half_model()
-        space=NumberProjectedSpace(ham,[2,3],[1,1])
-        reference=exact_j0_projector(space,states)
+        exact_hamiltonian=FermiHubbardHamiltonian(ham,[2,3],[1,1])
+        reference=exact_j0_projector(exact_hamiltonian,states)
         self.assertEqual(reference.rank,1)
         rng=np.random.default_rng(31)
         x=rng.normal(size=12)*.4
-        amplitudes,_=space.amplitudes_and_jacobian(x)
-        exact=projected_observables(amplitudes,space,reference)
-        direct=project_thouless_observables(
-            space.unpack(x),space,reference,exact['vector'])
         evaluator=ParticleNumberJ0ProjectedEnergy(ham,states,[2,3],[1,1])
-        grid_energy=evaluator.energy(space.unpack(x))
+        z=evaluator.unpack(x)
+        state=HFBState.from_thouless(z)
+        number_result=project_particle_numbers(state,exact_hamiltonian)
+        exact=projected_observables(
+            number_result.projected_vector,exact_hamiltonian,reference)
+        direct=project_state_observables(
+            state,exact_hamiltonian,reference,exact['vector'])
+        grid_energy=evaluator.energy(z)
         self.assertAlmostEqual(exact['energy'],-1.,places=11)
         self.assertAlmostEqual(direct['fidelity'],1.,places=12)
         np.testing.assert_allclose(direct['vector'],exact['vector']/np.linalg.norm(exact['vector']))
