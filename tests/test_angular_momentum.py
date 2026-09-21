@@ -4,11 +4,11 @@ import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parents[1]/'src/NSMFermions'))
 from hfb import HFBHamiltonian, HFBState
-from number_projection import project_particle_numbers
+from number_projection import exact_ground_state
 from test_number_projection import FermiHubbardHamiltonian
 from angular_momentum import (single_particle_angular_momentum,
-    polynomial_j0_grid, ParticleNumberJ0ProjectedEnergy, exact_j0_projector,
-    projected_observables, project_state_observables)
+    polynomial_j0_grid, ParticleNumberJ0ProjectedEnergy,
+    project_state_observables)
 
 
 def spin_half_model():
@@ -35,26 +35,36 @@ class TestAngularMomentum(unittest.TestCase):
         with self.assertRaises(ValueError):
             polynomial_j0_grid(states,[2,3],[1,0])
 
-    def test_gauge_euler_kernel_against_exact_projector(self):
+    def test_gauge_euler_series_against_exact_ground_state(self):
         states,ham=spin_half_model()
         exact_hamiltonian=FermiHubbardHamiltonian(ham,[2,3],[1,1])
-        reference=exact_j0_projector(exact_hamiltonian,states)
-        self.assertEqual(reference.rank,1)
+        exact_energy,target=exact_ground_state(exact_hamiltonian)
         rng=np.random.default_rng(31)
         x=rng.normal(size=12)*.4
         evaluator=ParticleNumberJ0ProjectedEnergy(ham,states,[2,3],[1,1])
         z=evaluator.unpack(x)
         state=HFBState.from_thouless(z)
-        number_result=project_particle_numbers(state,exact_hamiltonian)
-        exact=projected_observables(
-            number_result.projected_vector,exact_hamiltonian,reference)
-        direct=project_state_observables(
-            state,exact_hamiltonian,reference,exact['vector'])
-        grid_energy=evaluator.energy(z)
-        self.assertAlmostEqual(exact['energy'],-1.,places=11)
-        self.assertAlmostEqual(direct['fidelity'],1.,places=12)
-        np.testing.assert_allclose(direct['vector'],exact['vector']/np.linalg.norm(exact['vector']))
-        self.assertAlmostEqual(grid_energy,exact['energy'],places=10)
+        # The production path constructs only gauge/Euler-rotated vacua and is
+        # checked against the independently diagonalized Hamiltonian ground state.
+        # Energy consumes the exact same finite vacuum series as the fidelity.
+        series=evaluator.projected_series(state)
+        direct=project_state_observables(series,exact_hamiltonian,target)
+        grid_energy=evaluator.series_energy(series)
+        self.assertAlmostEqual(exact_energy,-1.,places=11)
+        self.assertAlmostEqual(direct.fidelity,1.,places=12)
+        self.assertEqual(series.number_of_vacua,81)
+        self.assertEqual(series.euler_grid,(3,1,3))
+        self.assertAlmostEqual(direct.energy,exact_energy,places=10)
+        self.assertAlmostEqual(grid_energy,direct.energy,places=10)
+
+        # Explicit user grids directly control M without changing the API.
+        larger=ParticleNumberJ0ProjectedEnergy(
+            ham,states,[2,3],[1,1],number_grid=(4,5),euler_grid=(4,2,5))
+        larger_series=larger.projected_series(state)
+        self.assertEqual(larger_series.number_of_vacua,4*5*4*2*5)
+        larger_result=project_state_observables(
+            larger_series,exact_hamiltonian,target)
+        self.assertAlmostEqual(larger_result.fidelity,1.,places=11)
 
 
 if __name__=='__main__':unittest.main()

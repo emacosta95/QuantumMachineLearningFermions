@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from test_number_projection import pairing_model, FermiHubbardHamiltonian
-from number_projection import project_particle_numbers
+from number_projection import project_particle_numbers, projected_series_observables
 from gauge_projection import GaugeProjectedEnergy, pfaffian
 from hfb import HFBHamiltonian, HFBState
 
@@ -25,6 +25,14 @@ class TestGaugeProjection(unittest.TestCase):
             # polynomial-memory gauge-kernel energy.
             expected=project_particle_numbers(
                 HFBState.from_thouless(z),exact).energy
+            # Keep P_N P_Z|Phi> as gauge-rotated vacua and feed the same object
+            # to both the kernel energy and the late determinant expansion.
+            state=HFBState.from_thouless(z)
+            series=evaluator.projected_series(state)
+            expanded=projected_series_observables(series,exact)
+            self.assertEqual(series.number_of_vacua,9)
+            self.assertAlmostEqual(evaluator.series_energy(series),expected,places=10)
+            self.assertAlmostEqual(expanded.energy,expected,places=10)
             for grid,offset in [((3,3),.137),((4,5),.319)]:
                 actual=GaugeProjectedEnergy(ham,[0,1],[1,1],grid,offset).energy(z)
                 self.assertAlmostEqual(expected,actual,places=10)

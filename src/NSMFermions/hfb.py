@@ -269,6 +269,139 @@ class HFBState:
         )
 
 
+@dataclass
+class BogoliubovVacuumSeries:
+    """Weighted sum of one-body transformed Bogoliubov vacua.
+
+    A symmetry projector is represented without choosing a many-body basis as
+
+        |Psi> = sum_q weight[q] T[q] |Phi>.
+
+    ``transformations[q]`` is the one-body unitary associated with gauge and/or
+    Euler point ``q``. Determinant amplitudes are evaluated only when
+    :meth:`occupation_amplitudes` is called, which is the boundary between the
+    polynomial vacuum-series representation and an explicit Fock-space basis.
+    """
+
+    # Intrinsic HFB/HF vacuum to which every group transformation is applied.
+    intrinsic_state: HFBState
+    # One-body matrices T_q in the convention Z_q = T_q Z T_q^T.
+    transformations: np.ndarray
+    # Complex Fourier/quadrature coefficient multiplying every transformed ket.
+    weights: np.ndarray
+    # User-selected neutron/proton or subsystem-A/subsystem-B grid dimensions.
+    number_grid: tuple
+    # User-selected (alpha, beta, gamma) grid, or None for number projection only.
+    euler_grid: object = None
+    # Human-readable description retained in saved benchmark metadata.
+    projection: str = ""
+    # Fractional shift of both number Fourier grids.
+    number_offset: float = 0.137
+    # Fractional shift of alpha/gamma Euler grids, if present.
+    euler_offset: object = None
+
+    def __post_init__(self):
+        """Validate that every series term acts on the intrinsic one-body space."""
+        # Projection series are meaningful only for complete Bogoliubov states.
+        if not isinstance(self.intrinsic_state, HFBState):
+            raise TypeError("intrinsic_state must be an HFBState")
+        # Convert all transforms to one dense array with shape (terms,modes,modes).
+        self.transformations = np.asarray(self.transformations, dtype=complex)
+        # Convert all coefficients to one complex vector in the same term order.
+        self.weights = np.asarray(self.weights, dtype=complex)
+        # Read the expected one-body dimension from the intrinsic U matrix.
+        modes = len(self.intrinsic_state.U)
+        # Every coefficient must correspond to exactly one square transformation.
+        expected_shape = (len(self.weights), modes, modes)
+        if self.transformations.shape != expected_shape:
+            raise ValueError("Projection transforms and weights have incompatible shapes")
+        # NaN or infinite quadrature data would invalidate every observable.
+        if not np.isfinite(self.transformations).all() or not np.isfinite(self.weights).all():
+            raise ValueError("Projection series must contain finite data")
+        # Store grid metadata as immutable ordinary integers.
+        self.number_grid = tuple(int(points) for points in self.number_grid)
+        if self.euler_grid is not None:
+            self.euler_grid = tuple(int(points) for points in self.euler_grid)
+        # Store finite scalar offsets so series metadata are self-contained.
+        self.number_offset = float(self.number_offset)
+        if not np.isfinite(self.number_offset):
+            raise ValueError("Number-grid offset must be finite")
+        if self.euler_offset is not None:
+            self.euler_offset = float(self.euler_offset)
+            if not np.isfinite(self.euler_offset):
+                raise ValueError("Euler-grid offset must be finite")
+
+    @property
+    def number_of_vacua(self):
+        """Number M of transformed Bogoliubov vacua in the finite series."""
+        # There is one vacuum for each stored group-quadrature transformation.
+        return len(self.weights)
+
+    def occupation_amplitudes(self, occupations):
+        """Expand the projected series in selected occupation configurations.
+
+        This is intentionally the first operation that introduces an explicit
+        determinant basis. Finite-Z vacua use Pfaffians; exact Slater limits use
+        occupied-orbital minors with phases propagated by the same T_q matrices.
+        """
+        # Freeze determinant ordering because it must match the Hamiltonian rows.
+        occupations = tuple(tuple(int(mode) for mode in row) for row in occupations)
+        # Allocate the coefficient vector of the unnormalized projected state.
+        projected = np.zeros(len(occupations), dtype=complex)
+
+        try:
+            # A finite Thouless chart gives phase-consistent Pfaffian amplitudes.
+            z = self.intrinsic_state.thouless_matrix
+        except ValueError as chart_error:
+            try:
+                # Singular-U HF states are represented by occupied orbitals instead.
+                orbitals = self.intrinsic_state.slater_orbitals
+            except ValueError:
+                # Preserve the original chart error for a genuinely unsupported state.
+                raise chart_error
+
+            # Apply every gauge/Euler transformation to the same phased orbitals.
+            for weight, transform in zip(self.weights, self.transformations):
+                # A one-body unitary maps occupied columns as C_q = T_q C.
+                rotated_orbitals = transform @ orbitals
+                # Add the determinant minor for every requested configuration.
+                for index, occupied in enumerate(occupations):
+                    if len(occupied) == rotated_orbitals.shape[1]:
+                        projected[index] += weight * np.linalg.det(
+                            rotated_orbitals[list(occupied), :]
+                        )
+            return projected
+
+        # All unitary group rotations preserve det(I+Z^dagger Z), so compute the
+        # normalized intrinsic vacuum coefficient once for the complete series.
+        norm_matrix = np.eye(len(z)) + z.conj().T @ z
+        log_determinant = np.linalg.slogdet(norm_matrix)[1]
+        vacuum_amplitude = np.exp(-0.25 * log_determinant)
+
+        # Each quadrature term remains a Bogoliubov vacuum with Z_q=T_q Z T_q^T.
+        for weight, transform in zip(self.weights, self.transformations):
+            # Rotate both creation-operator indices of the Thouless matrix.
+            rotated_z = transform @ z @ transform.T
+            # Evaluate only the configurations requested by the eventual observable.
+            for index, occupied in enumerate(occupations):
+                # Unblocked even vacua have no odd-total-particle coefficients.
+                if len(occupied) % 2:
+                    continue
+                # The empty determinant has Pfaffian one by definition.
+                if not occupied:
+                    coefficient = 1.0 + 0.0j
+                else:
+                    # Extract the principal antisymmetric matrix for configuration I.
+                    submatrix = rotated_z[np.ix_(occupied, occupied)]
+                    # PFAPACK supplies its phase-consistent complex Pfaffian.
+                    coefficient = pf.pfaffian(
+                        submatrix, overwrite_a=False, method="P"
+                    )
+                # Accumulate w_q <I|T_q|Phi> into the projected-state coefficient.
+                projected[index] += weight * vacuum_amplitude * coefficient
+        return projected
+
+
 def state_from_parameters(x, modes):
     """Exponentiate an arbitrary complex antisymmetric pairing generator.
 

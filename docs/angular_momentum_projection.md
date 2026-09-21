@@ -27,10 +27,11 @@ The combined state and energy are
  \langle\Omega|P_NP_ZP_0|\Omega\rangle}.
 \]
 
-`ParticleNumberJ0ProjectedEnergy` evaluates this ratio directly from Pfaffian
-overlaps and transition densities. It does not construct a many-body vector.
-Neutron-proton mixing in the intrinsic state is retained. Physical rotations
-preserve the species label, so (P_N), (P_Z), and (P_0) commute.
+`ParticleNumberJ0ProjectedEnergy.projected_series` first represents this state
+as a finite coherent sum of gauge/Euler-rotated Bogoliubov vacua. The series is
+the common input to both the transition-kernel energy and the later fidelity
+calculation. Neutron-proton mixing in the intrinsic state is retained. Physical
+rotations preserve the species label, so (P_N), (P_Z), and (P_0) commute.
 
 ## Polynomial quadrature
 
@@ -55,6 +56,18 @@ For CKI (^{8}\mathrm{Be}), the automatically selected grids are
 - Euler grid: (9\times4\times9=324) points;
 - combined grid: 15,876 kernels per energy evaluation.
 
+The number of vacua in the projected series is therefore
+
+\[
+ M=L_NL_ZL_\alpha L_\beta L_\gamma.
+\]
+
+Both `number_grid=(L_N,L_Z)` and
+`euler_grid=(L_alpha,L_beta,L_gamma)` are public constructor arguments. Larger
+values can be used for explicit convergence studies. The defaults are the
+finite-space exactness bounds, and smaller grids are rejected because they
+alias particle-number or angular-momentum components.
+
 Thus one energy evaluation uses a number of kernels polynomial in the number
 of single-particle modes. With a dense two-body interaction, its cost is
 
@@ -66,17 +79,13 @@ This is a per-evaluation complexity statement. It does not make the global
 nonlinear optimization of the Bogoliubov vacuum polynomial or guarantee that
 a local optimizer finds the global minimum.
 
-## Validation backends
+## Validation
 
-`exact_j0_projector` constructs (J^2=J_x^2+J_y^2+J_z^2) in an enumerated
-fixed-(N,Z) space and diagonalizes it. This is deliberately a small-system
-reference, since its dimension is combinatorial. It is used to validate the
-polynomial kernel and to compute benchmark fidelities, not as the production
-projection algorithm.
-
-The regression test compares both implementations in a spin-half proton-neutron
-model. In CKI (^{8}\mathrm{Be}), the polynomial-grid projected energy differs
-from the exact-(J^2) reference by (4.97\times10^{-14}) MeV.
+No production or benchmark path constructs a projector by diagonalizing
+`J^2`. The regression test compares the vacuum-series result with independent
+exact Hamiltonian diagonalization in a spin-half proton-neutron model. It also
+verifies that changing the grids changes the stored number of vacua M while
+energy and fidelity remain correct once the exactness bounds are met.
 
 General (J>0) projection is not represented by the scalar (J=0) integral.
 A triaxial intrinsic vacuum then needs the full (P^J_{MK}) norm and Hamiltonian
@@ -86,18 +95,31 @@ vacua. Both are left as explicit extensions rather than hidden approximations.
 ## Minimal use
 
 ```python
-from NSMFermions.angular_momentum import ParticleNumberJ0ProjectedEnergy
-
-objective = ParticleNumberJ0ProjectedEnergy(
-    ham, state_encoding, neutron_modes, targets=(2, 2)
+from NSMFermions.angular_momentum import (
+    ParticleNumberJ0ProjectedEnergy,
+    project_state_observables,
 )
-energy = objective.energy(Z)
-print(objective.grid, objective.euler_grid.size, energy)
+
+projector = ParticleNumberJ0ProjectedEnergy(
+    ham,
+    state_encoding,
+    neutron_modes,
+    targets=(2, 2),
+    number_grid=(7, 7),
+    euler_grid=(9, 4, 9),
+)
+series = projector.projected_series(state)
+energy = projector.series_energy(series)
+result = project_state_observables(
+    series, fermionic_hamiltonian, exact_target
+)
+print(series.number_of_vacua, energy, result.fidelity)
 ```
 
-Here `Z` is the antisymmetric Thouless matrix of the intrinsic Bogoliubov
-vacuum. The saved (^{8}\mathrm{Be}) benchmark can be reproduced with
-`python benchmarks/cki_be8_j0_projection.py`.
+No determinant basis is used by `projected_series` or `series_energy`.
+`project_state_observables` expands the same series only when the target-basis
+fidelity is requested. The CKI benchmark accepts `--number-grid LN LZ` and
+`--euler-grid LALPHA LBETA LGAMMA`.
 
 ## References
 

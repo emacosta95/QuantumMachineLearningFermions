@@ -1,93 +1,147 @@
-"""Apply particle-number and J=0 PAV to the saved CKI Be8 HFB vacuum."""
+"""Gauge/Euler-series P_N P_Z P_J=0 projection of the CKI Be8 HFB vacuum."""
+
+import argparse
 import json
 import time
+from typing import Callable, ClassVar, Dict, List, Optional, Tuple
+
 import numpy as np
+
+# Importing cki_be8 first establishes the isolated src/NSMFermions path used by
+# all benchmark scripts without importing optional package-level dependencies.
 from cki_be8 import ROOT, build_fermionic_hamiltonian, legacy_definitions
-from typing import List, Dict, Tuple, Optional, Callable, ClassVar
+from angular_momentum import (
+    ParticleNumberJ0ProjectedEnergy,
+    project_state_observables,
+)
 from hfb import HFBHamiltonian, HFBState
-from number_projection import exact_ground_state, project_particle_numbers
-from angular_momentum import (ParticleNumberJ0ProjectedEnergy,
-    exact_j0_projector, project_state_observables)
+from number_projection import exact_ground_state
 
 
-def main():
-    # Rebuild the same CKI Hamiltonian and single-particle angular-momentum
-    # encoding used to generate the saved intrinsic HFB vacuum. Raw h,v tensors are
-    # required by the gauge/Euler kernels; the base CKI benchmark validates
-    # their matrix against the legacy fermionic-basis construction.
-    start=time.perf_counter(); ns=dict(globals(),trange=range)
-    legacy_definitions('cg_utils.py',['CG','ClebschGordan','SelectCG',
-        'CreateInitialCGList','CalcInitialValues','DivCalc','CgJM'],ns)
-    legacy_definitions('nuclear_physics_utils.py',['SingleParticleState','krond',
-        'scattering_matrix_reader','compute_nuclear_twobody_matrix',
-        'get_twobody_nuclearshell_model'],ns)
-    interaction,eps=ns['get_twobody_nuclearshell_model'](str(ROOT/'data/cki'))
-    sp=ns['SingleParticleState'](str(ROOT/'data/cki'))
-    ham=HFBHamiltonian(np.diag(eps),interaction)
-    neutrons=list(range(6,12))
+def main(number_grid=None, euler_grid=None):
+    """Project with caller-controlled number and Euler quadrature dimensions."""
+    # Include data loading, series construction, and fidelity in elapsed time.
+    start = time.perf_counter()
 
-    # Reuse the established fermionic Hamiltonian for the N=2,Z=2 basis and
-    # exact many-body matrix; the projection code does not rebuild either one.
-    fermionic=build_fermionic_hamiltonian(interaction,eps,particles=(2,2))
-
-    # Exact diagonalization supplies the fixed-N,Z ground-state target for the
-    # fidelity.  This step is possible only because the benchmark space is small.
-    exact_energy,target=exact_ground_state(fermionic)
-
-    # Build P_J=0 explicitly by diagonalizing J^2 in the same determinant basis.
-    reference=exact_j0_projector(fermionic,sp.state_encoding)
-    target_j2=float(np.vdot(target,reference.j2@target).real)
-
-    # Load the intrinsic state produced before particle-number PAV.
-    saved=np.load(ROOT/'benchmarks/results/cki_be8_pav_state.npz')
-
-    # Reconstruct HFBState from its canonical U,V representation. Preserve Z
-    # only when the intrinsic state had a finite particle-vacuum chart.
-    stored_z=saved['Z'] if bool(saved['has_thouless']) else None
-    state=HFBState(saved['U'],saved['V'],Z=stored_z)
-
-    # Construct the state in two explicit stages:
-    #   Z -> normalized P_N P_Z|Phi(Z)> -> normalized P_J=0 P_N P_Z|Phi(Z)>.
-    # The helper also computes the J=0 weight, energy, and target fidelity.
-    pn_result=project_particle_numbers(state,fermionic,target)
-    pn=pn_result.projected_vector
-    exact_result=project_state_observables(
-        state,fermionic,reference,target
+    # Load only the legacy CKI definitions required by this benchmark.
+    namespace = dict(globals(), trange=range)
+    legacy_definitions(
+        "cg_utils.py",
+        [
+            "CG", "ClebschGordan", "SelectCG", "CreateInitialCGList",
+            "CalcInitialValues", "DivCalc", "CgJM",
+        ],
+        namespace,
+    )
+    legacy_definitions(
+        "nuclear_physics_utils.py",
+        [
+            "SingleParticleState", "krond", "scattering_matrix_reader",
+            "compute_nuclear_twobody_matrix", "get_twobody_nuclearshell_model",
+        ],
+        namespace,
     )
 
-    # Independently evaluate the same projected energy with gauge and Euler
-    # kernels, never materializing the many-body vector.  Agreement validates
-    # the polynomial-memory projection against the explicit reference route.
-    evaluator=ParticleNumberJ0ProjectedEnergy(ham,sp.state_encoding,neutrons,[2,2])
-    grid_energy=(evaluator.energy(stored_z) if stored_z is not None else None)
-    report={'nucleus':'Be8','target_J':0,
-        'number_grid':list(evaluator.grid),
-        'explicit_number_grid':list(pn_result.grid),
-        'explicit_number_grid_offset':pn_result.grid_offset,
-        'euler_grid':[len(evaluator.euler_grid.alpha),len(evaluator.euler_grid.cos_beta),
-                      len(evaluator.euler_grid.gamma)],
-        'number_grid_points':int(np.prod(evaluator.grid)),
-        'euler_grid_points':evaluator.euler_grid.size,
-        'combined_kernel_points':int(np.prod(evaluator.grid))*evaluator.euler_grid.size,
-        'M_bound':evaluator.euler_grid.m_bound,'J_bound':evaluator.euler_grid.j_bound,
-        'exact_J0_subspace_dimension':reference.rank,'exact_ground_J2':target_j2,
-        'pn_energy':pn_result.energy,
-        'pn_fidelity':pn_result.fidelity,
-        'J0_weight_within_NZ':exact_result['j0_weight'],
-        'pnj0_energy_exact_reference':exact_result['energy'],
-        'pnj0_fidelity_exact_reference':exact_result['fidelity'],
-        'pnj0_energy_polynomial_grid':grid_energy,
-        'grid_reference_energy_difference':(
-            grid_energy-exact_result['energy'] if grid_energy is not None else None),
-        'exact_ground_energy':exact_energy,
-        'elapsed_seconds':time.perf_counter()-start}
-    out=ROOT/'benchmarks/results'
-    # Save the normalized N,Z,J=0 vector together with its determinant masks so
-    # downstream observables use the correct basis ordering.
-    (out/'cki_be8_j0_projection.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
-    np.savez(out/'cki_be8_j0_projected_state.npz',projected_vector=exact_result['vector'],
-             masks=np.array(fermionic.masks))
-    print(json.dumps(report,indent=2))
+    # Read the antisymmetrized CKI interaction and one-body energies.
+    interaction, eps = namespace["get_twobody_nuclearshell_model"](
+        str(ROOT / "data/cki")
+    )
+    # Read spherical quantum numbers needed to construct spatial rotations.
+    single_particle = namespace["SingleParticleState"](str(ROOT / "data/cki"))
+    # The tensor Hamiltonian supplies transition-density energy kernels.
+    intrinsic_hamiltonian = HFBHamiltonian(np.diag(eps), interaction)
+    # CKI places its six neutron modes after its six proton modes.
+    neutron_modes = list(range(6, 12))
+
+    # Introduce a determinant basis only for the final components and target.
+    fermionic = build_fermionic_hamiltonian(interaction, eps, particles=(2, 2))
+    # Obtain the exact target in precisely fermionic.occupations ordering.
+    exact_energy, target = exact_ground_state(fermionic)
+
+    # Load the intrinsic HFB state produced before symmetry projection.
+    saved = np.load(ROOT / "benchmarks/results/cki_be8_pav_state.npz")
+    # Preserve Z only if the intrinsic state has a finite Thouless chart.
+    stored_z = saved["Z"] if bool(saved["has_thouless"]) else None
+    # Reconstruct the common U,V vacuum used by every group-orbit term.
+    state = HFBState(saved["U"], saved["V"], Z=stored_z)
+
+    # Configure simultaneous N,Z,J=0 quadrature. The Euler tuple directly
+    # controls the alpha, beta, and gamma discretization dimensions.
+    evaluator = ParticleNumberJ0ProjectedEnergy(
+        intrinsic_hamiltonian,
+        single_particle.state_encoding,
+        neutron_modes,
+        [2, 2],
+        number_grid=number_grid,
+        euler_grid=euler_grid,
+    )
+    # Construct M transformed Bogoliubov vacua without J^2 diagonalization or
+    # determinant coefficients.
+    series = evaluator.projected_series(state)
+    # For finite Z, evaluate transition-density kernels over the identical
+    # stored (T_q,w_q) terms before introducing determinant configurations.
+    if stored_z is None:
+        kernel_energy = None
+    else:
+        kernel_energy = evaluator.series_energy(series)
+
+    # Expand the coherent series only now, when components and target fidelity
+    # in the FermiHubbardHamiltonian determinant basis are actually required.
+    result = project_state_observables(series, fermionic, target)
+    # Compare the polynomial transition kernel with the late basis evaluation.
+    kernel_basis_difference = (
+        None if kernel_energy is None else kernel_energy - result.energy
+    )
+    # Record every discretization parameter for reproducible M convergence scans.
+    report = {
+        "nucleus": "Be8",
+        "method": "Bogoliubov-vacuum gauge/Euler series",
+        "target_J": 0,
+        "number_grid": list(series.number_grid),
+        "euler_grid": list(series.euler_grid),
+        "number_grid_points": int(np.prod(series.number_grid)),
+        "euler_grid_points": int(np.prod(series.euler_grid)),
+        "M_vacua": series.number_of_vacua,
+        "M_bound": evaluator.euler_grid.m_bound,
+        "J_bound": evaluator.euler_grid.j_bound,
+        "projected_series_norm": result.sector_weight,
+        "pnj0_energy_from_series_components": result.energy,
+        "pnj0_fidelity_from_series_components": result.fidelity,
+        "pnj0_energy_transition_kernels": kernel_energy,
+        "kernel_basis_energy_difference": kernel_basis_difference,
+        "exact_ground_energy": exact_energy,
+        "elapsed_seconds": time.perf_counter() - start,
+    }
+
+    # Save normalized components and masks only after the series fidelity step.
+    output = ROOT / "benchmarks/results"
+    output.mkdir(exist_ok=True)
+    (output / "cki_be8_j0_projection.json").write_text(
+        json.dumps(report, indent=2), encoding="utf-8"
+    )
+    np.savez(
+        output / "cki_be8_j0_projected_state.npz",
+        projected_vector=result.projected_vector,
+        masks=result.masks,
+        number_grid=np.asarray(series.number_grid),
+        euler_grid=np.asarray(series.euler_grid),
+        M_vacua=series.number_of_vacua,
+    )
+    # Print the same structured record for interactive convergence studies.
+    print(json.dumps(report, indent=2))
 
 
-if __name__=='__main__':main()
+if __name__ == "__main__":
+    # Expose both discretizations directly at the command line.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--number-grid", nargs=2, type=int, metavar=("LN", "LZ"))
+    parser.add_argument(
+        "--euler-grid", nargs=3, type=int,
+        metavar=("LALPHA", "LBETA", "LGAMMA"),
+    )
+    arguments = parser.parse_args()
+    # Convert argparse lists to immutable tuples expected by the projector.
+    main(
+        number_grid=(tuple(arguments.number_grid) if arguments.number_grid else None),
+        euler_grid=(tuple(arguments.euler_grid) if arguments.euler_grid else None),
+    )

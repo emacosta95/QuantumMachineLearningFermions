@@ -1,5 +1,6 @@
-"""CKI Be8 particle-number projection after intrinsic HFB variation."""
+"""CKI Be8 gauge-series particle-number projection after HFB variation."""
 
+import argparse
 import json
 import time
 
@@ -13,10 +14,10 @@ from cki_be8 import (
 from typing import List, Dict, Tuple, Optional, Callable, ClassVar
 from gauge_projection import GaugeProjectedEnergy
 from hfb import HFBHamiltonian, solve_hfb
-from number_projection import exact_ground_state, project_particle_numbers
+from number_projection import exact_ground_state, projected_series_observables
 
 
-def main():
+def main(number_grid=None):
     """Optimize the intrinsic state first, then apply exact N,Z projection."""
     # Include loading, variation, projection, and validation in the elapsed time.
     start = time.perf_counter()
@@ -84,12 +85,16 @@ def main():
     # reference energy and target vector in its native determinant ordering.
     exact_energy, target = exact_ground_state(fermionic_hamiltonian)
 
-    # PAV selects the FermiHubbardHamiltonian N,Z basis from the completed HFB
-    # state, normalizes it, and evaluates energy and fidelity without gradients.
-    projected = project_particle_numbers(
-        hfb_result.state, fermionic_hamiltonian, target
+    # Configure the user-controlled double Fourier sum before any determinant
+    # amplitudes are evaluated.
+    gauge = GaugeProjectedEnergy(
+        intrinsic_hamiltonian,
+        neutron_modes,
+        [2, 2],
+        grid=number_grid,
     )
-
+    # Keep P_N P_Z|Phi> as L_N*L_Z gauge-rotated Bogoliubov vacua.
+    series = gauge.projected_series(hfb_result.state)
     # Gauge-kernel projection is an independent polynomial-memory energy check.
     # It requires a finite particle-vacuum Thouless chart; a collapsed occupied
     # HF determinant has singular U and is instead handled exactly above through
@@ -100,10 +105,13 @@ def main():
         z = np.empty((0, 0), complex)
         gauge_energy = None
     else:
-        gauge = GaugeProjectedEnergy(
-            intrinsic_hamiltonian, neutron_modes, [2, 2]
-        )
-        gauge_energy = gauge.energy(z)
+        # Transition kernels consume the identical stored series terms.
+        gauge_energy = gauge.series_energy(series)
+
+    # Expand that same series only now, at the final target-fidelity boundary.
+    projected = projected_series_observables(
+        series, fermionic_hamiltonian, target
+    )
 
     # Record intrinsic and projected quantities separately so PAV cannot be
     # mistaken for a variation-after-projection calculation.
@@ -122,6 +130,7 @@ def main():
         "projected_sector_weight": projected.sector_weight,
         "number_projection_grid": list(projected.grid),
         "number_projection_grid_offset": projected.grid_offset,
+        "M_vacua": series.number_of_vacua,
         "exact_energy": exact_energy,
         "gauge_kernel_energy": gauge_energy,
         "elapsed_seconds": time.perf_counter() - start,
@@ -149,4 +158,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Permit direct N,Z discretization control in convergence studies.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--number-grid", nargs=2, type=int, metavar=("LN", "LZ"))
+    arguments = parser.parse_args()
+    main(
+        number_grid=(tuple(arguments.number_grid) if arguments.number_grid else None)
+    )

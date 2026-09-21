@@ -7,6 +7,11 @@ overlap zeros but cannot guarantee conditioning for every state.
 import numpy as np
 from pfapack import pfaffian as pf
 
+if __package__:
+    from .hfb import BogoliubovVacuumSeries, HFBState
+else:
+    from hfb import BogoliubovVacuumSeries, HFBState
+
 
 def pfaffian(matrix):
     """Return the complex Pfaffian using PFAPACK's Parlett-Reid routine.
@@ -111,44 +116,77 @@ class GaugeProjectedEnergy:
         if one_body_breaks_species or two_body_breaks_species:
             raise ValueError('Hamiltonian must conserve each species number')
 
-    def energy(self,z):
-        """Return <Phi|H P_N P_Z|Phi>/<Phi|P_N P_Z|Phi>.
-
-        ``z`` is the antisymmetric pair matrix of the Thouless vacuum.  The
-        double loop below is the discrete U(1)_N x U(1)_Z group integral.
-        """
-        # Work with a complex array even when the caller supplies real pairing.
-        z=np.asarray(z,complex)
-        # Infer the required square shape from the one-body Hamiltonian.
+    def projected_series(self,state):
+        """Return P_N P_Z|Phi> as the configured finite gauge-vacuum series."""
+        # Projection acts on the full HFB/HF state rather than density matrices.
+        if not isinstance(state,HFBState):
+            raise TypeError('state must be an HFBState')
+        # The raw Hamiltonian fixes the expected one-body dimension.
         m=len(self.ham.h)
-        wrong_shape=z.shape!=(m,m)
-        nonfinite=not np.isfinite(z).all()
-        nonantisymmetric=not np.allclose(z,-z.T,atol=1e-12)
-        if wrong_shape or nonfinite or nonantisymmetric:
-            raise ValueError('Finite antisymmetric Z required')
-        # Accumulate Hamiltonian and norm kernels independently.  Their ratio
-        # is the energy of the normalized projected state.
+        if len(state.U)!=m:
+            raise ValueError('State and projection Hamiltonian sizes differ')
+
+        # Materialize one transformed vacuum for each N,Z Fourier point.
+        transformations=[]
+        weights=[]
+        # Traverse the neutron gauge grid.
+        for i in range(self.grid[0]):
+            # Convert its integer index into a shifted full-period angle.
+            pn=2*np.pi*(i+self.offset)/self.grid[0]
+            # Traverse the independent proton gauge grid.
+            for j in range(self.grid[1]):
+                # Convert the proton index to its gauge angle.
+                pp=2*np.pi*(j+self.offset)/self.grid[1]
+                # Assign neutron or proton phase to every particle mode.
+                phase=np.exp(1j*np.where(self.mask,pn,pp))
+                # The one-body gauge transformation is diagonal.
+                transformations.append(np.diag(phase))
+                # Its Fourier character selects precisely the target N,Z sector.
+                character=np.exp(
+                    -1j*(pn*self.targets[0]+pp*self.targets[1])
+                )
+                # Divide by both grid sizes to represent the normalized integrals.
+                weights.append(character/np.prod(self.grid))
+
+        # Return the series without evaluating a single determinant amplitude.
+        return BogoliubovVacuumSeries(
+            intrinsic_state=state,
+            transformations=np.asarray(transformations),
+            weights=np.asarray(weights),
+            number_grid=self.grid,
+            euler_grid=None,
+            projection='P_N P_Z',
+            number_offset=self.offset,
+        )
+
+    def series_energy(self,series):
+        """Evaluate number-projected energy from a stored gauge-vacuum series."""
+        # Require the same structured series later consumed by fidelity expansion.
+        if not isinstance(series,BogoliubovVacuumSeries):
+            raise TypeError('series must be a BogoliubovVacuumSeries')
+        # A series made on a different grid would not represent this evaluator.
+        if series.number_grid!=tuple(self.grid) or series.euler_grid is not None:
+            raise ValueError('Series grid differs from number projector grid')
+        # Equal dimensions are insufficient if the stored Fourier nodes differ.
+        if not np.isclose(series.number_offset,self.offset):
+            raise ValueError('Series number-grid offset differs from evaluator')
+        # Transition kernels require a finite particle-vacuum Thouless chart.
+        z=series.intrinsic_state.thouless_matrix
+        # Infer and reuse the one-body identity matrix.
+        m=len(self.ham.h)
+        identity=np.eye(m)
+        # Accumulate Hamiltonian and norm kernels independently.
         numerator=0j
         denominator=0j
-        # Reuse the identity in normalization and every transition solve.
-        identity=np.eye(m)
-        # Intrinsic Thouless norm sqrt(det(I+Z^dagger Z)); slogdet is stable
-        # when the determinant spans many orders of magnitude.
+        # Normalize the common intrinsic ket once for every transformed term.
         norm_matrix=identity+z.conj().T@z
         log_norm_determinant=np.linalg.slogdet(norm_matrix)[1]
         scale=np.exp(.5*log_norm_determinant)
 
-        # Discrete Fourier sums over neutron and proton gauge angles.
-        for i in range(self.grid[0]):
-            # Convert neutron grid index i to its shifted full-period angle.
-            pn=2*np.pi*(i+self.offset)/self.grid[0]
-            for j in range(self.grid[1]):
-                # Convert proton grid index j independently.
-                pp=2*np.pi*(j+self.offset)/self.grid[1]
-                # Gauge rotation multiplies a creation operator by exp(i phi).
-                # Since Z creates pairs, a phase acts on each matrix index.
-                phase=np.exp(1j*np.where(self.mask,pn,pp))
-                zg=phase[:,None]*z*phase[None,:]
+        # Use exactly the transformations and coefficients stored in the series.
+        for transform,series_weight in zip(series.transformations,series.weights):
+                # A one-body group action rotates both legs of each created pair.
+                zg=transform@z@transform.T
 
                 # B=I+Z^dagger Z(phi) enters the generalized Wick theorem.  A
                 # poorly conditioned B makes all transition contractions unsafe.
@@ -172,12 +210,8 @@ class GaugeProjectedEnergy:
                     pfaffian_sign*pfaffian(overlap_matrix)/scale
                 )
 
-                # The Fourier character selects the desired neutron and proton
-                # numbers from the gauge-rotated vacuum.
-                character=np.exp(
-                    -1j*(pn*self.targets[0]+pp*self.targets[1])
-                )
-                weight=overlap*character
+                # Multiply the signed overlap by this series coefficient w_q.
+                weight=overlap*series_weight
 
                 # Generalized-Wick energy kernel: one-body, normal two-body,
                 # and anomalous pairing contributions.
@@ -194,9 +228,8 @@ class GaugeProjectedEnergy:
                 # Add H times the overlap kernel to the energy numerator.
                 numerator+=weight*kernel
 
-        # Dividing by the number of grid points gives the actual probability
-        # weight of the selected N,Z sector.  It must be positive and real.
-        norm=denominator/np.prod(self.grid)
+        # Series weights already include both quadrature normalization factors.
+        norm=denominator
         if abs(norm.imag)>1e-8 or norm.real<1e-14:
             raise ValueError('Vanishing or numerically unresolved projected norm')
         # The common quadrature normalization cancels in this ratio.
@@ -205,6 +238,13 @@ class GaugeProjectedEnergy:
             raise ValueError('Projection cancellation error exceeds tolerance')
         # Return the physically real value after verifying cancellation error.
         return float(energy.real)
+
+    def energy(self,z):
+        """Build the gauge-vacuum series from Z and evaluate its energy."""
+        # Convert the finite Thouless matrix into the common intrinsic-state API.
+        state=HFBState.from_thouless(np.asarray(z,complex))
+        # Energy and later fidelity now use the identical finite series.
+        return self.series_energy(self.projected_series(state))
 
     def unpack(self,x):
         """Map real optimizer coordinates to an antisymmetric complex Z."""

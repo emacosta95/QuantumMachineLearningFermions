@@ -10,16 +10,15 @@ intrinsic optimization.
 1. Build and solve an intrinsic `HFBHamiltonian` with `solve_hfb`.
 2. Build the repository's existing `FermiHubbardHamiltonian` (or optimized
    variant) for the desired neutron and proton numbers.
-3. Pass the resulting `HFBState` and fermionic Hamiltonian to
-   `project_particle_numbers`.
-4. The function reads `occupations`, `masks`, and `matrix` directly from that
-   Hamiltonian, so it cannot silently use a different determinant ordering.
-5. `HFBState.occupation_amplitudes` evaluates the intrinsic coefficient of
-   every determinant in the fixed sector.
-6. Two full-period trapezoidal grids apply the discrete
-   `U(1)_N x U(1)_Z` Fourier projector. A species with `c` modes uses at least
-   `c+1` angles, which resolves every possible particle-number power exactly.
-7. The squared norm of the Fourier-projected coefficients gives the sector probability
+3. Call `number_projected_series`. Two full-period trapezoidal grids construct
+   `L_N*L_Z` gauge-rotated Bogoliubov vacua and their Fourier coefficients.
+4. Keep this `BogoliubovVacuumSeries` representation for kernel energies and
+   all subsequent symmetry operations.
+5. Only when energy or fidelity in a determinant basis is required, call
+   `projected_series_observables` with the existing `FermiHubbardHamiltonian`.
+6. The series then evaluates Pfaffian or Slater-minor components in the exact
+   `occupations` ordering owned by that Hamiltonian.
+7. The squared norm of the coherently summed components gives the sector probability
    `<Phi|P_N P_Z|Phi>`.
 8. Dividing by its square root constructs the normalized projected vector.
 9. The energy is the Rayleigh quotient of the already assembled fermionic
@@ -47,17 +46,23 @@ projectable without regularizing or perturbing `U`.
 ```python
 from NSMFermions.number_projection import (
     exact_ground_state,
-    project_particle_numbers,
+    number_projected_series,
+    projected_series_observables,
 )
 
 exact_energy, target = exact_ground_state(fermionic_hamiltonian)
-result = project_particle_numbers(
+series = number_projected_series(
     hfb_result.state,
+    fermionic_hamiltonian,
+    grid=(7, 7),
+)
+result = projected_series_observables(
+    series,
     fermionic_hamiltonian,
     target,
 )
 
-print(result.grid, result.grid_offset)
+print(series.number_of_vacua)
 print(result.sector_weight)
 print(result.energy, result.fidelity)
 ```

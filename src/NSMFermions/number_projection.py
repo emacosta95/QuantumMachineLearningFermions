@@ -18,9 +18,9 @@ import numpy as np
 from scipy import sparse
 
 if __package__:
-    from .hfb import HFBState
+    from .hfb import BogoliubovVacuumSeries, HFBState
 else:
-    from hfb import HFBState
+    from hfb import BogoliubovVacuumSeries, HFBState
 
 
 # Restrict the public projection API to the repository's established exact
@@ -81,15 +81,14 @@ def fermionic_basis_data(hamiltonian):
     return _require_fermionic_hamiltonian(hamiltonian)
 
 
-def _discrete_number_projector(
-    amplitudes,
-    occupations,
+def _number_projection_metadata(
+    modes,
     species_modes,
     particle_numbers,
     grid=None,
     offset=0.137,
 ):
-    """Apply the finite U(1) x U(1) Fourier projector to basis amplitudes."""
+    """Validate species data and return the two finite Fourier grids."""
     # Convert the two species blocks to immutable integer sets for fast counting.
     species = tuple(frozenset(int(mode) for mode in block) for block in species_modes)
     # Exactly two independent gauge angles are used for neutron/proton projection.
@@ -101,7 +100,7 @@ def _discrete_number_projector(
         raise ValueError("Fermionic species blocks must be disjoint")
     # The largest mode index fixes the represented one-body space.
     represented_modes = species[0].union(species[1])
-    if represented_modes != set(range(sum(len(block) for block in species))):
+    if represented_modes != set(range(modes)):
         raise ValueError("Fermionic species blocks must cover every mode exactly once")
 
     # Convert requested particle counts to ordinary Python integers.
@@ -128,52 +127,67 @@ def _discrete_number_projector(
     if not np.isfinite(offset):
         raise ValueError("Gauge-grid offset must be finite")
 
-    # Store the normalized intrinsic amplitudes in the Hamiltonian's row order.
-    intrinsic = np.asarray(amplitudes, dtype=complex)
-    # Each basis row must have exactly one coefficient.
-    if intrinsic.shape != (len(occupations),):
-        raise ValueError("Amplitude and occupation-basis dimensions disagree")
+    # Return validated immutable data shared by series construction and tests.
+    return species, targets, chosen_grid
 
-    # Count subsystem-A and subsystem-B particles in every determinant row.
-    counts = np.asarray(
-        [
-            [sum(mode in block for mode in occupation) for block in species]
-            for occupation in occupations
-        ],
-        dtype=int,
+
+def number_projected_series(state, hamiltonian, grid=None, offset=0.137):
+    """Return P_N P_Z|Phi> as a weighted series of Bogoliubov vacua.
+
+    No determinant coefficients are computed here. Every term is a gauge-rotated
+    vacuum, and ``grid=(L_A,L_B)`` directly controls the number ``L_A*L_B`` of
+    vacua retained in the Fourier representation.
+    """
+    # Projection requires a complete HFBState rather than densities alone.
+    if not isinstance(state, HFBState):
+        raise TypeError("state must be an HFBState")
+    # Validate the established fermionic container and its mode dimension.
+    _require_fermionic_hamiltonian(hamiltonian)
+    if hamiltonian.modes != len(state.U):
+        raise ValueError("State and fermionic Hamiltonian use different modes")
+    # Validate species blocks, requested particle counts, and exact grid bounds.
+    species, targets, chosen_grid = _number_projection_metadata(
+        hamiltonian.modes,
+        hamiltonian.species_modes,
+        hamiltonian.particle_numbers,
+        grid=grid,
+        offset=offset,
     )
-    # FermiHubbardHamiltonian is a fixed-sector container; checking this makes
-    # its particle-number metadata and determinant basis mutually verifiable.
-    if not np.all(counts == np.asarray(targets)[None, :]):
-        raise ValueError("Fermionic Hamiltonian basis is not in its stated sector")
 
-    # Begin the discrete representation of P_A P_B |Phi> with zero coefficients.
-    projected = np.zeros_like(intrinsic)
-    # Sum the first U(1) integral over equally spaced subsystem-A gauge angles.
+    # Allocate one transformation and coefficient per pair of gauge angles.
+    transformations = []
+    weights = []
+    # Traverse subsystem A's full-period Fourier grid.
     for index_a in range(chosen_grid[0]):
-        # Shifted trapezoidal nodes still integrate a complete Fourier period.
+        # The fractional offset changes nodes without changing an exact sum.
         angle_a = 2 * np.pi * (index_a + offset) / chosen_grid[0]
-        # Sum the second U(1) integral independently for subsystem B.
+        # Traverse subsystem B's independent Fourier grid.
         for index_b in range(chosen_grid[1]):
-            # Construct the second periodic gauge angle on its own exact grid.
+            # Construct the second full-period angle.
             angle_b = 2 * np.pi * (index_b + offset) / chosen_grid[1]
-            # The projector character exp[-i(N_a phi_a+N_b phi_b)] selects
-            # the requested particle-number Fourier coefficient.
+            # Assign the proper gauge angle to every one-body mode.
+            phases = np.ones(hamiltonian.modes, dtype=complex)
+            phases[list(species[0])] = np.exp(1j * angle_a)
+            phases[list(species[1])] = np.exp(1j * angle_b)
+            # Gauge rotations are diagonal in the particle-mode basis.
+            transformations.append(np.diag(phases))
+            # The complex Fourier character selects the requested A,B numbers.
             character = np.exp(
                 -1j * (targets[0] * angle_a + targets[1] * angle_b)
             )
-            # A determinant with counts (n_a,n_b) acquires the gauge phase
-            # exp[i(n_a phi_a+n_b phi_b)] under the rotated ket.
-            rotated = intrinsic * np.exp(
-                1j * (counts[:, 0] * angle_a + counts[:, 1] * angle_b)
-            )
-            # Add this quadrature node's character-weighted rotated ket.
-            projected += character * rotated
+            # Normalizing by both grid sizes implements the double U(1) integral.
+            weights.append(character / np.prod(chosen_grid))
 
-    # Divide by both grid sizes to implement the normalized double integral.
-    projected /= np.prod(chosen_grid)
-    # Return the actual grid so benchmark output fully specifies the projector.
-    return projected, chosen_grid
+    # Keep the state as a group-orbit series until an observable requests a basis.
+    return BogoliubovVacuumSeries(
+        intrinsic_state=state,
+        transformations=np.asarray(transformations),
+        weights=np.asarray(weights),
+        number_grid=chosen_grid,
+        euler_grid=None,
+        projection="P_N P_Z",
+        number_offset=offset,
+    )
 
 
 @dataclass
@@ -182,6 +196,8 @@ class NumberProjectionResult:
 
     # The symmetry-breaking state produced by the preceding HF/HFB variation.
     intrinsic_state: HFBState
+    # Weighted gauge/Euler vacuum series used before basis expansion.
+    series: BogoliubovVacuumSeries
     # Coefficients after selecting and normalizing the Hamiltonian's N,Z basis.
     projected_vector: np.ndarray
     # Probability of that N,Z sector in the normalized intrinsic state.
@@ -197,6 +213,60 @@ class NumberProjectionResult:
     grid: tuple
     # Fractional shift of both periodic trapezoidal grids.
     grid_offset: float
+
+
+def projected_series_observables(series, hamiltonian, target=None):
+    """Expand a vacuum series in the fermionic basis only for observables."""
+    # Reject arbitrary coefficient containers that do not preserve vacuum terms.
+    if not isinstance(series, BogoliubovVacuumSeries):
+        raise TypeError("series must be a BogoliubovVacuumSeries")
+    # Read basis ordering and matrix from the existing fermionic Hamiltonian.
+    occupations, masks, matrix = _require_fermionic_hamiltonian(hamiltonian)
+    # Every one-body transformation must act on the Hamiltonian's mode space.
+    if hamiltonian.modes != len(series.intrinsic_state.U):
+        raise ValueError("Series and fermionic Hamiltonian use different modes")
+
+    # This is the deliberately delayed Fock-space expansion requested for
+    # fidelity: sum w_q <I|T_q|Phi> in Hamiltonian row order.
+    amplitudes = series.occupation_amplitudes(occupations)
+    # For exact N,Z grids, this fixed sector contains the complete projected ket.
+    norm = float(np.vdot(amplitudes, amplitudes).real)
+    if not np.isfinite(norm) or norm < 1e-14:
+        raise ValueError("Projected vacuum series has vanishing norm")
+    # Normalize only after all Bogoliubov-vacuum terms have been coherently summed.
+    projected = amplitudes / np.sqrt(norm)
+    # Apply the exact fixed-sector Hamiltonian to the normalized coefficient vector.
+    energy_value = np.vdot(projected, matrix @ projected)
+    if abs(energy_value.imag) > 1e-9:
+        raise ValueError("Projected energy has a non-negligible imaginary part")
+
+    # Fidelity is evaluated at the same late basis-expansion boundary.
+    fidelity = None
+    if target is not None:
+        # Convert and validate the target in identical determinant ordering.
+        target = np.asarray(target, dtype=complex)
+        if target.shape != projected.shape:
+            raise ValueError("Target must match the fermionic Hamiltonian basis")
+        # Normalize defensively because eigenvector callers may rescale the target.
+        target_norm = np.linalg.norm(target)
+        if not np.isfinite(target_norm) or target_norm == 0:
+            raise ValueError("Target must have finite nonzero norm")
+        # The physical fidelity is the squared overlap of normalized vectors.
+        fidelity = float(abs(np.vdot(target / target_norm, projected)) ** 2)
+
+    # Preserve legacy field names while attaching the actual vacuum series.
+    return NumberProjectionResult(
+        intrinsic_state=series.intrinsic_state,
+        series=series,
+        projected_vector=projected,
+        sector_weight=norm,
+        energy=float(energy_value.real),
+        fidelity=fidelity,
+        occupations=tuple(occupations),
+        masks=masks.copy(),
+        grid=series.number_grid,
+        grid_offset=series.number_offset,
+    )
 
 
 def project_particle_numbers(
@@ -231,73 +301,13 @@ def project_particle_numbers(
     if not isinstance(state, HFBState):
         raise TypeError("state must be an HFBState")
 
-    # Obtain the exact basis and Hamiltonian from the repository's canonical
-    # fermionic Hamiltonian object rather than rebuilding either one here.
-    occupations, masks, matrix = _require_fermionic_hamiltonian(hamiltonian)
-    if hamiltonian.modes != len(state.U):
-        raise ValueError("State and fermionic Hamiltonian use different modes")
-
-    # Evaluate coefficients of the *normalized intrinsic state* on the
-    # determinants retained by the fixed-N,Z Hamiltonian. HFBState selects
-    # Pfaffians for paired vacua and determinants for collapsed HF states.
-    intrinsic_amplitudes = state.occupation_amplitudes(
-        occupations, normalized=True
+    # Construct the finite Fourier expansion without introducing basis states.
+    series = number_projected_series(
+        state, hamiltonian, grid=grid, offset=offset
     )
-
-    # Apply P_N P_Z through the same finite, discretized group integral used by
-    # the polynomial kernel implementation and by the J=0 combined projector.
-    amplitudes, chosen_grid = _discrete_number_projector(
-        intrinsic_amplitudes,
-        occupations,
-        hamiltonian.species_modes,
-        hamiltonian.particle_numbers,
-        grid=grid,
-        offset=offset,
-    )
-
-    # The squared norm of this restricted vector is <Phi|P_N P_Z|Phi>, namely
-    # the probability that the intrinsic state has the requested particle numbers.
-    weight = float(np.vdot(amplitudes, amplitudes).real)
-    if not np.isfinite(weight) or weight < 1e-14:
-        raise ValueError("Intrinsic state has vanishing projected-sector weight")
-
-    # Divide by sqrt(weight) to construct a unit vector representing
-    # P_N P_Z|Phi>/sqrt(<Phi|P_N P_Z|Phi>).
-    projected = amplitudes / np.sqrt(weight)
-
-    # Apply the already assembled FermiHubbardHamiltonian matrix and form its
-    # Rayleigh quotient. Hermiticity makes the result real up to roundoff.
-    applied = matrix @ projected
-    energy_value = np.vdot(projected, applied)
-    if abs(energy_value.imag) > 1e-9:
-        raise ValueError("Projected energy has a non-negligible imaginary part")
-
-    # Fidelity is optional because PAV energy evaluation does not require an
-    # exact eigenvector. If supplied, normalize the target defensively first.
-    fidelity = None
-    if target is not None:
-        target = np.asarray(target, complex)
-        if target.shape != projected.shape:
-            raise ValueError("Target must match the fermionic Hamiltonian basis")
-        target_norm = np.linalg.norm(target)
-        if not np.isfinite(target_norm) or target_norm == 0:
-            raise ValueError("Target must have finite nonzero norm")
-        fidelity = float(
-            abs(np.vdot(target / target_norm, projected)) ** 2
-        )
-
-    # Return state, observables, and basis identifiers together so a saved
-    # projected vector cannot later be mistaken for a different basis ordering.
-    return NumberProjectionResult(
-        intrinsic_state=state,
-        projected_vector=projected,
-        sector_weight=weight,
-        energy=float(energy_value.real),
-        fidelity=fidelity,
-        occupations=tuple(occupations),
-        masks=masks.copy(),
-        grid=tuple(int(points) for points in chosen_grid),
-        grid_offset=float(offset),
+    # Expand only at the requested energy/fidelity evaluation boundary.
+    return projected_series_observables(
+        series, hamiltonian, target=target
     )
 
 
