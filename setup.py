@@ -11,6 +11,7 @@ setup(
         # list your dependencies here
         "numpy",
         "scipy",
+        "pfapack>=0.3.1",
         "matplotlib",
     ],
     python_requires=">=3.8",

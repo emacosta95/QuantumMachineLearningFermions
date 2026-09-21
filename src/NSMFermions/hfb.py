@@ -8,6 +8,7 @@ solver currently covers even total number parity only, not blocked odd states.
 
 from dataclasses import dataclass
 import numpy as np
+from pfapack import pfaffian as pf
 from scipy.linalg import expm
 from scipy.optimize import minimize
 
@@ -22,10 +23,141 @@ class HFBState:
 
     Both arrays have shape ``(modes, modes)``.  They are not separately
     unitary; together they form the canonical transformation in Nambu space.
+    ``Z`` optionally stores the particle-vacuum Thouless chart used to create
+    the state.  It is useful for occupation amplitudes and symmetry projection.
     """
 
     U: np.ndarray
     V: np.ndarray
+    Z: np.ndarray = None
+
+    @classmethod
+    def from_thouless(cls, z):
+        """Construct a normalized Bogoliubov vacuum from antisymmetric Z."""
+        z = np.asarray(z, complex)
+        if z.ndim != 2 or z.shape[0] != z.shape[1] or not np.isfinite(z).all():
+            raise ValueError("Z must be a finite square matrix")
+        if not np.allclose(z, -z.T, atol=1e-12):
+            raise ValueError("Z must be antisymmetric")
+
+        # U=(I+Z^T Z*)^-1/2 and V=Z*U satisfy the canonical relations and
+        # annihilate exp(1/2 c^dag Z c^dag)|0>.  The eigendecomposition evaluates
+        # the positive Hermitian inverse square root without explicitly inverting.
+        metric = np.eye(len(z)) + z.T @ z.conj()
+        values, vectors = np.linalg.eigh(metric)
+        u = (vectors / np.sqrt(values)) @ vectors.conj().T
+        return cls(u, z.conj() @ u, Z=z.copy())
+
+    @property
+    def thouless_matrix(self):
+        """Return Z in |Phi> proportional to exp(1/2 c^dag Z c^dag)|0>.
+
+        If the state was created directly from a Thouless matrix, return that
+        stored chart.  Otherwise recover ``Z = V* (U*)^-1``.  A singular U means
+        the vacuum has zero overlap with the particle vacuum, so this chart does
+        not exist even though the Bogoliubov state itself remains valid.
+        """
+        if self.Z is not None:
+            z = np.asarray(self.Z, complex)
+        else:
+            if np.linalg.cond(self.U) > 1e12:
+                raise ValueError(
+                    "Singular U: no particle-vacuum Thouless chart exists"
+                )
+            # Solve on transposed matrices instead of explicitly forming U^-1.
+            z = np.linalg.solve(
+                self.U.conj().T, self.V.conj().T
+            ).T
+        if not np.allclose(z, -z.T, atol=1e-10):
+            raise ValueError("Recovered Thouless matrix is not antisymmetric")
+        return z
+
+    def occupation_amplitude(self, occupied_modes, *, normalized=False):
+        """Return the Pfaffian coefficient of one occupation-basis determinant.
+
+        For an even ordered set I of occupied modes, the coefficient in the
+        unnormalized Thouless exponential is ``Pf(Z[I,I])``.  Odd occupations
+        have zero amplitude in an unblocked even-parity vacuum.  Set
+        ``normalized=True`` to include the norm of the full intrinsic vacuum.
+        """
+        occupied = tuple(int(i) for i in occupied_modes)
+        modes = len(self.U)
+        if len(set(occupied)) != len(occupied) or any(
+            i < 0 or i >= modes for i in occupied
+        ):
+            raise ValueError("Occupied modes must be distinct valid indices")
+        if len(occupied) % 2:
+            return 0j
+
+        # Sort the creation operators into the repository's canonical mode
+        # order.  The caller normally supplies sorted determinant occupations.
+        if occupied != tuple(sorted(occupied)):
+            raise ValueError("Occupied modes must be in increasing order")
+        z = self.thouless_matrix
+        if occupied:
+            submatrix = z[np.ix_(occupied, occupied)]
+            amplitude = pf.pfaffian(
+                submatrix, overwrite_a=False, method="P"
+            )
+        else:
+            # By definition, the Pfaffian of the empty matrix is one.
+            amplitude = 1.0 + 0j
+
+        if normalized:
+            # ||exp(1/2 c^dag Z c^dag)|0>||^2 = sqrt(det(I+Z^dag Z)).
+            # Therefore the ket normalization factor is det(...)^(-1/4).
+            log_determinant = np.linalg.slogdet(
+                np.eye(modes) + z.conj().T @ z
+            )[1]
+            amplitude *= np.exp(-0.25 * log_determinant)
+        return amplitude
+
+    def occupation_amplitudes(self, occupations, *, normalized=False):
+        """Return Pfaffian coefficients for a sequence of determinants."""
+        return np.array([
+            self.occupation_amplitude(occupied, normalized=normalized)
+            for occupied in occupations
+        ])
+
+    def fixed_sector_state(self, occupations):
+        """Return this vacuum normalized within a selected determinant sector.
+
+        ``occupations`` defines both which determinants are retained and their
+        coefficient ordering.  For example, passing all determinants with fixed
+        neutron and proton numbers constructs normalized P_N P_Z|Phi>.
+        """
+        amplitudes = self.occupation_amplitudes(occupations)
+        norm = float(np.vdot(amplitudes, amplitudes).real)
+        if not np.isfinite(norm) or norm < 1e-24:
+            raise ValueError("State has vanishing weight in selected sector")
+        return amplitudes / np.sqrt(norm)
+
+    def fixed_sector_weight(self, occupations):
+        """Return the probability of a determinant sector in normalized |Phi>."""
+        amplitudes = self.occupation_amplitudes(occupations, normalized=True)
+        return float(np.vdot(amplitudes, amplitudes).real)
+
+    def fixed_sector_fidelity(self, target, occupations, *, projected=False):
+        """Return fidelity with a target supported on a determinant sector.
+
+        With ``projected=False`` this is the raw overlap with the normalized
+        intrinsic Gaussian vacuum and therefore includes the sector probability.
+        With ``projected=True`` the selected sector is normalized first, giving
+        the fidelity after projection onto that sector.
+        """
+        target = np.asarray(target, complex)
+        if target.shape != (len(occupations),):
+            raise ValueError("Target vector has wrong sector dimension")
+        target_norm = np.linalg.norm(target)
+        if not np.isfinite(target_norm) or target_norm == 0:
+            raise ValueError("Target vector must have finite nonzero norm")
+        target = target / target_norm
+        amplitudes = (
+            self.fixed_sector_state(occupations)
+            if projected
+            else self.occupation_amplitudes(occupations, normalized=True)
+        )
+        return float(abs(np.vdot(target, amplitudes)) ** 2)
 
     @property
     def rho(self):

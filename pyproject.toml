@@ -9,7 +9,11 @@ description = "Quantum Machine Learning Fermions utilities"
 authors = [
     { name = "Emanuele Costa", email = "emanuele.costa@icc.ub.edu" }
 ]
-dependencies = []
+dependencies = [
+    "numpy",
+    "scipy",
+    "pfapack>=0.3.1",
+]
 requires-python = ">=3.8"
 
 [tool.setuptools]

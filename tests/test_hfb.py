@@ -61,6 +61,8 @@ class TestHFB(unittest.TestCase):
         state = hfb.state_from_parameters(x,4)
         np.testing.assert_allclose(state.rho, np.diag([1,1,0,0]), atol=1e-12)
         self.assertLess(np.linalg.norm(state.kappa), 1e-12)
+        with self.assertRaises(ValueError):
+            _ = state.thouless_matrix
 
     def test_constrained_noninteracting_minimum(self):
         ham = hfb.HFBHamiltonian(np.diag([-2.,1.,-3.,2.]), np.zeros((4,)*4))

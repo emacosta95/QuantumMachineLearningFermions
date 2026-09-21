@@ -1,8 +1,9 @@
-python>=3.9
+# Python >=3.8 (declared in pyproject.toml and setup.py)
 
 # --------- exact diagonalization --------- #
 scipy
 numpy
+pfapack>=0.3.1
 
 
 # --------- numerical diagonalization --------- #

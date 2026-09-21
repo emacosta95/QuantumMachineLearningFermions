@@ -58,9 +58,24 @@ ordering and Pfaffian polynomials. Consequently, this implementation is an exact
 benchmark tool whose target representation scales combinatorially. It is not
 the polynomial gauge-kernel backend used for projected-energy evaluation.
 
+The state-level calculation is also available directly:
+
+```python
+from NSMFermions.hfb import HFBState
+
+state = HFBState.from_thouless(Z)
+fidelity = state.fixed_sector_fidelity(target, space.occupations)
+```
+
+This returns the raw intrinsic-Gaussian fidelity optimized by
+`maximize_gaussian_fidelity`. Passing `projected=True` instead normalizes the
+selected sector first and computes the fidelity after projection. The optimizer
+remains a separate function because it manages analytic gradients, bounds, and
+multiple starts rather than intrinsic state data.
+
 ## Verification
 
 The analytic Gaussian and Slater gradients are checked against finite
 differences. Full 4096-dimensional quasiparticle-vacuum reconstruction verifies
-the CKI overlaps independently. Eighteen regression tests pass. Numerical CKI
+the CKI overlaps independently. Twenty-one regression tests pass. Numerical CKI
 results are in `benchmarks/results/cki_be8_best_gaussian.md`.

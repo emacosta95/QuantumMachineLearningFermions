@@ -28,6 +28,10 @@ sequence. Odd-total blocked vacua are not supported yet.
   derivatives, and minimize a Rayleigh quotient. This is a combinatorial
   reference backend with resource guards, not the scalable production route.
 
+General complex Pfaffians are evaluated by the external `pfapack` package.
+The exact-sector optimizer separately retains a signed matching expansion
+because it needs analytic derivatives of every amplitude with respect to Z.
+
 The sector backend also provides exact small-system fidelity benchmarks.
 Neither solver imposes M=0 or total J projection.
 
@@ -85,12 +89,34 @@ energy = objective.energy(Z)
 print(fit.success, fit.message, energy)
 ```
 
+For an explicit small-space projected vector and fidelity:
+
+```python
+from NSMFermions.hfb import HFBState
+from NSMFermions.number_projection import NumberProjectedSpace
+
+state = HFBState.from_thouless(Z)
+projected_vector = state.fixed_sector_state(space.occupations)
+raw_fidelity = state.fixed_sector_fidelity(
+    exact_ground_state, space.occupations)
+projected_fidelity = state.fixed_sector_fidelity(
+    exact_ground_state, space.occupations, projected=True)
+
+# Equivalent convenience API owned by the selected N,Z space:
+projected_vector = space.projected_state(Z)
+projected_fidelity = space.projected_fidelity(Z, exact_ground_state)
+```
+
+The state owns generic Pfaffian occupation amplitudes. `NumberProjectedSpace`
+owns the list of determinants defining the desired N,Z sector and the analytic
+derivatives required by PN-VAP.
+
 For lightweight environments, as with `hfb.py`, add `src/NSMFermions` to
 `sys.path` and import the module directly to avoid the legacy eager ML imports.
 
 ## Verification
 
-15 regression tests pass: canonical constraints, complex Fock-space energies,
+21 regression tests pass: canonical constraints, complex Fock-space energies,
 HF limits, weak-pairing HFB collapse and VAP recovery, analytic reference
 gradients, Pfaffian signs, complex gauge kernels, species-scale invariance,
 grid refinement and a gauge-only optimizer on a small pairing model.

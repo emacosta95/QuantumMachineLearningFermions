@@ -5,7 +5,7 @@ import numpy as np
 from scipy.optimize._numdiff import approx_derivative
 
 sys.path.insert(0,str(Path(__file__).parents[1]/'src/NSMFermions'))
-from hfb import HFBHamiltonian, solve_hfb
+from hfb import HFBHamiltonian, HFBState, solve_hfb
 from number_projection import NumberProjectedSpace, solve_number_vap, state_from_thouless
 from test_hfb import annihilators
 
@@ -29,7 +29,17 @@ class TestNumberProjection(unittest.TestCase):
         a,_=space.amplitudes_and_jacobian(x)
         z=space.unpack(x)
         np.testing.assert_allclose(a,[z[occ] for occ in space.occupations])
-        self.assertLess(state_from_thouless(z).canonical_error(),1e-12)
+        projected=space.projected_state(z)
+        np.testing.assert_allclose(projected,a/np.linalg.norm(a))
+        self.assertAlmostEqual(space.projected_fidelity(z,projected),1.)
+        state=state_from_thouless(z)
+        np.testing.assert_allclose(
+            state.occupation_amplitudes(space.occupations),a)
+        # U,V determine the same chart when U is nonsingular, even if the
+        # original Z is not retained explicitly on the state object.
+        recovered=HFBState(state.U,state.V).thouless_matrix
+        np.testing.assert_allclose(recovered,z,atol=1e-12)
+        self.assertLess(state.canonical_error(),1e-12)
 
     def test_four_particle_pfaffian_gradient(self):
         space=NumberProjectedSpace(HFBHamiltonian(np.diag(np.arange(6.)),np.zeros((6,)*4)),
@@ -66,6 +76,19 @@ class TestNumberProjection(unittest.TestCase):
         space=NumberProjectedSpace(ham,[0,1],[1,1])
         with self.assertRaises(ValueError):
             space.energy_and_gradient(np.zeros(12))
+
+    def test_legacy_hamiltonian_matrix_comparison_reorders_basis(self):
+        space=NumberProjectedSpace(pairing_model(),[0,1],[1,1])
+        permutation=np.array([2,0,3,1])
+        class LegacyHamiltonian:
+            pass
+        legacy=LegacyHamiltonian()
+        legacy.basis=np.array([
+            [int(space.masks[i]>>mode & 1) for mode in range(space.modes)]
+            for i in permutation
+        ])
+        legacy.hamiltonian=space.matrix[permutation][:,permutation]
+        self.assertEqual(space.many_body_matrix_error(legacy),0.)
 
     def test_thouless_amplitudes_are_bogoliubov_vacuum(self):
         rng=np.random.default_rng(2)

@@ -27,12 +27,18 @@ def single_particle_angular_momentum(state_encoding):
     Ordering is taken exactly from `state_encoding`; no species blocks assumed.
     """
     states=[tuple(s) for s in state_encoding]
+    # Map quantum-number tuples back to matrix indices so J_+ can connect
+    # |j,m> to |j,m+1> without assuming any particular orbital ordering.
     lookup={s:i for i,s in enumerate(states)}
     jp=np.zeros((len(states),len(states)),complex)
     for i,(n,l,j,m,t,tz) in enumerate(states):
         raised=(n,l,j,m+1,t,tz)
         if raised in lookup:
+            # Standard ladder-operator matrix element
+            # sqrt[j(j+1)-m(m+1)].
             jp[lookup[raised],i]=np.sqrt(j*(j+1)-m*(m+1))
+
+    # Recover the Hermitian Cartesian generators from J_+ and J_- = J_+^dagger.
     jx=(jp+jp.conj().T)/2
     jy=(jp-jp.conj().T)/(2j)
     jz=np.diag([s[3] for s in states]).astype(complex)
@@ -45,11 +51,15 @@ def single_particle_angular_momentum(state_encoding):
 def euler_rotation(alpha,beta,gamma,generators):
     """Single-particle active rotation exp(-iaJz)exp(-ibJy)exp(-igJz)."""
     _,jy,jz=generators
+    # This is the z-y-z Euler convention used by the angular-momentum
+    # projector.  Acting on both indices later rotates a pair matrix Z.
     return expm(-1j*alpha*jz)@expm(-1j*beta*jy)@expm(-1j*gamma*jz)
 
 
 @dataclass(frozen=True)
 class J0Grid:
+    """Euler quadrature and conservative finite-space frequency bounds."""
+
     alpha: np.ndarray
     cos_beta: np.ndarray
     beta_weights: np.ndarray
@@ -59,6 +69,7 @@ class J0Grid:
 
     @property
     def size(self):
+        """Total number of SO(3) rotation points."""
         return len(self.alpha)*len(self.cos_beta)*len(self.gamma)
 
 
@@ -81,6 +92,8 @@ def polynomial_j0_grid(state_encoding,neutron_modes,targets,grid=None,offset=.17
     if sum(targets)%2:
         raise ValueError('J=0 projection requires an even total particle number')
     def bounds(indices,number):
+        # M extrema follow by filling the largest/smallest available m values;
+        # the sum of largest j values is a conservative upper bound on total J.
         if number<0 or number>len(indices):
             raise ValueError('Particle number outside species space')
         ms=sorted((states[i][3] for i in indices))
@@ -91,6 +104,11 @@ def polynomial_j0_grid(state_encoding,neutron_modes,targets,grid=None,offset=.17
     nmax,nmin,nj=bounds(ns,targets[0]); pmax,pmin,pj=bounds(ps,targets[1])
     m_bound=max(abs(nmax+pmax),abs(nmin+pmin))
     j_bound=nj+pj
+
+    # Alpha and gamma are periodic Fourier variables resolving M and K.  Beta
+    # is integrated in x=cos(beta) with Gauss-Legendre quadrature.  For J=0 the
+    # Wigner D weight is constant, so these rules integrate every represented
+    # angular-momentum component through the conservative bound.
     alpha_min=gamma_min=int(ceil(2*m_bound))+1
     beta_min=int(ceil((j_bound+1)/2))
     chosen=(alpha_min,beta_min,gamma_min) if grid is None else tuple(grid)
@@ -118,6 +136,7 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
         if len(state_encoding)!=len(hamiltonian.h):
             raise ValueError('State encoding and Hamiltonian sizes differ')
         self.state_encoding=list(state_encoding)
+        # Build the one-body representation of physical spatial rotations.
         self.generators=single_particle_angular_momentum(state_encoding)
         # Physical rotations must not turn a neutron orbital into a proton
         # orbital; otherwise separate N and Z projection would not commute
@@ -128,6 +147,9 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
             raise ValueError('Angular-momentum generators mix neutron/proton labels')
         self.euler_grid=polynomial_j0_grid(state_encoding,neutron_modes,targets,
                                            euler_grid,euler_offset)
+        # Precompute every single-particle rotation.  The scalar weight includes
+        # sin(beta)d beta through the Gauss-Legendre change x=cos(beta), the
+        # normalized alpha/gamma trapezoidal sums, and the J=0 Wigner weight.
         self.rotations=[]
         for alpha in self.euler_grid.alpha:
             for x,weight in zip(self.euler_grid.cos_beta,self.euler_grid.beta_weights):
@@ -137,30 +159,53 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
                                            weight/(2*len(self.euler_grid.alpha)*len(self.euler_grid.gamma))))
 
     def energy(self,z):
+        """Evaluate the normalized P_N P_Z P_J=0 energy kernel.
+
+        This method deliberately returns an energy rather than a many-body
+        vector.  It keeps polynomial memory by evaluating overlaps and
+        transition densities one gauge/Euler point at a time.  For a fidelity,
+        use ``NumberProjectedSpace.projected_state`` followed by
+        ``project_thouless_observables`` in a tractably small exact space.
+        """
         z=np.asarray(z,complex); m=len(self.ham.h)
         if z.shape!=(m,m) or not np.isfinite(z).all() or not np.allclose(z,-z.T,atol=1e-12):
             raise ValueError('Finite antisymmetric Z required')
         identity=np.eye(m); numerator=0j; denominator=0j
+        # Normalize the intrinsic Thouless ket once.  The same scale divides
+        # every off-diagonal overlap kernel.
         scale=np.exp(.5*np.linalg.slogdet(identity+z.conj().T@z)[1])
+
+        # The outer two loops implement independent neutron/proton U(1)
+        # projectors; the inner loop performs the SO(3) J=0 integral.
         for i in range(self.grid[0]):
             pn=2*np.pi*(i+self.offset)/self.grid[0]
             for j in range(self.grid[1]):
                 pp=2*np.pi*(j+self.offset)/self.grid[1]
                 gauge=np.exp(1j*np.where(self.mask,pn,pp))
+                # Fourier character selecting exactly the requested (N,Z).
                 fourier=np.exp(-1j*(pn*self.targets[0]+pp*self.targets[1]))/np.prod(self.grid)
                 for rotation,euler_weight in self.rotations:
+                    # Gauge phases act after the spatial rotation.  Since the
+                    # generators preserve species, both operations commute.
                     transform=gauge[:,None]*rotation
+                    # A pair-creation matrix transforms on both particle legs.
                     zg=transform@z@transform.T
+
+                    # Generalized-Wick transition matrix between the original
+                    # vacuum and its gauge-rotated partner.
                     b=identity+z.conj().T@zg
                     if np.linalg.cond(b)>1e12:
                         raise ValueError('Singular symmetry kernel; change grid offsets or chart')
                     inverse=np.linalg.solve(b,identity)
+                    # Transition contractions normalized by the overlap.
                     rho=zg@inverse@z.conj().T
                     kappa=zg@inverse
                     creation=-inverse@z.conj().T
+                    # PFAPACK supplies the signed complex overlap Pfaffian.
                     overlap=(-1)**(m*(m+1)//2)*pfaffian(
                         np.block([[zg,-identity],[identity,-z.conj()]]))/scale
                     weight=fourier*euler_weight*overlap
+                    # Generalized-Wick Hamiltonian kernel at this group point.
                     kernel=(np.einsum('ij,ji->',self.ham.h,rho)
                         +.5*np.einsum('ijkl,ki,lj->',self.ham.v,rho,rho)
                         +.25*np.einsum('ijkl,ij,kl->',self.ham.v,creation,kappa))
@@ -178,13 +223,18 @@ def many_body_one_body_operator(space,matrix):
     matrix=np.asarray(matrix,complex)
     if matrix.shape!=(space.modes,space.modes):
         raise ValueError('One-body matrix has wrong shape')
+    # Convert the one-body operator to the explicit determinant basis used by
+    # NumberProjectedSpace.  This is only for small-space validation.
     lookup={mask:i for i,mask in enumerate(space.masks)}
     rows=[]; cols=[]; data=[]
     for col,initial in enumerate(space.masks):
         for i,j in zip(*np.nonzero(abs(matrix)>1e-14)):
             state=initial; phase=1
+            # Apply c_j first.  Empty j gives zero; otherwise count occupied
+            # lower modes to obtain the fermionic sign.
             if not state&(1<<j): continue
             phase*=(-1)**bin(state&((1<<j)-1)).count('1'); state^=1<<j
+            # Then apply c_i^dagger.  Already occupied i also gives zero.
             if state&(1<<i): continue
             phase*=(-1)**bin(state&((1<<i)-1)).count('1'); state^=1<<i
             rows.append(lookup[state]); cols.append(col); data.append(matrix[i,j]*phase)
@@ -195,6 +245,8 @@ def many_body_one_body_operator(space,matrix):
 
 @dataclass
 class J0ReferenceProjector:
+    """Explicit small-space P_J=0 matrix and its associated J^2 operator."""
+
     projector: np.ndarray
     j2: np.ndarray
     rank: int
@@ -202,20 +254,26 @@ class J0ReferenceProjector:
 
 def exact_j0_projector(space,state_encoding,tolerance=1e-8):
     """Diagonalize J^2 in a small fixed-N,Z space for validation only."""
+    # Lift each single-particle J component to the fixed-N,Z many-body basis.
     generators=single_particle_angular_momentum(state_encoding)
     many=[many_body_one_body_operator(space,g) for g in generators]
+    # J^2 = J_x^2 + J_y^2 + J_z^2.  Symmetrization removes sparse-product
+    # roundoff before the Hermitian eigendecomposition.
     j2=sum((g@g for g in many),start=sparse.csr_matrix(space.matrix.shape)).toarray()
     j2=(j2+j2.conj().T)/2
     values,vectors=np.linalg.eigh(j2)
     selected=values<tolerance
     if not np.any(selected):
         raise ValueError('No J=0 subspace found')
+    # Sum |J=0,a><J=0,a| over any degeneracy label a.
     projector=vectors[:,selected]@vectors[:,selected].conj().T
     return J0ReferenceProjector(projector,j2,int(selected.sum()))
 
 
 def projected_observables(vector,space,projector,target=None):
     """Normalize P0 vector and return norm, energy, and optional fidelity."""
+    # ``vector`` is already expressed in the fixed-N,Z determinant basis.  Its
+    # squared norm after projection is the J=0 probability within that sector.
     projected=projector.projector@np.asarray(vector,complex)
     norm=float(np.vdot(projected,projected).real)
     if norm<1e-14:
@@ -224,6 +282,25 @@ def projected_observables(vector,space,projector,target=None):
     energy=float(np.vdot(projected,space.matrix@projected).real)
     result={'vector':projected,'j0_weight':norm,'energy':energy}
     if target is not None:
+        # Normalize defensively so callers may supply a raw eigenvector or any
+        # equivalent nonzero representative of the target state.
         normalized=np.asarray(target,complex)/np.linalg.norm(target)
         result['fidelity']=float(abs(np.vdot(normalized,projected))**2)
     return result
+
+
+def project_thouless_observables(z, space, projector, target=None):
+    """Build P_N P_Z P_J=0|Phi(Z)> and return small-space observables.
+
+    This is the explicit-vector route to fidelity:
+
+    1. ``space.projected_state(z)`` constructs and normalizes P_N P_Z|Phi(Z)>.
+    2. ``projected_observables`` applies P_J=0 and renormalizes again.
+    3. If ``target`` is supplied, the returned dictionary includes the squared
+       overlap with that exact fixed-N,Z target vector.
+
+    It is intentionally separate from ``ParticleNumberJ0ProjectedEnergy``,
+    whose kernel integration avoids exponentially large state vectors.
+    """
+    number_projected = space.projected_state(z)
+    return projected_observables(number_projected, space, projector, target)

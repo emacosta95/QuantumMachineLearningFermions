@@ -7,7 +7,7 @@ from hfb import HFBHamiltonian
 from number_projection import NumberProjectedSpace
 from angular_momentum import (single_particle_angular_momentum,
     polynomial_j0_grid, ParticleNumberJ0ProjectedEnergy, exact_j0_projector,
-    projected_observables)
+    projected_observables, project_thouless_observables)
 
 
 def spin_half_model():
@@ -43,9 +43,13 @@ class TestAngularMomentum(unittest.TestCase):
         x=rng.normal(size=12)*.4
         amplitudes,_=space.amplitudes_and_jacobian(x)
         exact=projected_observables(amplitudes,space,reference)
+        direct=project_thouless_observables(
+            space.unpack(x),space,reference,exact['vector'])
         evaluator=ParticleNumberJ0ProjectedEnergy(ham,states,[2,3],[1,1])
         grid_energy=evaluator.energy(space.unpack(x))
         self.assertAlmostEqual(exact['energy'],-1.,places=11)
+        self.assertAlmostEqual(direct['fidelity'],1.,places=12)
+        np.testing.assert_allclose(direct['vector'],exact['vector']/np.linalg.norm(exact['vector']))
         self.assertAlmostEqual(grid_energy,exact['energy'],places=10)
 
 

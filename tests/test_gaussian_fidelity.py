@@ -3,6 +3,7 @@ import numpy as np
 from scipy.optimize._numdiff import approx_derivative
 from test_number_projection import pairing_model
 from number_projection import NumberProjectedSpace
+from number_projection import state_from_thouless
 from gaussian_fidelity import (GaussianFidelityObjective, maximize_gaussian_fidelity,
                                maximize_slater_fidelity, _slater_value_gradient)
 
@@ -14,6 +15,11 @@ class TestGaussianFidelity(unittest.TestCase):
         objective=GaussianFidelityObjective(space,target)
         x=np.random.default_rng(8).normal(size=12)*.4
         value,gradient=objective.fidelity_and_gradient(x)
+        state=state_from_thouless(space.unpack(x))
+        self.assertAlmostEqual(
+            value,
+            state.fixed_sector_fidelity(target,space.occupations),
+            places=12)
         numerical=approx_derivative(lambda y:objective.fidelity_and_gradient(y)[0],x).ravel()
         self.assertGreater(value,0)
         np.testing.assert_allclose(gradient,numerical,atol=2e-8,rtol=2e-7)
