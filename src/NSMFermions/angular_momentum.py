@@ -15,11 +15,15 @@ import numpy as np
 from scipy.linalg import expm
 
 if __package__:
-    from .gauge_projection import GaugeProjectedEnergy, pfaffian
+    from .gauge_projection import (
+        GaugeProjectedEnergy,
+        metropolis_vacuum_terms,
+        pfaffian,
+    )
     from .hfb import BogoliubovVacuumSeries, HFBState
     from .number_projection import projected_series_observables
 else:
-    from gauge_projection import GaugeProjectedEnergy, pfaffian
+    from gauge_projection import GaugeProjectedEnergy, metropolis_vacuum_terms, pfaffian
     from hfb import BogoliubovVacuumSeries, HFBState
     from number_projection import projected_series_observables
 
@@ -262,25 +266,121 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
             euler_offset=self.euler_offset,
         )
 
+    def metropolis_projected_series(
+        self,
+        state,
+        samples,
+        *,
+        burn_in=1000,
+        thinning=5,
+        proposal_scale=0.12,
+        seed=0,
+        overlap_floor=1e-10,
+    ):
+        """Importance-sample Euler rotations while keeping N,Z projection exact.
+
+        The Markov chain samples ``alpha, cos(beta), gamma``. For every retained
+        rotation, the complete deterministic N,Z Fourier grid is attached. This
+        prevents a finite stochastic sample from leaking into unwanted particle
+        sectors, so the later fixed-N,Z basis contains the complete sampled ket.
+        """
+        # Map three normalized chain coordinates to one spatial rotation.
+        def coordinate_to_term(coordinate):
+            # The first periodic coordinate is Euler alpha.
+            alpha=2*np.pi*coordinate[0]
+            # Uniform x=cos(beta) supplies the SO(3) sin(beta) measure exactly.
+            cos_beta=2*coordinate[1]-1
+            beta=np.arccos(cos_beta)
+            # The final periodic coordinate is Euler gamma.
+            gamma=2*np.pi*coordinate[2]
+            # Construct the physical one-body spatial rotation.
+            rotation=euler_rotation(alpha,beta,gamma,self.generators)
+            # J=0 has constant Wigner D weight, so its character is one.
+            return rotation,1.0+0.0j
+
+        # Alpha and gamma wrap; cos(beta)'s unit coordinate reflects.
+        rotations,euler_weights,diagnostics=metropolis_vacuum_terms(
+            state,
+            coordinate_to_term,
+            dimensions=3,
+            periodic_dimensions=(True,False,True),
+            samples=samples,
+            burn_in=burn_in,
+            thinning=thinning,
+            proposal_scale=proposal_scale,
+            seed=seed,
+            overlap_floor=overlap_floor,
+        )
+        # Tensor every sampled Euler rotation with the complete exact N,Z grid.
+        transformations=[]
+        weights=[]
+        for rotation,euler_weight in zip(rotations,euler_weights):
+            # Traverse all neutron Fourier nodes for this retained rotation.
+            for neutron_index in range(self.grid[0]):
+                neutron_angle=(
+                    2*np.pi*(neutron_index+self.offset)/self.grid[0]
+                )
+                # Traverse all proton Fourier nodes independently.
+                for proton_index in range(self.grid[1]):
+                    proton_angle=(
+                        2*np.pi*(proton_index+self.offset)/self.grid[1]
+                    )
+                    # Gauge phases act on rows of the spatial rotation.
+                    gauge=np.exp(
+                        1j*np.where(self.mask,neutron_angle,proton_angle)
+                    )
+                    transformations.append(gauge[:,None]*rotation)
+                    # Attach the exact number character and grid normalization.
+                    number_character=np.exp(
+                        -1j*(
+                            neutron_angle*self.targets[0]
+                            +proton_angle*self.targets[1]
+                        )
+                    )/np.prod(self.grid)
+                    weights.append(euler_weight*number_character)
+        # Record the physical projection labels alongside chain diagnostics.
+        diagnostics['targets']=tuple(int(number) for number in self.targets)
+        diagnostics['target_J']=0
+        diagnostics['euler_samples']=int(samples)
+        diagnostics['number_grid']=tuple(int(points) for points in self.grid)
+        diagnostics['number_grid_points']=int(np.prod(self.grid))
+        diagnostics['M_vacua']=len(weights)
+        # M equals Euler samples times the exact deterministic number-grid size.
+        return BogoliubovVacuumSeries(
+            intrinsic_state=state,
+            transformations=np.asarray(transformations),
+            weights=np.asarray(weights),
+            number_grid=self.grid,
+            euler_grid=(int(samples),),
+            projection='P_N P_Z P_J=0',
+            number_offset=self.offset,
+            sampling_method='metropolis',
+            sampling_diagnostics=diagnostics,
+        )
+
     def series_energy(self, series):
         """Evaluate energy from the same vacuum series used later for fidelity."""
         # Prevent accidental energy evaluation of a series built by another grid.
         if not isinstance(series,BogoliubovVacuumSeries):
             raise TypeError('series must be a BogoliubovVacuumSeries')
-        if series.number_grid!=tuple(self.grid):
-            raise ValueError('Series number grid differs from evaluator grid')
-        # The Euler dimensions must also match this evaluator's stored rotations.
-        expected_euler_grid=(
-            len(self.euler_grid.alpha),
-            len(self.euler_grid.cos_beta),
-            len(self.euler_grid.gamma),
-        )
-        if series.euler_grid!=expected_euler_grid:
-            raise ValueError('Series Euler grid differs from evaluator grid')
-        # Offsets determine the actual nodes even when grid dimensions agree.
-        if (not np.isclose(series.number_offset,self.offset)
-                or not np.isclose(series.euler_offset,self.euler_offset)):
-            raise ValueError('Series quadrature offsets differ from evaluator')
+        if series.sampling_method=='quadrature':
+            if series.number_grid!=tuple(self.grid):
+                raise ValueError('Series number grid differs from evaluator grid')
+            # Euler dimensions must also match this evaluator's stored rotations.
+            expected_euler_grid=(
+                len(self.euler_grid.alpha),
+                len(self.euler_grid.cos_beta),
+                len(self.euler_grid.gamma),
+            )
+            if series.euler_grid!=expected_euler_grid:
+                raise ValueError('Series Euler grid differs from evaluator grid')
+            # Offsets determine actual nodes even when dimensions agree.
+            if (not np.isclose(series.number_offset,self.offset)
+                    or not np.isclose(series.euler_offset,self.euler_offset)):
+                raise ValueError('Series quadrature offsets differ from evaluator')
+        # Stochastic series must still represent the same combined symmetries.
+        elif series.projection!='P_N P_Z P_J=0' or series.euler_grid is None:
+            raise ValueError('Metropolis series is not an N,Z,J=0 projection')
         # Transition-density kernels currently require a finite Thouless chart.
         z=series.intrinsic_state.thouless_matrix
         m=len(self.ham.h)
@@ -318,7 +418,16 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
             # Add this term coherently to both projected kernels.
             denominator+=kernel_weight
             numerator+=kernel_weight*kernel
-        # A physical exact projector has a positive real norm kernel.
+        # Finite stochastic sums retain ordinary complex Monte Carlo noise.
+        if series.sampling_method=='metropolis':
+            if abs(denominator)<1e-13:
+                raise ValueError('Metropolis N,Z,J=0 norm is unresolved')
+            energy=numerator/denominator
+            series.sampling_diagnostics['norm_kernel_real']=float(denominator.real)
+            series.sampling_diagnostics['norm_kernel_imag']=float(denominator.imag)
+            series.sampling_diagnostics['energy_imaginary']=float(energy.imag)
+            return float(energy.real)
+        # A deterministic exact projector has a positive real norm kernel.
         if abs(denominator.imag)>1e-7 or denominator.real<1e-13:
             raise ValueError('Vanishing or unresolved N,Z,J=0 projected norm')
         # The projected energy is the ratio of Hamiltonian and norm kernels.

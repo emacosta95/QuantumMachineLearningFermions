@@ -31,6 +31,164 @@ def pfaffian(matrix):
     return pf.pfaffian(a, overwrite_a=False, method="P")
 
 
+def transformed_vacuum_overlap(state, transform):
+    """Return the phase-consistent overlap ``<Phi|T|Phi>``.
+
+    The overlap magnitude defines the optional Metropolis importance density.
+    Finite-Z vacua use the same Pfaffian convention as the energy kernels;
+    singular-U Slater determinants use the occupied-orbital determinant.
+    """
+    # Convert and validate the one-body group transformation.
+    transform=np.asarray(transform,dtype=complex)
+    modes=len(state.U)
+    if transform.shape!=(modes,modes) or not np.isfinite(transform).all():
+        raise ValueError('Transform must be a finite one-body square matrix')
+    try:
+        # Recover the particle-vacuum chart when it exists.
+        z=state.thouless_matrix
+    except ValueError as chart_error:
+        try:
+            # A singular-U number-conserving state is handled as a Slater state.
+            orbitals=state.slater_orbitals
+        except ValueError:
+            raise chart_error
+        # The overlap of two Slater determinants is det(C^dagger T C).
+        return complex(np.linalg.det(orbitals.conj().T@transform@orbitals))
+
+    # Rotate both creation legs of the Thouless pair matrix.
+    rotated_z=transform@z@transform.T
+    # Construct the antisymmetric Robledo overlap matrix.
+    identity=np.eye(modes)
+    overlap_matrix=np.block(
+        [[rotated_z,-identity],[identity,-z.conj()]]
+    )
+    # Normalize both vacua; unitary T preserves their common norm.
+    scale=np.exp(
+        .5*np.linalg.slogdet(identity+z.conj().T@z)[1]
+    )
+    # PFAPACK supplies the signed overlap rather than an ambiguous square root.
+    sign=(-1)**(modes*(modes+1)//2)
+    return complex(sign*pfaffian(overlap_matrix)/scale)
+
+
+def _reflect_unit_interval(values):
+    """Reflect real coordinates into [0,1] with a symmetric proposal map."""
+    # Folding a period-two coordinate implements reflection at both boundaries.
+    folded=np.mod(values,2.0)
+    # Values in the second half are mirrored back into the unit interval.
+    return np.where(folded<=1.0,folded,2.0-folded)
+
+
+def metropolis_vacuum_terms(
+    state,
+    coordinate_to_term,
+    dimensions,
+    periodic_dimensions,
+    *,
+    samples,
+    burn_in=500,
+    thinning=5,
+    proposal_scale=0.15,
+    seed=0,
+    overlap_floor=1e-10,
+):
+    """Importance-sample transformed vacua with Metropolis-Hastings.
+
+    ``coordinate_to_term(u)`` maps unit-cube coordinates to ``(T, character)``.
+    The chain targets ``q(u) proportional to max(|<Phi|T|Phi>|, floor)``.
+    Returned coefficients are proportional to ``character/q``; the unknown
+    normalization of q is common to the whole projected ket and cancels after
+    state normalization and in projected-energy ratios.
+    """
+    # Validate integer chain controls before allocating the retained series.
+    if (not isinstance(samples,(int,np.integer)) or samples<1
+            or not isinstance(burn_in,(int,np.integer)) or burn_in<0
+            or not isinstance(thinning,(int,np.integer)) or thinning<1):
+        raise ValueError('Metropolis samples, burn-in, and thinning are invalid')
+    # Use one positive random-walk scale for all unit-cube coordinates.
+    if not np.isfinite(proposal_scale) or proposal_scale<=0:
+        raise ValueError('Metropolis proposal_scale must be positive and finite')
+    # A positive floor guarantees support even where the overlap is exactly zero.
+    if not np.isfinite(overlap_floor) or overlap_floor<=0:
+        raise ValueError('Metropolis overlap_floor must be positive and finite')
+
+    # Mark coordinates such as gauge, alpha, and gamma angles as periodic.
+    periodic=np.asarray(periodic_dimensions,dtype=bool)
+    if periodic.shape!=(dimensions,):
+        raise ValueError('Periodic-coordinate mask has the wrong dimension')
+    # Seed a reproducible chain uniformly with respect to the base Haar measure.
+    rng=np.random.default_rng(seed)
+    current=rng.random(dimensions)
+    # Map the initial coordinate to its one-body transform and projector character.
+    current_transform,current_character=coordinate_to_term(current)
+    # The target density is the positive overlap magnitude, never its complex phase.
+    current_overlap=transformed_vacuum_overlap(state,current_transform)
+    current_score=max(abs(current_overlap),overlap_floor)
+
+    # Store only post-burn-in, thinned terms of the Markov chain.
+    transformations=[]
+    raw_weights=[]
+    overlap_reweights=[]
+    accepted=0
+    total_steps=burn_in+samples*thinning
+    for step in range(total_steps):
+        # Symmetric Gaussian random walk in normalized group coordinates.
+        proposal=current+rng.normal(scale=proposal_scale,size=dimensions)
+        # Wrap periodic angles around the unit circle.
+        proposal[periodic]=np.mod(proposal[periodic],1.0)
+        # Reflect nonperiodic x=cos(beta) coordinates at their boundaries.
+        proposal[~periodic]=_reflect_unit_interval(proposal[~periodic])
+        # Build the proposed transformed vacuum and its complex character.
+        proposed_transform,proposed_character=coordinate_to_term(proposal)
+        # Evaluate the positive importance density at the proposal.
+        proposed_overlap=transformed_vacuum_overlap(state,proposed_transform)
+        proposed_score=max(abs(proposed_overlap),overlap_floor)
+        # Symmetric proposals leave only the target-density ratio in MH.
+        acceptance=min(1.0,proposed_score/current_score)
+        if rng.random()<acceptance:
+            # Accept all state associated with the proposed coordinate.
+            current=proposal
+            current_transform=proposed_transform
+            current_character=proposed_character
+            current_overlap=proposed_overlap
+            current_score=proposed_score
+            accepted+=1
+
+        # Discard burn-in and retain one state every ``thinning`` transitions.
+        if step>=burn_in and (step-burn_in)%thinning==0:
+            transformations.append(current_transform.copy())
+            # Importance reweighting restores the original Haar integral.
+            raw_weights.append(current_character/current_score)
+            # Track the complex overlap cancellation omitted by the positive target.
+            overlap_reweights.append(current_overlap/current_score)
+
+    # Divide by M; the unknown normalization of q is an irrelevant global factor.
+    weights=np.asarray(raw_weights,dtype=complex)/samples
+    # A magnitude-only importance ESS diagnoses uneven reweighting, while the
+    # complex average phase separately exposes cancellations/sign problems.
+    importance=np.abs(weights)
+    importance_ess=float(
+        importance.sum()**2/np.square(importance).sum()
+    )
+    overlap_reweights=np.asarray(overlap_reweights,dtype=complex)
+    average_overlap_phase=float(
+        abs(overlap_reweights.sum())/np.abs(overlap_reweights).sum()
+    )
+    diagnostics={
+        'samples':int(samples),
+        'burn_in':int(burn_in),
+        'thinning':int(thinning),
+        'proposal_scale':float(proposal_scale),
+        'acceptance_rate':float(accepted/total_steps),
+        'importance_ess':importance_ess,
+        'average_overlap_phase':average_overlap_phase,
+        'overlap_floor':float(overlap_floor),
+        'seed':int(seed),
+    }
+    # Return the sampled group actions, reweighted coefficients, and diagnostics.
+    return np.asarray(transformations),weights,diagnostics
+
+
 class GaugeProjectedEnergy:
     """Exact full-period N,Z Fourier projection for finite mode spaces.
 
@@ -164,12 +322,15 @@ class GaugeProjectedEnergy:
         # Require the same structured series later consumed by fidelity expansion.
         if not isinstance(series,BogoliubovVacuumSeries):
             raise TypeError('series must be a BogoliubovVacuumSeries')
-        # A series made on a different grid would not represent this evaluator.
-        if series.number_grid!=tuple(self.grid) or series.euler_grid is not None:
-            raise ValueError('Series grid differs from number projector grid')
-        # Equal dimensions are insufficient if the stored Fourier nodes differ.
-        if not np.isclose(series.number_offset,self.offset):
-            raise ValueError('Series number-grid offset differs from evaluator')
+        # Deterministic series must reproduce this evaluator's exact grid.
+        if series.sampling_method=='quadrature':
+            if series.number_grid!=tuple(self.grid) or series.euler_grid is not None:
+                raise ValueError('Series grid differs from number projector grid')
+            # Equal dimensions are insufficient if Fourier nodes differ.
+            if not np.isclose(series.number_offset,self.offset):
+                raise ValueError('Series number-grid offset differs from evaluator')
+        else:
+            raise ValueError('Number-only Metropolis projection is unsupported')
         # Transition kernels require a finite particle-vacuum Thouless chart.
         z=series.intrinsic_state.thouless_matrix
         # Infer and reuse the one-body identity matrix.
@@ -230,6 +391,16 @@ class GaugeProjectedEnergy:
 
         # Series weights already include both quadrature normalization factors.
         norm=denominator
+        # A finite stochastic series has ordinary Monte Carlo imaginary noise;
+        # record it instead of applying deterministic cancellation tolerances.
+        if series.sampling_method=='metropolis':
+            if abs(norm)<1e-14:
+                raise ValueError('Metropolis projected norm is unresolved')
+            energy=numerator/denominator
+            series.sampling_diagnostics['norm_kernel_real']=float(norm.real)
+            series.sampling_diagnostics['norm_kernel_imag']=float(norm.imag)
+            series.sampling_diagnostics['energy_imaginary']=float(energy.imag)
+            return float(energy.real)
         if abs(norm.imag)>1e-8 or norm.real<1e-14:
             raise ValueError('Vanishing or numerically unresolved projected norm')
         # The common quadrature normalization cancels in this ratio.

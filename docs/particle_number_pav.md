@@ -79,6 +79,14 @@ explicit small-space route. It requires a finite Thouless matrix; the explicit
 `project_particle_numbers` route is the supported path for singular-`U` HF
 limits.
 
+Particle-number grids remain deterministic rather than Metropolis sampled. The
+U(1)xU(1) integral is only two-dimensional and has an exact finite Fourier
+rule. More importantly, a finite random gauge sample is not an exact N,Z
+projector: it leaves components in unwanted particle sectors that are absent
+from a fixed-N,Z `FermiHubbardHamiltonian` basis. The optional Metropolis path
+therefore samples only Euler rotations and includes the complete controlled
+number grid for every retained rotation.
+
 The CKI Be8 workflow is in `benchmarks/cki_be8_pav.py`. It performs intrinsic
 variation, exact fixed-sector PAV, optional gauge-kernel validation, and saves
 the intrinsic `U,V` together with the projected vector and determinant masks.

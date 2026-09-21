@@ -299,6 +299,10 @@ class BogoliubovVacuumSeries:
     number_offset: float = 0.137
     # Fractional shift of alpha/gamma Euler grids, if present.
     euler_offset: object = None
+    # Construction rule: deterministic quadrature or Metropolis importance sampling.
+    sampling_method: str = "quadrature"
+    # Optional acceptance-rate and effective-sample-size diagnostics.
+    sampling_diagnostics: object = None
 
     def __post_init__(self):
         """Validate that every series term acts on the intrinsic one-body space."""
@@ -330,6 +334,9 @@ class BogoliubovVacuumSeries:
             self.euler_offset = float(self.euler_offset)
             if not np.isfinite(self.euler_offset):
                 raise ValueError("Euler-grid offset must be finite")
+        # Limit the marker to the two supported series-construction algorithms.
+        if self.sampling_method not in ("quadrature", "metropolis"):
+            raise ValueError("Unknown projection-series sampling method")
 
     @property
     def number_of_vacua(self):

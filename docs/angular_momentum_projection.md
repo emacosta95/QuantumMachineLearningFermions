@@ -68,6 +68,35 @@ values can be used for explicit convergence studies. The defaults are the
 finite-space exactness bounds, and smaller grids are rejected because they
 alias particle-number or angular-momentum components.
 
+## Optional Metropolis Euler series
+
+`metropolis_projected_series` replaces the deterministic Euler product grid by
+an importance-sampled Markov chain. The chain is uniform in the Haar variables
+`alpha`, `cos(beta)`, and `gamma`, and targets a positive density proportional
+to the magnitude of the rotated-vacuum overlap. Each retained term is reweighted
+by the inverse sampling density, including its complex projector phase.
+
+For every sampled Euler rotation, the implementation still attaches the entire
+deterministic N,Z Fourier grid. This is intentional: a finite random sample of
+gauge angles is not an exact particle-number projector and would leak into
+other sectors, making normalization in a fixed-N,Z target basis incorrect.
+Thus
+
+\[
+ M=L_NL_Z M_{\rm Euler}^{\rm MH}.
+\]
+
+The returned series records acceptance rate, importance effective sample size,
+average overlap phase, burn-in, thinning, and seed. A small average overlap
+phase signals a sign/phase problem and unreliable cancellation.
+
+This stochastic route is approximate. Its ordinary sampling error decreases
+only as roughly `1/sqrt(M)` and correlated samples reduce the effective M.
+For the present low-dimensional compact-group integral, deterministic
+quadrature is normally more accurate and reproducible. Metropolis can become
+useful when the deterministic Euler product grid is too large and moderate
+statistical error is acceptable.
+
 Thus one energy evaluation uses a number of kernels polynomial in the number
 of single-particle modes. With a dense two-body interaction, its cost is
 
@@ -116,10 +145,27 @@ result = project_state_observables(
 print(series.number_of_vacua, energy, result.fidelity)
 ```
 
+The optional stochastic construction is:
+
+```python
+series = projector.metropolis_projected_series(
+    state,
+    samples=500,
+    burn_in=1000,
+    thinning=5,
+    seed=7,
+)
+energy = projector.series_energy(series)
+result = project_state_observables(series, fermionic_hamiltonian, exact_target)
+print(series.sampling_diagnostics)
+```
+
 No determinant basis is used by `projected_series` or `series_energy`.
 `project_state_observables` expands the same series only when the target-basis
 fidelity is requested. The CKI benchmark accepts `--number-grid LN LZ` and
-`--euler-grid LALPHA LBETA LGAMMA`.
+either `--euler-grid LALPHA LBETA LGAMMA` or
+`--metropolis-samples M_EULER`, with separate burn-in, thinning, and seed
+options.
 
 ## References
 

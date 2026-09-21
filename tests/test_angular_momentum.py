@@ -66,5 +66,29 @@ class TestAngularMomentum(unittest.TestCase):
             larger_series,exact_hamiltonian,target)
         self.assertAlmostEqual(larger_result.fidelity,1.,places=11)
 
+    def test_metropolis_euler_series(self):
+        # Reuse the solvable spin-half model to measure stochastic projection error.
+        states,ham=spin_half_model()
+        exact_hamiltonian=FermiHubbardHamiltonian(ham,[2,3],[1,1])
+        _,target=exact_ground_state(exact_hamiltonian)
+        evaluator=ParticleNumberJ0ProjectedEnergy(ham,states,[2,3],[1,1])
+        # Fix both intrinsic state and chain seed for a reproducible regression.
+        parameters=np.random.default_rng(31).normal(size=12)*.4
+        state=HFBState.from_thouless(evaluator.unpack(parameters))
+        series=evaluator.metropolis_projected_series(
+            state,200,burn_in=200,thinning=2,seed=9)
+        result=project_state_observables(series,exact_hamiltonian,target)
+        # Every sampled Euler rotation carries the complete 3x3 number grid.
+        self.assertEqual(series.number_of_vacua,200*3*3)
+        self.assertEqual(series.sampling_method,'metropolis')
+        self.assertGreater(series.sampling_diagnostics['acceptance_rate'],0.)
+        self.assertLessEqual(series.sampling_diagnostics['acceptance_rate'],1.)
+        self.assertGreater(series.sampling_diagnostics['importance_ess'],100.)
+        # Finite-M sampling is approximate but converges toward the exact J=0 state.
+        self.assertGreater(result.fidelity,.95)
+        # The one-sided kernel estimator remains finite and records its phase noise.
+        self.assertTrue(np.isfinite(evaluator.series_energy(series)))
+        self.assertIn('energy_imaginary',series.sampling_diagnostics)
+
 
 if __name__=='__main__':unittest.main()

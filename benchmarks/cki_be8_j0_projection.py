@@ -18,7 +18,14 @@ from hfb import HFBHamiltonian, HFBState
 from number_projection import exact_ground_state
 
 
-def main(number_grid=None, euler_grid=None):
+def main(
+    number_grid=None,
+    euler_grid=None,
+    metropolis_samples=None,
+    metropolis_burn_in=1000,
+    metropolis_thinning=5,
+    metropolis_seed=0,
+):
     """Project with caller-controlled number and Euler quadrature dimensions."""
     # Include data loading, series construction, and fidelity in elapsed time.
     start = time.perf_counter()
@@ -75,9 +82,20 @@ def main(number_grid=None, euler_grid=None):
         number_grid=number_grid,
         euler_grid=euler_grid,
     )
-    # Construct M transformed Bogoliubov vacua without J^2 diagonalization or
-    # determinant coefficients.
-    series = evaluator.projected_series(state)
+    # Choose deterministic Euler quadrature or the optional Metropolis sampler.
+    if metropolis_samples is None:
+        # Tensor-product quadrature gives the reproducible finite-space default.
+        series = evaluator.projected_series(state)
+    else:
+        # Metropolis samples Euler rotations while retaining the complete N,Z
+        # grid for every sample, preventing particle-number leakage.
+        series = evaluator.metropolis_projected_series(
+            state,
+            metropolis_samples,
+            burn_in=metropolis_burn_in,
+            thinning=metropolis_thinning,
+            seed=metropolis_seed,
+        )
     # For finite Z, evaluate transition-density kernels over the identical
     # stored (T_q,w_q) terms before introducing determinant configurations.
     if stored_z is None:
@@ -96,6 +114,8 @@ def main(number_grid=None, euler_grid=None):
     report = {
         "nucleus": "Be8",
         "method": "Bogoliubov-vacuum gauge/Euler series",
+        "sampling_method": series.sampling_method,
+        "sampling_diagnostics": series.sampling_diagnostics,
         "target_J": 0,
         "number_grid": list(series.number_grid),
         "euler_grid": list(series.euler_grid),
@@ -135,13 +155,24 @@ if __name__ == "__main__":
     # Expose both discretizations directly at the command line.
     parser = argparse.ArgumentParser()
     parser.add_argument("--number-grid", nargs=2, type=int, metavar=("LN", "LZ"))
-    parser.add_argument(
+    grid_group = parser.add_mutually_exclusive_group()
+    grid_group.add_argument(
         "--euler-grid", nargs=3, type=int,
         metavar=("LALPHA", "LBETA", "LGAMMA"),
     )
+    grid_group.add_argument(
+        "--metropolis-samples", type=int, metavar="M_EULER"
+    )
+    parser.add_argument("--metropolis-burn-in", type=int, default=1000)
+    parser.add_argument("--metropolis-thinning", type=int, default=5)
+    parser.add_argument("--metropolis-seed", type=int, default=0)
     arguments = parser.parse_args()
     # Convert argparse lists to immutable tuples expected by the projector.
     main(
         number_grid=(tuple(arguments.number_grid) if arguments.number_grid else None),
         euler_grid=(tuple(arguments.euler_grid) if arguments.euler_grid else None),
+        metropolis_samples=arguments.metropolis_samples,
+        metropolis_burn_in=arguments.metropolis_burn_in,
+        metropolis_thinning=arguments.metropolis_thinning,
+        metropolis_seed=arguments.metropolis_seed,
     )
