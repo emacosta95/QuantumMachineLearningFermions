@@ -1,0 +1,29 @@
+{
+  "nucleus": "Be8",
+  "target_J": 0,
+  "number_grid": [
+    7,
+    7
+  ],
+  "euler_grid": [
+    9,
+    4,
+    9
+  ],
+  "number_grid_points": 49,
+  "euler_grid_points": 324,
+  "combined_kernel_points": 15876,
+  "M_bound": 4.0,
+  "J_bound": 6.0,
+  "exact_J0_subspace_dimension": 9,
+  "exact_ground_J2": 3.540448811871697e-16,
+  "pn_energy": -27.398536785704373,
+  "pn_fidelity": 0.39105881653272745,
+  "J0_weight_within_NZ": 0.39466729765675457,
+  "pnj0_energy_exact_reference": -30.07970607995,
+  "pnj0_fidelity_exact_reference": 0.9908569036617664,
+  "pnj0_energy_polynomial_grid": -30.07970607994995,
+  "grid_reference_energy_difference": 4.973799150320701e-14,
+  "exact_ground_energy": -30.295394613605556,
+  "elapsed_seconds": 9.657173600004171
+}

@@ -1,0 +1,56 @@
+{
+  "interaction": "data/cki, unchanged; no added mass scaling or core offset",
+  "valence_neutrons": 2,
+  "valence_protons": 2,
+  "modes": 12,
+  "dimension_NZ": 225,
+  "dimension_NZM0": 51,
+  "exact_M0_energy": -30.29539461360556,
+  "exact_NZ_energy": -30.295394613605577,
+  "legacy_matrix_max_error": 0.0,
+  "hf_attempts": [
+    {
+      "energy": -25.689032343398196,
+      "success": true,
+      "number_error": 8.539702278653749e-11
+    },
+    {
+      "energy": -25.689032351034886,
+      "success": true,
+      "number_error": 3.277422777614447e-11
+    }
+  ],
+  "hfb_energy": -25.689032344211583,
+  "hfb_converged": true,
+  "hfb_attempts": [
+    {
+      "converged": false,
+      "energy": -25.689150432751283,
+      "number_error": 0.0002839669949912249,
+      "message": "Iteration limit reached"
+    },
+    {
+      "converged": true,
+      "energy": -25.689032344211583,
+      "number_error": 1.3047651847841735e-10,
+      "message": "Optimization terminated successfully"
+    }
+  ],
+  "numbers": [
+    1.9999999999636744,
+    2.0000000001304765
+  ],
+  "canonical_error": 3.615708096596155e-15,
+  "stationarity_error": 0.00012618623224084347,
+  "kappa_norm": 1.1211009754951944e-05,
+  "kappa_np_norm": 5.529932697457387e-06,
+  "rho_np_norm": 2.11115574672662e-05,
+  "parent_vacuum_energy": -4.645589499307139e-16,
+  "weight_NZ": 0.99999999949146,
+  "weight_NZM0": 0.35182614554623143,
+  "raw_fidelity": 0.20181350450405106,
+  "conditional_fidelity_NZ": 0.2018135046066813,
+  "conditional_fidelity_NZM0": 0.573617131810154,
+  "projected_NZ_energy": -25.689032350709788,
+  "elapsed_seconds": 23.740927599996212
+}

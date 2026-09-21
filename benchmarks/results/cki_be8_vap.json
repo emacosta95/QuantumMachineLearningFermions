@@ -1,0 +1,64 @@
+{
+  "backend": "explicit_sector_initialization_then_gauge_grid_refinement",
+  "dimension": 225,
+  "projected_energy": -27.398536785704383,
+  "converged": true,
+  "gradient_norm": 1.2178000963146693e-06,
+  "attempts": [
+    {
+      "energy": -27.39853678570439,
+      "converged": true,
+      "gradient_norm": 1.2178000963146693e-06,
+      "iterations": 862,
+      "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH"
+    },
+    {
+      "energy": -27.39853678570129,
+      "converged": true,
+      "gradient_norm": 1.7571996049228804e-06,
+      "iterations": 1017,
+      "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH"
+    },
+    {
+      "energy": -27.398536785695853,
+      "converged": true,
+      "gradient_norm": 1.3313576628692282e-06,
+      "iterations": 1412,
+      "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH"
+    }
+  ],
+  "exact_energy": -30.295394613605556,
+  "ground_state_fidelity_projected": 0.39105881653272745,
+  "ground_state_fidelity_intrinsic": 0.04694724685742236,
+  "weight_NZ": 0.12005162618164214,
+  "intrinsic_kappa_norm_mean_number_gauge": 1.1643033942452568,
+  "intrinsic_kappa_np_norm_mean_number_gauge": 0.4591120282370687,
+  "intrinsic_canonical_error": 8.292157803072506e-15,
+  "intrinsic_energy": -15.462034072557127,
+  "intrinsic_numbers": [
+    2.0000000000000004,
+    2.0
+  ],
+  "grid": [
+    7,
+    7
+  ],
+  "grid_refinement": [
+    9,
+    9
+  ],
+  "grid_energy": -27.39853678570439,
+  "refined_grid_energy": -27.39853678570438,
+  "grid_optimizer_success": true,
+  "grid_optimizer_message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+  "grid_optimizer_iterations": 1,
+  "grid_optimizer_gradient_norm": 1.308730223730791e-05,
+  "post_scaling_analytic_gradient_norm": 1.1109370990340959e-06,
+  "exact_projected_numbers": [
+    2,
+    2
+  ],
+  "elapsed_seconds": 21.333666599995922,
+  "independent_vacuum_eigenvalue": -5.585791944680757e-16,
+  "independent_sector_weight": 0.12005162618164224
+}
