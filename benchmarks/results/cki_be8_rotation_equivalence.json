@@ -1,0 +1,94 @@
+{
+  "hfb_ground_fidelity": 0.2018135045160699,
+  "closest_gaussian_ground_fidelity": 0.20214721969217145,
+  "raw_mutual_fidelity": 0.0007604888487426581,
+  "best_aligned_fidelity": {
+    "J": 0.99743331450382,
+    "T": 0.0007604888488076831,
+    "JT": 0.997433314501562
+  },
+  "best_angles_radians": {
+    "J": [
+      -3.6392261219956974,
+      -1.6638881167052102,
+      1.3355346621577353
+    ],
+    "T": [
+      3.0488772450058335,
+      -2.30620416294986,
+      -1.1126594036303814
+    ],
+    "JT": [
+      -201.22628564026874,
+      -32.57552031341602,
+      6.019946021650369,
+      0.8392419654141131,
+      0.4328429260861871,
+      -2.4462580060725023
+    ]
+  },
+  "closest_gaussian_converged": true,
+  "closest_gaussian_gradient_norm": 1.496733383919769e-07,
+  "closest_gaussian_attempts": [
+    {
+      "fidelity": 0.2021472196921379,
+      "converged": true,
+      "gradient_norm": 1.9920551064065839e-07,
+      "iterations": 38
+    },
+    {
+      "fidelity": 0.11630150268642268,
+      "converged": true,
+      "gradient_norm": 3.065713653117329e-16,
+      "iterations": 1
+    },
+    {
+      "fidelity": 0.20214721969215788,
+      "converged": true,
+      "gradient_norm": 1.7170505737287834e-07,
+      "iterations": 64
+    },
+    {
+      "fidelity": 0.2021472196921658,
+      "converged": true,
+      "gradient_norm": 1.5853806319931226e-07,
+      "iterations": 75
+    },
+    {
+      "fidelity": 0.20214721969214938,
+      "converged": true,
+      "gradient_norm": 1.8351018431786797e-07,
+      "iterations": 65
+    },
+    {
+      "fidelity": 0.20214721969217145,
+      "converged": true,
+      "gradient_norm": 1.496733383919769e-07,
+      "iterations": 74
+    },
+    {
+      "fidelity": 0.20214721969216715,
+      "converged": true,
+      "gradient_norm": 1.5642694741826987e-07,
+      "iterations": 69
+    },
+    {
+      "fidelity": 0.2021472196921369,
+      "converged": true,
+      "gradient_norm": 1.9892045827357497e-07,
+      "iterations": 70
+    },
+    {
+      "fidelity": 0.20214721969214852,
+      "converged": true,
+      "gradient_norm": 1.851990472777385e-07,
+      "iterations": 68
+    },
+    {
+      "fidelity": 0.20214721969215788,
+      "converged": true,
+      "gradient_norm": 1.7097840660335645e-07,
+      "iterations": 72
+    }
+  ]
+}
