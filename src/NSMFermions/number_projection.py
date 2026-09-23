@@ -13,14 +13,15 @@ Hamiltonian builder, or projected-energy gradient in this module.
 
 from dataclasses import dataclass
 from typing import Optional
+import warnings
 
 import numpy as np
 from scipy import sparse
 
 if __package__:
-    from .hfb import BogoliubovVacuumSeries, HFBState
+    from .hfb import BogoliubovVacuumSeries, HFBState, ProjectionGridWarning
 else:
-    from hfb import BogoliubovVacuumSeries, HFBState
+    from hfb import BogoliubovVacuumSeries, HFBState, ProjectionGridWarning
 
 
 # Restrict the public projection API to the repository's established exact
@@ -87,6 +88,7 @@ def _number_projection_metadata(
     particle_numbers,
     grid=None,
     offset=0.137,
+    allow_inexact_grid=False,
 ):
     """Validate species data and return the two finite Fourier grids."""
     # Convert the two species blocks to immutable integer sets for fast counting.
@@ -115,28 +117,51 @@ def _number_projection_metadata(
     # A block with c modes has Fourier powers 0,...,c, so c+1 points integrate
     # every possible particle-number component exactly without aliasing.
     minimum_grid = tuple(len(block) + 1 for block in species)
-    # Use the exact minimal grid unless the caller requests a larger one.
+    # Use the exact minimal grid unless the caller requests another positive grid.
     chosen_grid = minimum_grid if grid is None else tuple(grid)
-    # Larger grids remain exact, while c or fewer points can alias two sectors.
     if len(chosen_grid) != 2 or any(
-        not isinstance(points, (int, np.integer)) or points < minimum
-        for points, minimum in zip(chosen_grid, minimum_grid)
+        not isinstance(points, (int, np.integer)) or points < 1
+        for points in chosen_grid
     ):
-        raise ValueError(f"Number grid must be at least {minimum_grid}")
+        raise ValueError("Number grid must contain two positive integers")
+    # Fewer than c+1 points identify particle numbers only modulo L and can
+    # therefore leave aliased sectors in a general HFB vacuum.
+    guaranteed_exact = all(
+        points >= minimum
+        for points, minimum in zip(chosen_grid, minimum_grid)
+    )
+    if not guaranteed_exact:
+        message = (
+            f"Number grid {chosen_grid} is below the finite-space exactness "
+            f"bound {minimum_grid}; exact P_N P_Z symmetry restoration is not "
+            "guaranteed. Use the bound or a larger grid for a guaranteed "
+            "projector."
+        )
+        if not allow_inexact_grid:
+            raise ValueError(message + " Set allow_inexact_grid=True to proceed.")
+        warnings.warn(message, ProjectionGridWarning, stacklevel=3)
     # The common fractional shift avoids sampling frequent overlap-zero angles.
     if not np.isfinite(offset):
         raise ValueError("Gauge-grid offset must be finite")
 
     # Return validated immutable data shared by series construction and tests.
-    return species, targets, chosen_grid
+    return species, targets, chosen_grid, minimum_grid, guaranteed_exact
 
 
-def number_projected_series(state, hamiltonian, grid=None, offset=0.137):
+def number_projected_series(
+    state,
+    hamiltonian,
+    grid=None,
+    offset=0.137,
+    *,
+    allow_inexact_grid=False,
+):
     """Return P_N P_Z|Phi> as a weighted series of Bogoliubov vacua.
 
     No determinant coefficients are computed here. Every term is a gauge-rotated
     vacuum, and ``grid=(L_A,L_B)`` directly controls the number ``L_A*L_B`` of
-    vacua retained in the Fourier representation.
+    vacua retained in the Fourier representation. Grids below the exactness
+    bound require ``allow_inexact_grid=True`` and emit a warning.
     """
     # Projection requires a complete HFBState rather than densities alone.
     if not isinstance(state, HFBState):
@@ -146,12 +171,15 @@ def number_projected_series(state, hamiltonian, grid=None, offset=0.137):
     if hamiltonian.modes != len(state.U):
         raise ValueError("State and fermionic Hamiltonian use different modes")
     # Validate species blocks, requested particle counts, and exact grid bounds.
-    species, targets, chosen_grid = _number_projection_metadata(
+    species, targets, chosen_grid, minimum_grid, guaranteed_exact = (
+        _number_projection_metadata(
         hamiltonian.modes,
         hamiltonian.species_modes,
         hamiltonian.particle_numbers,
         grid=grid,
         offset=offset,
+        allow_inexact_grid=allow_inexact_grid,
+        )
     )
 
     # Allocate one transformation and coefficient per pair of gauge angles.
@@ -187,6 +215,8 @@ def number_projected_series(state, hamiltonian, grid=None, offset=0.137):
         euler_grid=None,
         projection="P_N P_Z",
         number_offset=offset,
+        number_grid_guaranteed_exact=guaranteed_exact,
+        minimum_number_grid=minimum_grid,
     )
 
 
@@ -275,6 +305,8 @@ def project_particle_numbers(
     target=None,
     grid=None,
     offset=0.137,
+    *,
+    allow_inexact_grid=False,
 ):
     """Project an already optimized HFB/HF state into the Hamiltonian sector.
 
@@ -292,9 +324,14 @@ def project_particle_numbers(
         includes the squared overlap with the normalized projected state.
     grid : tuple, optional
         Numbers of gauge angles for the two species. The default ``c+1`` rule
-        exactly resolves every sector of a block containing ``c`` modes.
+        exactly resolves every sector of a block containing ``c`` modes. Any
+        positive grid is accepted when ``allow_inexact_grid=True``.
     offset : float, optional
         Common fractional shift of the full-period trapezoidal grids.
+    allow_inexact_grid : bool, optional
+        Permit a positive grid below the finite-space exactness bound. A
+        :class:`ProjectionGridWarning` is emitted because unwanted particle
+        sectors can then alias into the requested sector.
     """
     # Reject density-like stand-ins: projection requires the full quasiparticle
     # state because determinant amplitudes are not determined by rho alone.
@@ -303,7 +340,11 @@ def project_particle_numbers(
 
     # Construct the finite Fourier expansion without introducing basis states.
     series = number_projected_series(
-        state, hamiltonian, grid=grid, offset=offset
+        state,
+        hamiltonian,
+        grid=grid,
+        offset=offset,
+        allow_inexact_grid=allow_inexact_grid,
     )
     # Expand only at the requested energy/fidelity evaluation boundary.
     return projected_series_observables(

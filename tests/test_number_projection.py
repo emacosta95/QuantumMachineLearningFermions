@@ -157,6 +157,23 @@ class TestNumberProjection(unittest.TestCase):
         self.assertAlmostEqual(result.sector_weight, 1.0)
         self.assertLess(np.linalg.norm(state.kappa), 1e-12)
 
+        # A state with exact neutron and proton numbers needs no nontrivial
+        # gauge sum. The explicit opt-in permits the useful 1x1 discretization.
+        with self.assertWarnsRegex(
+            UserWarning, "exact P_N P_Z symmetry restoration is not guaranteed"
+        ):
+            one_point = project_particle_numbers(
+                state,
+                exact,
+                grid=(1, 1),
+                allow_inexact_grid=True,
+            )
+        np.testing.assert_allclose(
+            abs(one_point.projected_vector), expected, atol=1e-12
+        )
+        self.assertFalse(one_point.series.number_grid_guaranteed_exact)
+        self.assertEqual(one_point.series.minimum_number_grid, (3, 3))
+
     def test_wrong_container_is_rejected(self):
         state = HFBState.from_thouless(np.zeros((2, 2)))
         with self.assertRaises(TypeError):

@@ -4,13 +4,15 @@ No occupation-basis construction. Singular transition matrices are reported,
 not regularized silently. Shifted full-period Fourier grids avoid common
 overlap zeros but cannot guarantee conditioning for every state.
 """
+import warnings
+
 import numpy as np
 from pfapack import pfaffian as pf
 
 if __package__:
-    from .hfb import BogoliubovVacuumSeries, HFBState
+    from .hfb import BogoliubovVacuumSeries, HFBState, ProjectionGridWarning
 else:
-    from hfb import BogoliubovVacuumSeries, HFBState
+    from hfb import BogoliubovVacuumSeries, HFBState, ProjectionGridWarning
 
 
 def pfaffian(matrix):
@@ -195,7 +197,8 @@ class GaugeProjectedEnergy:
     Default L_n=m_n+1, L_p=m_p+1 resolves all particle-number sectors, even
     with np mixing and odd species parities. Cost per energy evaluation is
     O(L_n L_p (m^4+m^3)); dense interaction storage is O(m^4). Fixed undersized
-    grids are rejected. This says nothing about global optimization complexity.
+    grids require ``allow_inexact_grid=True`` and then emit a warning. This says
+    nothing about global optimization complexity.
 
     This class evaluates projected *kernels* without constructing a many-body
     state vector. That is what keeps its memory polynomial in the number of
@@ -203,7 +206,16 @@ class GaugeProjectedEnergy:
     ``FermiHubbardHamiltonian`` when an explicit small-space vector is required
     for fidelity or other observables.
     """
-    def __init__(self,hamiltonian,neutron_modes,targets,grid=None,offset=.137):
+    def __init__(
+        self,
+        hamiltonian,
+        neutron_modes,
+        targets,
+        grid=None,
+        offset=.137,
+        *,
+        allow_inexact_grid=False,
+    ):
         # Retain the raw one- and two-body tensors used by every transition kernel.
         self.ham=hamiltonian
         # The one-body matrix dimension is the number of fermionic modes.
@@ -242,14 +254,31 @@ class GaugeProjectedEnergy:
         # A species with c modes has sectors 0,...,c, so c+1 equally spaced
         # angles resolve its finite Fourier polynomial exactly.
         default_grid=tuple(c+1 for c in caps)
-        # A user grid may be larger than the exact minimal rule, never smaller.
+        self.minimum_grid=default_grid
+        # Positive undersized grids are permitted only through an explicit opt-in.
         self.grid=default_grid if grid is None else tuple(grid)
         invalid_grid=len(self.grid)!=2 or any(
-            not isinstance(points,(int,np.integer)) or points<=capacity
-            for points,capacity in zip(self.grid,caps)
+            not isinstance(points,(int,np.integer)) or points<1
+            for points in self.grid
         )
         if invalid_grid:
-            raise ValueError('Exact grid requires more points than modes of each species')
+            raise ValueError('Number grid must contain two positive integers')
+        self.number_grid_guaranteed_exact=all(
+            points>=minimum
+            for points,minimum in zip(self.grid,self.minimum_grid)
+        )
+        if not self.number_grid_guaranteed_exact:
+            message=(
+                f'Number grid {self.grid} is below the finite-space exactness '
+                f'bound {self.minimum_grid}; exact P_N P_Z symmetry restoration '
+                'is not guaranteed. Use the bound or a larger grid for a '
+                'guaranteed projector.'
+            )
+            if not allow_inexact_grid:
+                raise ValueError(
+                    message+' Set allow_inexact_grid=True to proceed.'
+                )
+            warnings.warn(message,ProjectionGridWarning,stacklevel=2)
         # Nonfinite offsets would contaminate every complex phase.
         if not np.isfinite(offset):
             raise ValueError('Offset must be finite')
@@ -315,6 +344,8 @@ class GaugeProjectedEnergy:
             euler_grid=None,
             projection='P_N P_Z',
             number_offset=self.offset,
+            number_grid_guaranteed_exact=self.number_grid_guaranteed_exact,
+            minimum_number_grid=self.minimum_grid,
         )
 
     def series_energy(self,series):

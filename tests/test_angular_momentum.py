@@ -32,6 +32,17 @@ class TestAngularMomentum(unittest.TestCase):
         self.assertEqual(grid.size,9)
         with self.assertRaises(ValueError):
             polynomial_j0_grid(states,[2,3],[1,1],grid=(2,1,3))
+        with self.assertWarnsRegex(
+            UserWarning, 'exact rotational-symmetry restoration is not guaranteed'
+        ):
+            coarse=polynomial_j0_grid(
+                states,[2,3],[1,1],grid=(1,1,1),
+                allow_inexact_grid=True)
+        self.assertEqual(
+            (len(coarse.alpha),len(coarse.cos_beta),len(coarse.gamma)),
+            (1,1,1))
+        self.assertFalse(coarse.guaranteed_exact)
+        self.assertEqual(coarse.minimum_grid,(3,1,3))
         with self.assertRaises(ValueError):
             polynomial_j0_grid(states,[2,3],[1,0])
 
@@ -65,6 +76,20 @@ class TestAngularMomentum(unittest.TestCase):
         larger_result=project_state_observables(
             larger_series,exact_hamiltonian,target)
         self.assertAlmostEqual(larger_result.fidelity,1.,places=11)
+
+        # Number and Euler grids can be controlled independently when a caller
+        # explicitly accepts that neither undersized rule guarantees projection.
+        with self.assertWarns(UserWarning):
+            coarse=ParticleNumberJ0ProjectedEnergy(
+                ham,states,[2,3],[1,1],number_grid=(1,1),
+                euler_grid=(1,1,1),allow_inexact_number_grid=True,
+                allow_inexact_euler_grid=True)
+        coarse_series=coarse.projected_series(state)
+        self.assertEqual(coarse_series.number_of_vacua,1)
+        self.assertFalse(coarse_series.number_grid_guaranteed_exact)
+        self.assertFalse(coarse_series.euler_grid_guaranteed_exact)
+        self.assertEqual(coarse_series.minimum_number_grid,(3,3))
+        self.assertEqual(coarse_series.minimum_euler_grid,(3,1,3))
 
     def test_metropolis_euler_series(self):
         # Reuse the solvable spin-half model to measure stochastic projection error.

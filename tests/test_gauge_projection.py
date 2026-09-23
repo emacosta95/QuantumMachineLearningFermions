@@ -41,6 +41,20 @@ class TestGaugeProjection(unittest.TestCase):
         with self.assertRaises(ValueError):
             GaugeProjectedEnergy(pairing_model(),[0,1],[1,1],grid=(2,2))
 
+        # Arbitrary positive grids are available through an explicit opt-in.
+        with self.assertWarnsRegex(
+            UserWarning, 'exact P_N P_Z symmetry restoration is not guaranteed'
+        ):
+            evaluator=GaugeProjectedEnergy(
+                pairing_model(),[0,1],[1,1],grid=(1,2),
+                allow_inexact_grid=True)
+        self.assertEqual(evaluator.grid,(1,2))
+        self.assertFalse(evaluator.number_grid_guaranteed_exact)
+        with self.assertRaises(ValueError):
+            GaugeProjectedEnergy(
+                pairing_model(),[0,1],[1,1],grid=(0,1),
+                allow_inexact_grid=True)
+
     def test_four_particle_complex_hamiltonian(self):
         rng=np.random.default_rng(28)
         m=6; species=np.array([0,0,0,1,1,1])

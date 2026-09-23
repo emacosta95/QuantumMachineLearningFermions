@@ -11,6 +11,8 @@ the clean first target for the Be8 0+ ground state.
 """
 from dataclasses import dataclass
 from math import ceil
+import warnings
+
 import numpy as np
 from scipy.linalg import expm
 
@@ -20,11 +22,11 @@ if __package__:
         metropolis_vacuum_terms,
         pfaffian,
     )
-    from .hfb import BogoliubovVacuumSeries, HFBState
+    from .hfb import BogoliubovVacuumSeries, HFBState, ProjectionGridWarning
     from .number_projection import projected_series_observables
 else:
     from gauge_projection import GaugeProjectedEnergy, metropolis_vacuum_terms, pfaffian
-    from hfb import BogoliubovVacuumSeries, HFBState
+    from hfb import BogoliubovVacuumSeries, HFBState, ProjectionGridWarning
     from number_projection import projected_series_observables
 
 
@@ -88,6 +90,8 @@ class J0Grid:
     gamma: np.ndarray
     m_bound: float
     j_bound: float
+    minimum_grid: tuple
+    guaranteed_exact: bool
 
     @property
     def size(self):
@@ -96,15 +100,24 @@ class J0Grid:
         return len(self.alpha)*len(self.cos_beta)*len(self.gamma)
 
 
-def polynomial_j0_grid(state_encoding,neutron_modes,targets,grid=None,offset=.173):
+def polynomial_j0_grid(
+    state_encoding,
+    neutron_modes,
+    targets,
+    grid=None,
+    offset=.173,
+    *,
+    allow_inexact_grid=False,
+):
     """Construct a finite-space exactness grid with polynomial point count.
 
     Alpha/gamma use `2*M_bound+1` periodic points, resolving all represented
     integer M,K frequencies after exact N,Z projection. Beta uses Gauss-Legendre
     with `ceil((J_bound+1)/2)` points, which integrates P_J(cos beta) through
     the conservative angular-momentum bound. User grids smaller than these
-    bounds are rejected. Bounds grow at most linearly with particle count and
-    single-particle j, hence the Euler-grid size is polynomial.
+    bounds require ``allow_inexact_grid=True`` and then emit a warning. Bounds
+    grow at most linearly with particle count and single-particle j, hence the
+    Euler-grid size is polynomial.
     """
     # Preserve the repository's single-particle mode ordering.
     states=[tuple(state) for state in state_encoding]
@@ -150,10 +163,27 @@ def polynomial_j0_grid(state_encoding,neutron_modes,targets,grid=None,offset=.17
     # Gauss-Legendre with L points integrates polynomials through degree 2L-1.
     beta_min=int(ceil((j_bound+1)/2))
     # Use exact finite-space defaults unless the caller supplies explicit grids.
-    chosen=(alpha_min,beta_min,gamma_min) if grid is None else tuple(grid)
-    if (len(chosen)!=3 or any(not isinstance(x,(int,np.integer)) for x in chosen)
-            or chosen[0]<alpha_min or chosen[1]<beta_min or chosen[2]<gamma_min):
-        raise ValueError(f'J=0 grid must be at least {(alpha_min,beta_min,gamma_min)}')
+    minimum_grid=(alpha_min,beta_min,gamma_min)
+    chosen=minimum_grid if grid is None else tuple(grid)
+    if (len(chosen)!=3 or any(
+            not isinstance(x,(int,np.integer)) or x<1 for x in chosen)):
+        raise ValueError('J=0 grid must contain three positive integers')
+    guaranteed_exact=all(
+        points>=minimum
+        for points,minimum in zip(chosen,minimum_grid)
+    )
+    if not guaranteed_exact:
+        message=(
+            f'J=0 Euler grid {chosen} is below the finite-space exactness '
+            f'bound {minimum_grid}; exact rotational-symmetry restoration is '
+            'not guaranteed. Use the bound or a larger grid for a guaranteed '
+            'projector.'
+        )
+        if not allow_inexact_grid:
+            raise ValueError(
+                message+' Set allow_inexact_grid=True to proceed.'
+            )
+        warnings.warn(message,ProjectionGridWarning,stacklevel=2)
     # Build the shifted periodic alpha nodes.
     alpha=2*np.pi*(np.arange(chosen[0])+offset)/chosen[0]
     # Build the independent shifted periodic gamma nodes.
@@ -161,7 +191,16 @@ def polynomial_j0_grid(state_encoding,neutron_modes,targets,grid=None,offset=.17
     # Integrate beta after changing variables from beta to x=cos(beta).
     cos_beta,weights=np.polynomial.legendre.leggauss(chosen[1])
     # Bundle nodes, weights, and theoretical bounds in one immutable object.
-    return J0Grid(alpha,cos_beta,weights,gamma,m_bound,j_bound)
+    return J0Grid(
+        alpha,
+        cos_beta,
+        weights,
+        gamma,
+        m_bound,
+        j_bound,
+        minimum_grid,
+        guaranteed_exact,
+    )
 
 
 class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
@@ -174,9 +213,17 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
     """
     def __init__(self,hamiltonian,state_encoding,neutron_modes,targets,*,
                  number_grid=None,euler_grid=None,number_offset=.137,
-                 euler_offset=.173):
+                 euler_offset=.173,allow_inexact_number_grid=False,
+                 allow_inexact_euler_grid=False):
         # Initialize the two U(1) number grids and validate species conservation.
-        super().__init__(hamiltonian,neutron_modes,targets,number_grid,number_offset)
+        super().__init__(
+            hamiltonian,
+            neutron_modes,
+            targets,
+            number_grid,
+            number_offset,
+            allow_inexact_grid=allow_inexact_number_grid,
+        )
         # Rotations and Hamiltonian tensors must share the same one-body space.
         if len(state_encoding)!=len(hamiltonian.h):
             raise ValueError('State encoding and Hamiltonian sizes differ')
@@ -193,7 +240,12 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
             raise ValueError('Angular-momentum generators mix neutron/proton labels')
         # Construct either the exact default Euler rule or the caller's rule.
         self.euler_grid=polynomial_j0_grid(
-            state_encoding,neutron_modes,targets,euler_grid,euler_offset
+            state_encoding,
+            neutron_modes,
+            targets,
+            euler_grid,
+            euler_offset,
+            allow_inexact_grid=allow_inexact_euler_grid,
         )
         # Retain the node shift as part of the reproducible series definition.
         self.euler_offset=float(euler_offset)
@@ -264,6 +316,10 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
             projection='P_N P_Z P_J=0',
             number_offset=self.offset,
             euler_offset=self.euler_offset,
+            number_grid_guaranteed_exact=self.number_grid_guaranteed_exact,
+            euler_grid_guaranteed_exact=self.euler_grid.guaranteed_exact,
+            minimum_number_grid=self.minimum_grid,
+            minimum_euler_grid=self.euler_grid.minimum_grid,
         )
 
     def metropolis_projected_series(
@@ -356,6 +412,11 @@ class ParticleNumberJ0ProjectedEnergy(GaugeProjectedEnergy):
             number_offset=self.offset,
             sampling_method='metropolis',
             sampling_diagnostics=diagnostics,
+            number_grid_guaranteed_exact=self.number_grid_guaranteed_exact,
+            # Metropolis Euler sampling is stochastic rather than exact quadrature.
+            euler_grid_guaranteed_exact=False,
+            minimum_number_grid=self.minimum_grid,
+            minimum_euler_grid=self.euler_grid.minimum_grid,
         )
 
     def series_energy(self, series):

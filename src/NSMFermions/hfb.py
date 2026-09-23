@@ -13,6 +13,10 @@ from scipy.linalg import expm, null_space
 from scipy.optimize import minimize
 
 
+class ProjectionGridWarning(UserWarning):
+    """Warn that a user-selected grid lacks a finite-space exactness guarantee."""
+
+
 @dataclass
 class HFBState:
     """Bogoliubov amplitudes defining an even-parity quasiparticle vacuum.
@@ -303,6 +307,13 @@ class BogoliubovVacuumSeries:
     sampling_method: str = "quadrature"
     # Optional acceptance-rate and effective-sample-size diagnostics.
     sampling_diagnostics: object = None
+    # Whether the number grid meets the state-independent finite-space bound.
+    number_grid_guaranteed_exact: bool = True
+    # Corresponding exactness marker for an Euler grid, or None when absent.
+    euler_grid_guaranteed_exact: object = None
+    # Minimum grids that provide the finite-space guarantees, for diagnostics.
+    minimum_number_grid: object = None
+    minimum_euler_grid: object = None
 
     def __post_init__(self):
         """Validate that every series term acts on the intrinsic one-body space."""
@@ -326,6 +337,21 @@ class BogoliubovVacuumSeries:
         self.number_grid = tuple(int(points) for points in self.number_grid)
         if self.euler_grid is not None:
             self.euler_grid = tuple(int(points) for points in self.euler_grid)
+        self.number_grid_guaranteed_exact = bool(
+            self.number_grid_guaranteed_exact
+        )
+        if self.euler_grid_guaranteed_exact is not None:
+            self.euler_grid_guaranteed_exact = bool(
+                self.euler_grid_guaranteed_exact
+            )
+        if self.minimum_number_grid is not None:
+            self.minimum_number_grid = tuple(
+                int(points) for points in self.minimum_number_grid
+            )
+        if self.minimum_euler_grid is not None:
+            self.minimum_euler_grid = tuple(
+                int(points) for points in self.minimum_euler_grid
+            )
         # Store finite scalar offsets so series metadata are self-contained.
         self.number_offset = float(self.number_offset)
         if not np.isfinite(self.number_offset):

@@ -65,8 +65,33 @@ The number of vacua in the projected series is therefore
 Both `number_grid=(L_N,L_Z)` and
 `euler_grid=(L_alpha,L_beta,L_gamma)` are public constructor arguments. Larger
 values can be used for explicit convergence studies. The defaults are the
-finite-space exactness bounds, and smaller grids are rejected because they
-alias particle-number or angular-momentum components.
+finite-space exactness bounds, and smaller grids are rejected by default because
+they can alias particle-number or angular-momentum components.
+
+Smaller positive grids can also be requested deliberately by acknowledging
+that the finite-space restoration guarantee is being waived:
+
+```python
+projector = ParticleNumberJ0ProjectedEnergy(
+    ham,
+    state_encoding,
+    neutron_modes,
+    targets=(2, 2),
+    number_grid=(1, 1),
+    euler_grid=(3, 2, 3),
+    allow_inexact_number_grid=True,
+    allow_inexact_euler_grid=True,
+)
+```
+
+Each undersized grid emits `ProjectionGridWarning`. The generated series stores
+`number_grid_guaranteed_exact`, `euler_grid_guaranteed_exact`,
+`minimum_number_grid`, and `minimum_euler_grid` so saved results retain the
+distinction between a guaranteed projector and an exploratory discretization.
+For an HF state already known to have exact N and Z, `(1,1)` removes redundant
+gauge work; it is unsafe if the occupied orbitals mix species or if the state
+contains multiple N or Z sectors. Without the corresponding opt-in flag, an
+undersized grid still raises `ValueError`.
 
 ## Optional Metropolis Euler series
 

@@ -87,6 +87,29 @@ from a fixed-N,Z `FermiHubbardHamiltonian` basis. The optional Metropolis path
 therefore samples only Euler rotations and includes the complete controlled
 number grid for every retained rotation.
 
+### Deliberately undersized grids
+
+The default remains the state-independent exactness rule `m_species + 1`.
+Arbitrary positive grid sizes can be selected explicitly for convergence tests
+or for a known fixed-N,Z state:
+
+```python
+result = project_particle_numbers(
+    state,
+    fermionic_hamiltonian,
+    grid=(1, 1),
+    allow_inexact_grid=True,
+)
+```
+
+The same opt-in is available on `number_projected_series` and
+`GaugeProjectedEnergy`. An undersized grid emits `ProjectionGridWarning` and
+the returned series records `number_grid_guaranteed_exact=False` together with
+`minimum_number_grid`. A one-point rule is exact for a state already known to
+be an eigenstate of both N and Z, but it is not a general particle-number
+projector: other sectors congruent modulo the grid size can alias into the sum.
+Without the explicit opt-in, undersized grids continue to raise `ValueError`.
+
 The CKI Be8 workflow is in `benchmarks/cki_be8_pav.py`. It performs intrinsic
 variation, exact fixed-sector PAV, optional gauge-kernel validation, and saves
 the intrinsic `U,V` together with the projected vector and determinant masks.
