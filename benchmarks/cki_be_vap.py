@@ -143,7 +143,9 @@ def main(arguments):
     }
     output = ROOT / "benchmarks/results"
     output.mkdir(exist_ok=True)
-    stem = f"cki_be{arguments.mass}_vap"
+    number_tag = "x".join(str(value) for value in result.projected_series.number_grid)
+    euler_tag = "x".join(str(value) for value in result.projected_series.euler_grid)
+    stem = f"cki_be{arguments.mass}_vap_n{number_tag}_j{euler_tag}"
     (output / f"{stem}.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )
