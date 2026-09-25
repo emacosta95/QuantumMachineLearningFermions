@@ -21,6 +21,30 @@ from test_number_projection import FermiHubbardHamiltonian
 
 
 class TestProjectedVAP(unittest.TestCase):
+    def test_six_particle_pfaffian_gradient(self):
+        rng = np.random.default_rng(91)
+        raw = rng.normal(size=(6, 6)) + 1j * rng.normal(size=(6, 6))
+        matrix = raw - raw.T
+        rows, columns = np.triu_indices(6, 1)
+        pair_index = {
+            (int(row), int(column)): index
+            for index, (row, column) in enumerate(zip(rows, columns))
+        }
+        terms = tuple(
+            (sign, tuple(pair_index[pair] for pair in matching))
+            for sign, matching in ProjectedVAPObjective._perfect_matchings(
+                tuple(range(6))
+            )
+        )
+        values, cofactors = ProjectedVAPObjective._batch_pfaffian_cofactors(
+            matrix[rows, columns][None, :], terms
+        )
+        expected, _, _, expected_cofactors = (
+            ProjectedVAPObjective._pfaffian_with_cofactor(matrix)
+        )
+        np.testing.assert_allclose(values[0], expected, atol=1e-12)
+        np.testing.assert_allclose(cofactors[0], expected_cofactors, atol=1e-12)
+
     def test_number_projected_slater_seed_recovers_determinant(self):
         orbitals = np.zeros((4, 2), complex)
         orbitals[[0, 3], [0, 1]] = 1
@@ -78,6 +102,37 @@ class TestProjectedVAP(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "exact number grid"):
             ProjectedVAPObjective(projector, energy_backend="kernel")
+
+    def test_analytic_gradient_matches_central_difference(self):
+        states, raw = spin_half_model()
+        exact = FermiHubbardHamiltonian(raw, [2, 3], [1, 1])
+        projector = ParticleNumberJ0ProjectedEnergy(
+            raw, states, [2, 3], [1, 1]
+        )
+        objective = ProjectedVAPObjective(
+            projector,
+            energy_backend="analytic_fixed_sector",
+            fermionic_hamiltonian=exact,
+        )
+        rng = np.random.default_rng(73)
+        parameters = rng.normal(scale=0.4, size=12)
+        direction = rng.normal(size=12)
+        direction /= np.linalg.norm(direction)
+        energy, gradient = objective.energy_and_gradient(parameters)
+        step = 2e-6
+        finite_difference = (
+            objective.energy(parameters + step * direction)
+            - objective.energy(parameters - step * direction)
+        ) / (2 * step)
+        self.assertTrue(np.isfinite(energy))
+        self.assertAlmostEqual(
+            float(gradient @ direction), finite_difference, places=7
+        )
+
+        series = projector.projected_series(objective.state(parameters))
+        self.assertAlmostEqual(
+            energy, projector.series_energy(series), places=10
+        )
 
 
 if __name__ == "__main__":

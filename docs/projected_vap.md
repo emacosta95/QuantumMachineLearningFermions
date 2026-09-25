@@ -26,6 +26,15 @@ undersized when the projector was constructed with
 `allow_inexact_euler_grid=True`.  This backend scales combinatorially and is
 intended for CKI validation, not large calculations.
 
+`energy_backend="analytic_fixed_sector"` differentiates the Pfaffian
+coefficient of every determinant in the fixed N,Z basis.  The configured Euler
+transformations remain explicit.  The U(1) sums are performed analytically:
+inside the target sector each gauge phase cancels its Fourier character.  This
+gives the exact real gradient with respect to every complex antisymmetric
+Thouless entry and lets L-BFGS optimize 132 CKI coordinates without finite
+differences.  The benchmark independently checks the final state with the full
+transition-kernel series whenever the number and Euler grids are exact.
+
 ## Pairing
 
 VAP varies all complex entries of the Thouless matrix, including neutron,
@@ -107,9 +116,16 @@ orbital file with:
 
 ```text
 python benchmarks/cki_be_vap.py --mass 10 --number-grid 7 7 \
-  --euler-grid 9 5 9 --backend kernel --optimizer SPSA \
+  --euler-grid 9 5 9 --backend analytic_fixed_sector \
+  --optimizer L-BFGS-B --gradient-tolerance 2e-6 \
   --initial-state benchmarks/results/cki_be10_hf_pav_state.npz
 ```
+
+For Be10 this deterministic route lowers the HF-PAV energy from
+`-38.6565430722` to `-39.4357813571` MeV and raises the exact-ground-state
+fidelity from `0.9459990335` to `0.9994052173`.  The final projected-gradient
+norm is `9.02e-7`; the full 19,845-vacuum kernel agrees with the analytic
+objective within `7e-14` MeV.
 
 `L-BFGS-B` uses ordinary finite-difference gradients and therefore needs about
 one objective evaluation per real Thouless coordinate for each gradient.  The

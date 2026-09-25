@@ -1,7 +1,7 @@
 {
   "nucleus": "Be10",
   "method": "P_N P_Z P_J=0 variation after projection",
-  "energy_backend": "kernel",
+  "energy_backend": "analytic_fixed_sector",
   "number_grid": [
     7,
     7
@@ -21,35 +21,37 @@
     9
   ],
   "number_grid_guaranteed_exact": true,
+  "fixed_sector_gauge_sum_collapsed": true,
   "euler_grid_guaranteed_exact": true,
-  "projected_vap_energy": -38.65654307221273,
-  "initial_projected_basis_energy": -38.65654307221253,
-  "initial_projected_fidelity": 0.9459990335246167,
-  "projected_basis_energy": -38.65654307221253,
-  "projected_fidelity": 0.9459990335246167,
-  "fidelity_improvement": 0.0,
-  "projected_sector_weight": 0.025843097449440855,
+  "projected_vap_energy": -39.43578135705636,
+  "initial_projected_basis_energy": -39.43578135705639,
+  "initial_projected_fidelity": 0.9994052172815786,
+  "projected_basis_energy": -39.43578135705639,
+  "full_series_kernel_crosscheck": -39.43578135705643,
+  "projected_fidelity": 0.999405217264264,
+  "fidelity_improvement": -1.731459420284409e-11,
+  "projected_sector_weight": 0.015724179539953784,
   "exact_ground_energy": -39.45341579805708,
   "intrinsic_numbers": [
-    1.9999999999999991,
-    1.0000000000000013
+    2.0570540251967335,
+    1.6198789612829996
   ],
-  "intrinsic_kappa_norm": 1.224744871391589,
-  "converged": false,
-  "optimizer": "SPSA",
-  "gradient_norm": 141.28686787217177,
+  "intrinsic_kappa_norm": 1.3776350752567055,
+  "converged": true,
+  "optimizer": "L-BFGS-B",
+  "gradient_norm": 9.016614307543344e-07,
   "attempts": [
     {
-      "optimizer": "SPSA",
-      "initial_projected_energy": -38.65654307221273,
-      "projected_energy": -38.65654307221273,
-      "converged": false,
-      "gradient_norm": 141.28686787217177,
-      "iterations": 5,
-      "evaluations": 16,
+      "optimizer": "L-BFGS-B",
+      "initial_projected_energy": -39.435781357056385,
+      "projected_energy": -39.4357813570564,
+      "converged": true,
+      "gradient_norm": 9.016614307543344e-07,
+      "iterations": 1,
+      "evaluations": 4,
       "failed_evaluations": 0,
-      "message": "SPSA iteration limit reached"
+      "message": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH"
     }
   ],
-  "elapsed_seconds": 578.7604730000021
+  "elapsed_seconds": 192.16601489999448
 }

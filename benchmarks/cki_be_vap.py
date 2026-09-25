@@ -90,7 +90,7 @@ def main(arguments):
         projector,
         energy_backend=arguments.backend,
         fermionic_hamiltonian=(
-            fermionic if arguments.backend == "fixed_sector_basis" else None
+            fermionic if arguments.backend != "kernel" else None
         ),
         allow_aliased_number_kernel=arguments.allow_aliased_number_kernel,
         starts=arguments.starts,
@@ -107,12 +107,41 @@ def main(arguments):
     initial_vacuum = HFBState.from_thouless(
         projector.unpack(result.initial_parameters)
     )
-    initial_series = projector.projected_series(initial_vacuum)
+    # In a basis containing only the requested N,Z, every gauge copy differs
+    # by the Fourier-cancelled target phase.  Collapse those redundant copies
+    # for determinant amplitudes, while retaining the full exact series for the
+    # independent transition-kernel cross-check below.
+    observable_projector = projector
+    collapsed_observable_gauge = False
+    if (arguments.backend == "analytic_fixed_sector"
+            and tuple(projector.grid) != (1, 1)):
+        observable_projector = ParticleNumberJ0ProjectedEnergy(
+            intrinsic_hamiltonian,
+            state_encoding,
+            neutron_modes,
+            targets,
+            number_grid=(1, 1),
+            euler_grid=tuple(arguments.euler_grid) if arguments.euler_grid else None,
+            allow_inexact_number_grid=True,
+            allow_inexact_euler_grid=arguments.allow_inexact_euler_grid,
+        )
+        collapsed_observable_gauge = True
+    initial_series = observable_projector.projected_series(initial_vacuum)
     initial_projected = project_state_observables(
         initial_series, fermionic, exact_target
     )
+    observable_series = (
+        observable_projector.projected_series(result.state)
+        if collapsed_observable_gauge else result.projected_series
+    )
     projected = project_state_observables(
-        result.projected_series, fermionic, exact_target
+        observable_series, fermionic, exact_target
+    )
+    kernel_crosscheck = (
+        projector.series_energy(result.projected_series)
+        if arguments.backend == "analytic_fixed_sector"
+        and result.number_grid_guaranteed_exact
+        else None
     )
     intrinsic_numbers = [
         float(np.diag(result.state.rho)[neutron_modes].real.sum()),
@@ -127,11 +156,13 @@ def main(arguments):
         "minimum_number_grid": list(result.projected_series.minimum_number_grid),
         "minimum_euler_grid": list(result.projected_series.minimum_euler_grid),
         "number_grid_guaranteed_exact": result.number_grid_guaranteed_exact,
+        "fixed_sector_gauge_sum_collapsed": collapsed_observable_gauge,
         "euler_grid_guaranteed_exact": result.euler_grid_guaranteed_exact,
         "projected_vap_energy": result.projected_energy,
         "initial_projected_basis_energy": initial_projected.energy,
         "initial_projected_fidelity": initial_projected.fidelity,
         "projected_basis_energy": projected.energy,
+        "full_series_kernel_crosscheck": kernel_crosscheck,
         "projected_fidelity": projected.fidelity,
         "fidelity_improvement": (
             projected.fidelity - initial_projected.fidelity
@@ -176,7 +207,7 @@ def parser():
     result.add_argument("--allow-inexact-euler-grid", action="store_true")
     result.add_argument(
         "--backend",
-        choices=("kernel", "fixed_sector_basis"),
+        choices=("kernel", "fixed_sector_basis", "analytic_fixed_sector"),
         default="kernel",
     )
     result.add_argument("--allow-aliased-number-kernel", action="store_true")
