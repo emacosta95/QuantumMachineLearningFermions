@@ -131,6 +131,40 @@ class ProjectedVAPObjective:
         return self.series_energy(self.series(parameters))
 
 
+def number_projected_slater_seed(orbitals, *, pairing_scale=1.0):
+    """Embed an even Slater determinant in a finite Thouless vacuum.
+
+    Consecutive occupied orbitals are paired in the auxiliary BCS vacuum.  Its
+    component with particle number equal to the number of supplied orbitals is
+    exactly their Slater determinant (up to an irrelevant scalar and phase).
+    Consequently, exact particle-number projection gives precisely the PAV
+    trial state while keeping the VAP optimizer inside the finite Thouless
+    chart.  Callers should order columns so that consecutive pairs do not mix
+    separately projected species.
+    """
+    orbitals = np.asarray(orbitals, dtype=complex)
+    if orbitals.ndim != 2:
+        raise ValueError("orbitals must be a two-dimensional matrix")
+    modes, particles = orbitals.shape
+    if particles == 0 or particles % 2:
+        raise ValueError("an even, nonzero number of occupied orbitals is required")
+    if not np.isfinite(orbitals).all() or not np.isfinite(pairing_scale):
+        raise ValueError("orbitals and pairing_scale must be finite")
+    if pairing_scale <= 0:
+        raise ValueError("pairing_scale must be positive")
+    gram = orbitals.conj().T @ orbitals
+    if not np.allclose(gram, np.eye(particles), atol=1e-9):
+        raise ValueError("occupied orbitals must be orthonormal")
+    pairing = np.zeros((particles, particles), dtype=complex)
+    for column in range(0, particles, 2):
+        pairing[column, column + 1] = pairing_scale
+        pairing[column + 1, column] = -pairing_scale
+    z = orbitals @ pairing @ orbitals.T
+    if z.shape != (modes, modes):
+        raise RuntimeError("internal Slater-seed dimension mismatch")
+    return HFBState.from_thouless(z)
+
+
 def solve_projected_hfb_vap(
     projector,
     *,
@@ -359,5 +393,6 @@ def solve_projected_hfb_vap(
 __all__ = [
     "ProjectedVAPObjective",
     "ProjectedVAPResult",
+    "number_projected_slater_seed",
     "solve_projected_hfb_vap",
 ]

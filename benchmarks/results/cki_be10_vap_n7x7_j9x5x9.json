@@ -1,0 +1,55 @@
+{
+  "nucleus": "Be10",
+  "method": "P_N P_Z P_J=0 variation after projection",
+  "energy_backend": "kernel",
+  "number_grid": [
+    7,
+    7
+  ],
+  "euler_grid": [
+    9,
+    5,
+    9
+  ],
+  "minimum_number_grid": [
+    7,
+    7
+  ],
+  "minimum_euler_grid": [
+    9,
+    5,
+    9
+  ],
+  "number_grid_guaranteed_exact": true,
+  "euler_grid_guaranteed_exact": true,
+  "projected_vap_energy": -38.65654307221273,
+  "initial_projected_basis_energy": -38.65654307221253,
+  "initial_projected_fidelity": 0.9459990335246167,
+  "projected_basis_energy": -38.65654307221253,
+  "projected_fidelity": 0.9459990335246167,
+  "fidelity_improvement": 0.0,
+  "projected_sector_weight": 0.025843097449440855,
+  "exact_ground_energy": -39.45341579805708,
+  "intrinsic_numbers": [
+    1.9999999999999991,
+    1.0000000000000013
+  ],
+  "intrinsic_kappa_norm": 1.224744871391589,
+  "converged": false,
+  "optimizer": "SPSA",
+  "gradient_norm": 141.28686787217177,
+  "attempts": [
+    {
+      "optimizer": "SPSA",
+      "initial_projected_energy": -38.65654307221273,
+      "projected_energy": -38.65654307221273,
+      "converged": false,
+      "gradient_norm": 141.28686787217177,
+      "iterations": 5,
+      "evaluations": 16,
+      "failed_evaluations": 0,
+      "message": "SPSA iteration limit reached"
+    }
+  ],
+  "elapsed_seconds": 578.7604730000021
+}

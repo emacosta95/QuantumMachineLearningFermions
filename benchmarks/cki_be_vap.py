@@ -26,7 +26,7 @@ from angular_momentum import (
 )
 from hfb import HFBHamiltonian, HFBState
 from number_projection import exact_ground_state
-from projected_vap import solve_projected_hfb_vap
+from projected_vap import number_projected_slater_seed, solve_projected_hfb_vap
 
 
 def main(arguments):
@@ -78,8 +78,13 @@ def main(arguments):
     initial_state = None
     if arguments.initial_state is not None:
         saved = np.load(arguments.initial_state)
-        stored_z = saved["Z"] if "Z" in saved and saved["Z"].size else None
-        initial_state = HFBState(saved["U"], saved["V"], Z=stored_z)
+        if "orbitals" in saved:
+            initial_state = number_projected_slater_seed(
+                saved["orbitals"], pairing_scale=arguments.slater_seed_scale
+            )
+        else:
+            stored_z = saved["Z"] if "Z" in saved and saved["Z"].size else None
+            initial_state = HFBState(saved["U"], saved["V"], Z=stored_z)
 
     result = solve_projected_hfb_vap(
         projector,
@@ -187,6 +192,7 @@ def parser():
     result.add_argument("--spsa-learning-rate", type=float, default=0.08)
     result.add_argument("--spsa-perturbation", type=float, default=0.12)
     result.add_argument("--initial-state")
+    result.add_argument("--slater-seed-scale", type=float, default=1.0)
     return result
 
 

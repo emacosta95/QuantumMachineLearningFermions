@@ -35,16 +35,21 @@ used instead of enforcing a nonzero pairing tensor.  The returned
 intrinsic state.  Forcing a minimum pairing norm would define a different,
 constrained functional and is therefore not hidden in the solver.
 
-The finite Thouless chart does not include a nonempty Slater determinant at a
-finite coordinate value.  Large-norm seeds and bounds approach that boundary,
-but a separate projected-HF boundary calculation remains necessary when
-deciding whether the global optimum is paired.
+The finite Thouless chart does not include a nonempty *intrinsic* Slater
+determinant at a finite coordinate value.  For an even target, however,
+`number_projected_slater_seed` embeds occupied orbitals in a finite BCS vacuum
+whose target-number component is exactly that determinant.  Starting VAP from
+this seed includes the HF-PAV state as a projected variational baseline.  The
+solver retains the initial point unless it finds a lower projected energy.
 
 ## Python API
 
 ```python
 from NSMFermions.angular_momentum import ParticleNumberJ0ProjectedEnergy
-from NSMFermions.projected_vap import solve_projected_hfb_vap
+from NSMFermions.projected_vap import (
+    number_projected_slater_seed,
+    solve_projected_hfb_vap,
+)
 
 projector = ParticleNumberJ0ProjectedEnergy(
     ham,
@@ -84,12 +89,26 @@ projector = ParticleNumberJ0ProjectedEnergy(
 result = solve_projected_hfb_vap(projector, energy_backend="kernel")
 ```
 
+For an exact kernel calculation initialized from occupied HF orbitals, use
+`initial_state=number_projected_slater_seed(hf_orbitals)`.  Columns must be
+ordered in consecutive same-species pairs when neutron and proton numbers are
+projected separately.
+
 ## CKI command line
 
 ```text
 python benchmarks/cki_be_vap.py --mass 10 --number-grid 1 1 \
   --euler-grid 3 3 3 --allow-inexact-number-grid \
   --allow-inexact-euler-grid --backend fixed_sector_basis --optimizer SPSA
+```
+
+The exact Be10 full-series calculation can be reproduced from a saved HF
+orbital file with:
+
+```text
+python benchmarks/cki_be_vap.py --mass 10 --number-grid 7 7 \
+  --euler-grid 9 5 9 --backend kernel --optimizer SPSA \
+  --initial-state benchmarks/results/cki_be10_hf_pav_state.npz
 ```
 
 `L-BFGS-B` uses ordinary finite-difference gradients and therefore needs about

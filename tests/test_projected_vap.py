@@ -11,12 +11,27 @@ from angular_momentum import (
     ParticleNumberJ0ProjectedEnergy,
     project_state_observables,
 )
-from projected_vap import ProjectedVAPObjective, solve_projected_hfb_vap
+from projected_vap import (
+    ProjectedVAPObjective,
+    number_projected_slater_seed,
+    solve_projected_hfb_vap,
+)
 from test_angular_momentum import spin_half_model
 from test_number_projection import FermiHubbardHamiltonian
 
 
 class TestProjectedVAP(unittest.TestCase):
+    def test_number_projected_slater_seed_recovers_determinant(self):
+        orbitals = np.zeros((4, 2), complex)
+        orbitals[[0, 3], [0, 1]] = 1
+        state = number_projected_slater_seed(orbitals, pairing_scale=0.7)
+        occupations = ((0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3))
+        amplitudes = state.occupation_amplitudes(occupations, normalized=False)
+        amplitudes /= np.linalg.norm(amplitudes)
+        expected = np.zeros(6, complex)
+        expected[2] = 1
+        self.assertAlmostEqual(abs(np.vdot(expected, amplitudes)) ** 2, 1.0)
+
     def test_fixed_sector_backend_uses_custom_inexact_series(self):
         states, raw = spin_half_model()
         exact = FermiHubbardHamiltonian(raw, [2, 3], [1, 1])
