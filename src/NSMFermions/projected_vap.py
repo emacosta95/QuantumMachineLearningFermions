@@ -75,6 +75,12 @@ class ProjectedVAPObjective:
         energy_backend="kernel",
         fermionic_hamiltonian=None,
         allow_aliased_number_kernel=False,
+        projection_sampling="quadrature",
+        metropolis_samples=200,
+        metropolis_burn_in=500,
+        metropolis_thinning=3,
+        metropolis_proposal_scale=0.12,
+        metropolis_seed=0,
     ):
         if not isinstance(projector, ParticleNumberJ0ProjectedEnergy):
             raise TypeError("projector must be ParticleNumberJ0ProjectedEnergy")
@@ -88,6 +94,22 @@ class ProjectedVAPObjective:
             raise ValueError(
                 f"{energy_backend} requires fermionic_hamiltonian"
             )
+        if projection_sampling not in {"quadrature", "metropolis"}:
+            raise ValueError("projection_sampling must be quadrature or metropolis")
+        if projection_sampling == "metropolis" and energy_backend == "analytic_fixed_sector":
+            raise ValueError(
+                "analytic_fixed_sector differentiates deterministic quadrature; "
+                "use kernel with SPSA for Metropolis-projected VAP"
+            )
+        if (not isinstance(metropolis_samples, (int, np.integer))
+                or metropolis_samples < 1
+                or not isinstance(metropolis_burn_in, (int, np.integer))
+                or metropolis_burn_in < 0
+                or not isinstance(metropolis_thinning, (int, np.integer))
+                or metropolis_thinning < 1
+                or not np.isfinite(metropolis_proposal_scale)
+                or metropolis_proposal_scale <= 0):
+            raise ValueError("invalid Metropolis projection controls")
         if (
             energy_backend == "kernel"
             and not projector.number_grid_guaranteed_exact
@@ -110,6 +132,12 @@ class ProjectedVAPObjective:
         self.projector = projector
         self.energy_backend = energy_backend
         self.fermionic_hamiltonian = fermionic_hamiltonian
+        self.projection_sampling = projection_sampling
+        self.metropolis_samples = int(metropolis_samples)
+        self.metropolis_burn_in = int(metropolis_burn_in)
+        self.metropolis_thinning = int(metropolis_thinning)
+        self.metropolis_proposal_scale = float(metropolis_proposal_scale)
+        self.metropolis_seed = int(metropolis_seed)
         self.modes = len(projector.ham.h)
         self.ij = np.triu_indices(self.modes, 1)
         self.has_analytic_gradient = energy_backend == "analytic_fixed_sector"
@@ -254,14 +282,53 @@ class ProjectedVAPObjective:
         return HFBState.from_thouless(self.unpack(parameters))
 
     def series(self, parameters):
-        return self.projector.projected_series(self.state(parameters))
+        state = self.state(parameters)
+        if self.projection_sampling == "quadrature":
+            return self.projector.projected_series(state)
+        return self.projector.metropolis_projected_series(
+            state,
+            self.metropolis_samples,
+            burn_in=self.metropolis_burn_in,
+            thinning=self.metropolis_thinning,
+            proposal_scale=self.metropolis_proposal_scale,
+            seed=self.metropolis_seed,
+        )
 
     def series_energy(self, series):
         if self.energy_backend == "kernel":
             return self.projector.series_energy(series)
+        if series.sampling_method == "metropolis":
+            series = self._collapse_metropolis_gauge_sum(series)
         return projected_series_observables(
             series, self.fermionic_hamiltonian
         ).energy
+
+    @staticmethod
+    def _collapse_metropolis_gauge_sum(series):
+        """Remove redundant gauge copies in an already fixed N,Z basis."""
+        gauge_points = int(np.prod(series.number_grid))
+        if gauge_points < 1 or len(series.weights) % gauge_points:
+            raise ValueError("Metropolis series has inconsistent gauge blocks")
+        selected = np.arange(0, len(series.weights), gauge_points)
+        return type(series)(
+            intrinsic_state=series.intrinsic_state,
+            transformations=series.transformations[selected],
+            weights=series.weights[selected] * gauge_points,
+            number_grid=(1, 1),
+            euler_grid=series.euler_grid,
+            projection=series.projection,
+            number_offset=series.number_offset,
+            euler_offset=series.euler_offset,
+            sampling_method=series.sampling_method,
+            sampling_diagnostics=(
+                dict(series.sampling_diagnostics)
+                if series.sampling_diagnostics is not None else None
+            ),
+            number_grid_guaranteed_exact=False,
+            euler_grid_guaranteed_exact=False,
+            minimum_number_grid=series.minimum_number_grid,
+            minimum_euler_grid=series.minimum_euler_grid,
+        )
 
     def energy(self, parameters):
         if self.has_analytic_gradient:
@@ -390,6 +457,12 @@ def solve_projected_hfb_vap(
     optimizer="L-BFGS-B",
     spsa_learning_rate=0.08,
     spsa_perturbation=0.12,
+    projection_sampling="quadrature",
+    metropolis_samples=200,
+    metropolis_burn_in=500,
+    metropolis_thinning=3,
+    metropolis_proposal_scale=0.12,
+    metropolis_seed=0,
 ):
     """Minimize the configured projected energy over Bogoliubov vacua.
 
@@ -405,6 +478,8 @@ def solve_projected_hfb_vap(
         raise ValueError("optimizer tolerances and parameter bound must be positive")
     if optimizer not in {"L-BFGS-B", "SPSA"}:
         raise ValueError("optimizer must be 'L-BFGS-B' or 'SPSA'")
+    if projection_sampling == "metropolis" and optimizer != "SPSA":
+        raise ValueError("Metropolis-projected VAP requires optimizer='SPSA'")
     if spsa_learning_rate <= 0 or spsa_perturbation <= 0:
         raise ValueError("SPSA scales must be positive")
     scales = tuple(float(scale) for scale in seed_scales)
@@ -416,6 +491,12 @@ def solve_projected_hfb_vap(
         energy_backend=energy_backend,
         fermionic_hamiltonian=fermionic_hamiltonian,
         allow_aliased_number_kernel=allow_aliased_number_kernel,
+        projection_sampling=projection_sampling,
+        metropolis_samples=metropolis_samples,
+        metropolis_burn_in=metropolis_burn_in,
+        metropolis_thinning=metropolis_thinning,
+        metropolis_proposal_scale=metropolis_proposal_scale,
+        metropolis_seed=metropolis_seed,
     )
     dimension = objective.modes * (objective.modes - 1)
     supplied = []

@@ -1,0 +1,93 @@
+{
+  "nucleus": "Be10",
+  "method": "P_N P_Z P_J=0 variation after projection",
+  "energy_backend": "fixed_sector_basis",
+  "projection_sampling": "metropolis",
+  "sampling_diagnostics": {
+    "samples": 256,
+    "burn_in": 500,
+    "thinning": 2,
+    "proposal_scale": 0.12,
+    "acceptance_rate": 0.7401185770750988,
+    "importance_ess": 188.25975064421476,
+    "average_overlap_phase": 0.9909029702961352,
+    "overlap_floor": 1e-10,
+    "seed": 41,
+    "targets": [
+      4,
+      2
+    ],
+    "target_J": 0,
+    "euler_samples": 256,
+    "number_grid": [
+      7,
+      7
+    ],
+    "number_grid_points": 49,
+    "M_vacua": 12544
+  },
+  "number_grid": [
+    7,
+    7
+  ],
+  "euler_grid": [
+    256
+  ],
+  "minimum_number_grid": [
+    7,
+    7
+  ],
+  "minimum_euler_grid": [
+    9,
+    5,
+    9
+  ],
+  "number_grid_guaranteed_exact": true,
+  "fixed_sector_gauge_sum_collapsed": true,
+  "euler_grid_guaranteed_exact": false,
+  "projected_vap_energy": -38.95901323677967,
+  "initial_projected_basis_energy": -38.47015360993758,
+  "initial_projected_fidelity": 0.9129815912137076,
+  "projected_basis_energy": -38.95901323677967,
+  "full_series_kernel_crosscheck": null,
+  "exact_quadrature_validation": {
+    "energy": -39.058199821449456,
+    "basis_energy": -39.05819982144956,
+    "fidelity": 0.9744686645619286,
+    "number_grid": [
+      7,
+      7
+    ],
+    "euler_grid": [
+      9,
+      5,
+      9
+    ]
+  },
+  "projected_fidelity": 0.9616869512932205,
+  "fidelity_improvement": 0.04870536007951287,
+  "projected_sector_weight": 0.25535004727777044,
+  "exact_ground_energy": -39.45341579805708,
+  "intrinsic_numbers": [
+    2.0297748798455277,
+    1.0666509115386278
+  ],
+  "intrinsic_kappa_norm": 1.2380383135550963,
+  "converged": false,
+  "optimizer": "SPSA",
+  "gradient_norm": 59.31699537508751,
+  "attempts": [
+    {
+      "optimizer": "SPSA",
+      "initial_projected_energy": -38.47015360993758,
+      "projected_energy": -38.95901323677967,
+      "converged": false,
+      "gradient_norm": 59.31699537508751,
+      "iterations": 40,
+      "evaluations": 121,
+      "failed_evaluations": 0,
+      "message": "SPSA iteration limit reached"
+    }
+  ],
+  "elapsed_seconds": 470.4673849999672
+}

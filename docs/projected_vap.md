@@ -127,11 +127,57 @@ fidelity from `0.9459990335` to `0.9994052173`.  The final projected-gradient
 norm is `9.02e-7`; the full 19,845-vacuum kernel agrees with the analytic
 objective within `7e-14` MeV.
 
-`L-BFGS-B` uses ordinary finite-difference gradients and therefore needs about
-one objective evaluation per real Thouless coordinate for each gradient.  The
+`L-BFGS-B` uses the exact Pfaffian gradient with `analytic_fixed_sector`; other
+backends would otherwise require an expensive finite-difference gradient.  The
 `SPSA` option uses two simultaneous perturbations per iteration and is the
-practical default for the 132-coordinate CKI calculations.  Its convergence is
-stochastic, so repeat several seeds and compare the best projected energy.
+appropriate optimizer for Metropolis-projected objectives.  Its convergence is
+stochastic, so repeat several seeds and compare exact-grid validations.
+
+## Metropolis-projected variation
+
+Euler projection can be importance sampled while the particle-number Fourier
+sum remains exact:
+
+```text
+python benchmarks/cki_be_vap.py --mass 10 --number-grid 7 7 \
+  --euler-grid 9 5 9 --backend fixed_sector_basis \
+  --projection-sampling metropolis --metropolis-samples 256 \
+  --metropolis-burn-in 500 --metropolis-thinning 2 \
+  --optimizer SPSA --initial-state \
+  benchmarks/results/cki_be10_hf_pav_state.npz
+```
+
+The Markov chain samples Euler rotations with probability proportional to the
+vacuum-overlap magnitude and stores the reciprocal-importance weights in the
+projected vacuum series.  A fixed random seed supplies common random numbers
+to nearby SPSA evaluations.  For CKI, use `fixed_sector_basis`: its finite-
+sample Rayleigh quotient is real and variational.  The one-sided stochastic
+transition-kernel ratio can have appreciable complex noise and should be
+treated as a diagnostic rather than an optimization objective.
+
+Every stochastic benchmark also reevaluates its final intrinsic state with the
+deterministic exact grid.  For Be10, seed 41 gave:
+
+| Euler samples | Sampled vacua after gauge collapse | Exact-grid energy | Exact-grid fidelity |
+|---:|---:|---:|---:|
+| 64 | 64 | -38.89248915 | 0.96210949 |
+| 256 | 256 | -39.05819982 | 0.97446866 |
+| exact `(9,5,9)` VAP | 405 | -39.43578136 | 0.99940522 |
+
+The stochastic runs are exploratory SPSA solutions, not stationary points.
+Increasing the sample count reduced projection bias but increased runtime
+approximately linearly.
+
+## Projection-grid references
+
+The implementation follows the standard finite Fourier/Fomenko treatment of
+particle-number and periodic Euler angles, with Gauss-Legendre quadrature in
+`cos(beta)`.  Useful primary references are:
+
+- [Bally and Bender, projection on particle number and angular momentum](https://arxiv.org/abs/2010.15224), including numerical implementation and mesh reduction for Bogoliubov vacua.
+- [Johnson and Jiao, convergence and efficiency of angular-momentum projection](https://arxiv.org/abs/1808.05672), relating periodic trapezoidal sums, linear-algebra projection, and Fomenko projection.
+- [Shimizu and Tsunoda, SO(3) quadratures in angular-momentum projection](https://arxiv.org/abs/2205.04119), deriving exactness conditions and comparing conventional and reduced SO(3) rules.
+- [Anguiano, Egido, and Robledo, particle-number projection with effective forces](https://arxiv.org/abs/nucl-th/0105003), for particle-number projected HFB kernels and gradients.
 
 The output records grid exactness, projected energy and fidelity, intrinsic
 particle-number expectations, pairing norm, all optimizer attempts, and the

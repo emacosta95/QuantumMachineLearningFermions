@@ -134,6 +134,50 @@ class TestProjectedVAP(unittest.TestCase):
             energy, projector.series_energy(series), places=10
         )
 
+    def test_metropolis_projected_objective_and_optimizer_guard(self):
+        states, raw = spin_half_model()
+        exact = FermiHubbardHamiltonian(raw, [2, 3], [1, 1])
+        projector = ParticleNumberJ0ProjectedEnergy(
+            raw, states, [2, 3], [1, 1]
+        )
+        objective = ProjectedVAPObjective(
+            projector,
+            energy_backend="kernel",
+            projection_sampling="metropolis",
+            metropolis_samples=30,
+            metropolis_burn_in=20,
+            metropolis_thinning=1,
+            metropolis_seed=19,
+        )
+        parameters = np.random.default_rng(8).normal(scale=0.3, size=12)
+        series = objective.series(parameters)
+        self.assertEqual(series.sampling_method, "metropolis")
+        self.assertEqual(series.number_of_vacua, 30 * 3 * 3)
+        self.assertTrue(np.isfinite(objective.series_energy(series)))
+        fixed_objective = ProjectedVAPObjective(
+            projector,
+            energy_backend="fixed_sector_basis",
+            fermionic_hamiltonian=exact,
+            projection_sampling="metropolis",
+            metropolis_samples=30,
+            metropolis_burn_in=20,
+            metropolis_thinning=1,
+            metropolis_seed=19,
+        )
+        fixed_energy = fixed_objective.energy(parameters)
+        self.assertTrue(np.isfinite(fixed_energy))
+        self.assertGreaterEqual(fixed_energy, -1.0 - 1e-12)
+        self.assertLessEqual(fixed_energy, 1e-12)
+        with self.assertRaisesRegex(ValueError, "requires optimizer='SPSA'"):
+            solve_projected_hfb_vap(
+                projector,
+                energy_backend="kernel",
+                projection_sampling="metropolis",
+                optimizer="L-BFGS-B",
+                starts=1,
+                maxiter=1,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

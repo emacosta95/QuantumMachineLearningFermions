@@ -24,9 +24,38 @@ from angular_momentum import (
     ParticleNumberJ0ProjectedEnergy,
     project_state_observables,
 )
-from hfb import HFBHamiltonian, HFBState
+from hfb import BogoliubovVacuumSeries, HFBHamiltonian, HFBState
 from number_projection import exact_ground_state
 from projected_vap import number_projected_slater_seed, solve_projected_hfb_vap
+
+
+def collapse_metropolis_gauge_sum(series):
+    """Collapse exact gauge copies when observables already fix target N,Z."""
+    if series.sampling_method != "metropolis":
+        raise ValueError("gauge collapse expects a Metropolis vacuum series")
+    gauge_points = int(np.prod(series.number_grid))
+    if gauge_points < 1 or len(series.weights) % gauge_points:
+        raise ValueError("Metropolis series has inconsistent gauge blocks")
+    selected = np.arange(0, len(series.weights), gauge_points)
+    return BogoliubovVacuumSeries(
+        intrinsic_state=series.intrinsic_state,
+        transformations=series.transformations[selected],
+        weights=series.weights[selected] * gauge_points,
+        number_grid=(1, 1),
+        euler_grid=series.euler_grid,
+        projection=series.projection,
+        number_offset=series.number_offset,
+        euler_offset=series.euler_offset,
+        sampling_method=series.sampling_method,
+        sampling_diagnostics=(
+            dict(series.sampling_diagnostics)
+            if series.sampling_diagnostics is not None else None
+        ),
+        number_grid_guaranteed_exact=False,
+        euler_grid_guaranteed_exact=False,
+        minimum_number_grid=series.minimum_number_grid,
+        minimum_euler_grid=series.minimum_euler_grid,
+    )
 
 
 def main(arguments):
@@ -103,6 +132,12 @@ def main(arguments):
         optimizer=arguments.optimizer,
         spsa_learning_rate=arguments.spsa_learning_rate,
         spsa_perturbation=arguments.spsa_perturbation,
+        projection_sampling=arguments.projection_sampling,
+        metropolis_samples=arguments.metropolis_samples,
+        metropolis_burn_in=arguments.metropolis_burn_in,
+        metropolis_thinning=arguments.metropolis_thinning,
+        metropolis_proposal_scale=arguments.metropolis_proposal_scale,
+        metropolis_seed=arguments.metropolis_seed,
     )
     initial_vacuum = HFBState.from_thouless(
         projector.unpack(result.initial_parameters)
@@ -126,13 +161,28 @@ def main(arguments):
             allow_inexact_euler_grid=arguments.allow_inexact_euler_grid,
         )
         collapsed_observable_gauge = True
-    initial_series = observable_projector.projected_series(initial_vacuum)
+    if arguments.projection_sampling == "metropolis":
+        initial_full_series = projector.metropolis_projected_series(
+            initial_vacuum,
+            arguments.metropolis_samples,
+            burn_in=arguments.metropolis_burn_in,
+            thinning=arguments.metropolis_thinning,
+            proposal_scale=arguments.metropolis_proposal_scale,
+            seed=arguments.metropolis_seed,
+        )
+        initial_series = collapse_metropolis_gauge_sum(initial_full_series)
+        observable_series = collapse_metropolis_gauge_sum(
+            result.projected_series
+        )
+        collapsed_observable_gauge = True
+    else:
+        initial_series = observable_projector.projected_series(initial_vacuum)
+        observable_series = (
+            observable_projector.projected_series(result.state)
+            if collapsed_observable_gauge else result.projected_series
+        )
     initial_projected = project_state_observables(
         initial_series, fermionic, exact_target
-    )
-    observable_series = (
-        observable_projector.projected_series(result.state)
-        if collapsed_observable_gauge else result.projected_series
     )
     projected = project_state_observables(
         observable_series, fermionic, exact_target
@@ -143,6 +193,36 @@ def main(arguments):
         and result.number_grid_guaranteed_exact
         else None
     )
+    exact_validation = None
+    if arguments.projection_sampling == "metropolis":
+        exact_projector = ParticleNumberJ0ProjectedEnergy(
+            intrinsic_hamiltonian,
+            state_encoding,
+            neutron_modes,
+            targets,
+        )
+        exact_full_series = exact_projector.projected_series(result.state)
+        exact_kernel_energy = exact_projector.series_energy(exact_full_series)
+        exact_observable_projector = ParticleNumberJ0ProjectedEnergy(
+            intrinsic_hamiltonian,
+            state_encoding,
+            neutron_modes,
+            targets,
+            number_grid=(1, 1),
+            allow_inexact_number_grid=True,
+        )
+        exact_observables = project_state_observables(
+            exact_observable_projector.projected_series(result.state),
+            fermionic,
+            exact_target,
+        )
+        exact_validation = {
+            "energy": exact_kernel_energy,
+            "basis_energy": exact_observables.energy,
+            "fidelity": exact_observables.fidelity,
+            "number_grid": list(exact_full_series.number_grid),
+            "euler_grid": list(exact_full_series.euler_grid),
+        }
     intrinsic_numbers = [
         float(np.diag(result.state.rho)[neutron_modes].real.sum()),
         float(np.diag(result.state.rho)[:6].real.sum()),
@@ -151,6 +231,8 @@ def main(arguments):
         "nucleus": f"Be{arguments.mass}",
         "method": "P_N P_Z P_J=0 variation after projection",
         "energy_backend": result.energy_backend,
+        "projection_sampling": result.projected_series.sampling_method,
+        "sampling_diagnostics": result.projected_series.sampling_diagnostics,
         "number_grid": list(result.projected_series.number_grid),
         "euler_grid": list(result.projected_series.euler_grid),
         "minimum_number_grid": list(result.projected_series.minimum_number_grid),
@@ -163,6 +245,7 @@ def main(arguments):
         "initial_projected_fidelity": initial_projected.fidelity,
         "projected_basis_energy": projected.energy,
         "full_series_kernel_crosscheck": kernel_crosscheck,
+        "exact_quadrature_validation": exact_validation,
         "projected_fidelity": projected.fidelity,
         "fidelity_improvement": (
             projected.fidelity - initial_projected.fidelity
@@ -182,6 +265,11 @@ def main(arguments):
     number_tag = "x".join(str(value) for value in result.projected_series.number_grid)
     euler_tag = "x".join(str(value) for value in result.projected_series.euler_grid)
     stem = f"cki_be{arguments.mass}_vap_n{number_tag}_j{euler_tag}"
+    if arguments.projection_sampling == "metropolis":
+        stem += (
+            f"_{arguments.backend}_metropolis_seed"
+            f"{arguments.metropolis_seed}"
+        )
     (output / f"{stem}.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )
@@ -222,6 +310,16 @@ def parser():
     )
     result.add_argument("--spsa-learning-rate", type=float, default=0.08)
     result.add_argument("--spsa-perturbation", type=float, default=0.12)
+    result.add_argument(
+        "--projection-sampling",
+        choices=("quadrature", "metropolis"),
+        default="quadrature",
+    )
+    result.add_argument("--metropolis-samples", type=int, default=200)
+    result.add_argument("--metropolis-burn-in", type=int, default=500)
+    result.add_argument("--metropolis-thinning", type=int, default=3)
+    result.add_argument("--metropolis-proposal-scale", type=float, default=0.12)
+    result.add_argument("--metropolis-seed", type=int, default=0)
     result.add_argument("--initial-state")
     result.add_argument("--slater-seed-scale", type=float, default=1.0)
     return result
