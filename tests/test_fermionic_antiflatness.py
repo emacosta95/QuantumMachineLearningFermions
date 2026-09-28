@@ -4,8 +4,10 @@ import unittest
 import numpy as np
 
 from fermionic_antiflatness import (
+    complete_fock_occupations,
     fermionic_antiflatness,
     vacuum_series_antiflatness,
+    vacuum_series_prefix_antiflatness,
 )
 from hfb import BogoliubovVacuumSeries, HFBState
 
@@ -19,6 +21,12 @@ def all_occupations(modes):
 
 
 class TestFermionicAntiflatness(unittest.TestCase):
+    def test_complete_fock_occupations_parity(self):
+        even = complete_fock_occupations(3, parity="even")
+        self.assertEqual(len(even), 4)
+        self.assertTrue(all(len(row) % 2 == 0 for row in even))
+        self.assertEqual(len(complete_fock_occupations(3)), 8)
+
     def test_finite_thouless_gaussian_vanishes(self):
         rng = np.random.default_rng(81)
         raw = rng.normal(size=(4, 4)) + 1j * rng.normal(size=(4, 4))
@@ -60,6 +68,30 @@ class TestFermionicAntiflatness(unittest.TestCase):
         )
 
         self.assertAlmostEqual(result.value, 4.0, places=12)
+
+    def test_prefix_faf_starts_at_the_gaussian_value(self):
+        raw = np.array(
+            [[0, 0.6, 0, 0], [-0.6, 0, 0, 0],
+             [0, 0, 0, 0.4], [0, 0, -0.4, 0]],
+            dtype=complex,
+        )
+        state = HFBState.from_thouless(raw)
+        swap = np.eye(4, dtype=complex)[[2, 3, 0, 1]]
+        series = BogoliubovVacuumSeries(
+            intrinsic_state=state,
+            transformations=np.asarray([np.eye(4), swap]),
+            weights=np.ones(2, dtype=complex),
+            number_grid=(2, 1),
+        )
+
+        trajectory = vacuum_series_prefix_antiflatness(
+            series,
+            complete_fock_occupations(4, parity="even"),
+            component_counts=(1, 2),
+        )
+
+        self.assertAlmostEqual(trajectory[0][1].value, 0.0, places=10)
+        self.assertGreaterEqual(trajectory[1][1].value, -1e-10)
 
     def test_incomplete_or_invalid_inputs_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "incompatible"):

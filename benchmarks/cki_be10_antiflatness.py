@@ -66,7 +66,13 @@ def main(order=2):
     # retain one representative per Euler rotation.  This evaluates the exact
     # (7,7)x(9,5,9) projected series with 405, rather than 19,845, Pfaffian rows.
     gauge_points = int(np.prod(exact_series.number_grid))
-    selected = np.arange(0, exact_series.number_of_vacua, gauge_points)
+    euler_points = int(np.prod(exact_series.euler_grid))
+    if exact_series.number_of_vacua != gauge_points * euler_points:
+        raise ValueError("Series size does not match its number and Euler grids")
+    # ParticleNumberJ0ProjectedEnergy stores the Euler loop innermost.  The
+    # first contiguous block is therefore one representative of every Euler
+    # rotation at a single gauge point.
+    selected = np.arange(euler_points)
     series = BogoliubovVacuumSeries(
         intrinsic_state=intrinsic,
         transformations=exact_series.transformations[selected],

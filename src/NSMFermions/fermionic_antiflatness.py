@@ -14,7 +14,7 @@ are summed before the covariance matrix is evaluated, so interference between
 different transformed vacua is retained.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -35,6 +35,25 @@ class FermionicAntiflatnessResult:
     covariance: np.ndarray
     covariance_squared_spectrum: np.ndarray
     state_norm: float
+
+
+def complete_fock_occupations(modes, *, parity=None):
+    """Enumerate a complete occupation basis, optionally at fixed parity.
+
+    ``parity`` may be ``None``, ``"even"``, or ``"odd"``. The parity-filtered
+    bases are complete supports for unblocked Bogoliubov vacua and their
+    gauge-rotated coherent sums while avoiding identically zero amplitudes.
+    """
+    if not isinstance(modes, (int, np.integer)) or modes < 1:
+        raise ValueError("modes must be a positive integer")
+    if parity not in (None, "even", "odd"):
+        raise ValueError("parity must be None, 'even', or 'odd'")
+    wanted = None if parity is None else (0 if parity == "even" else 1)
+    return tuple(
+        tuple(mode for mode in range(modes) if mask & (1 << mode))
+        for mask in range(1 << modes)
+        if wanted is None or mask.bit_count() % 2 == wanted
+    )
 
 
 def _validated_state(coefficients, occupations, modes):
@@ -153,3 +172,64 @@ def vacuum_series_antiflatness(series, occupations, *, order=2):
         len(series.intrinsic_state.U),
         order=order,
     )
+
+
+def vacuum_series_prefix_antiflatness(
+    series,
+    occupations,
+    *,
+    component_counts=None,
+    order=2,
+):
+    """Evaluate FAF after successive coherent components of a vacuum series.
+
+    ``occupations`` must contain the complete support of every prefix. For a
+    gauge projection of an unblocked vacuum, use
+    ``complete_fock_occupations(modes, parity="even")``. A fixed-number basis
+    is sufficient for the final projected state, but there all gauge terms are
+    proportional and cannot reveal component-count convergence.
+    """
+    if not isinstance(series, BogoliubovVacuumSeries):
+        raise TypeError("series must be a BogoliubovVacuumSeries")
+    total = series.number_of_vacua
+    if component_counts is None:
+        component_counts = range(1, total + 1)
+    counts = tuple(int(count) for count in component_counts)
+    if not counts or any(count < 1 or count > total for count in counts):
+        raise ValueError("component counts must lie between one and series size")
+    if tuple(sorted(set(counts))) != counts:
+        raise ValueError("component counts must be strictly increasing")
+
+    occupations = tuple(tuple(int(mode) for mode in row) for row in occupations)
+    cumulative = np.zeros(len(occupations), dtype=complex)
+    requested = set(counts)
+    results = []
+    for index, (transform, weight) in enumerate(
+        zip(series.transformations, series.weights), start=1
+    ):
+        term = replace(
+            series,
+            transformations=transform[None, :, :],
+            weights=np.asarray([weight]),
+            projection=series.projection + f" prefix term {index}",
+            number_grid_guaranteed_exact=False,
+            euler_grid_guaranteed_exact=(
+                False if series.euler_grid is not None else None
+            ),
+        )
+        cumulative += term.occupation_amplitudes(occupations)
+        if index in requested:
+            results.append(
+                (
+                    index,
+                    fermionic_antiflatness(
+                        cumulative,
+                        occupations,
+                        len(series.intrinsic_state.U),
+                        order=order,
+                    ),
+                )
+            )
+        if len(results) == len(counts):
+            break
+    return tuple(results)

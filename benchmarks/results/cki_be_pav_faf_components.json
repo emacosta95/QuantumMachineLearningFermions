@@ -1,0 +1,385 @@
+{
+  "method": "HFB followed by exact P_N P_Z P_J=0 projection (PAV)",
+  "faf_definition": "F_k = L - Tr[(M^T M)^k]/2",
+  "faf_order": 2,
+  "component_trajectory_note": "Euler-quadrature prefixes are deterministic convergence checks, not variationally optimized component expansions; monotonicity is therefore neither assumed nor required.",
+  "results": [
+    {
+      "nucleus": "Be6",
+      "valence_neutrons": 0,
+      "valence_protons": 2,
+      "dimension_NZ": 15,
+      "exact_energy": -3.0487979838460726,
+      "exact_ground_state_faf": 5.921629340783143,
+      "exact_ground_state_faf_per_mode": 0.4934691117319286,
+      "hfb_energy": -0.6356989147993058,
+      "hfb_converged": true,
+      "hfb_pairing_norm": 2.0204115100620826e-05,
+      "hfb_rho_idempotency": 2.5003907918467675e-10,
+      "projection_state_chart": "Slater (pairing collapsed)",
+      "number_grid": [
+        7,
+        7
+      ],
+      "euler_grid": [
+        5,
+        2,
+        5
+      ],
+      "full_gaussian_components": 2450,
+      "euler_components_after_fixed_sector_gauge_collapse": 50,
+      "pav_energy": -2.9569472521210636,
+      "pav_fidelity": 0.992014435283534,
+      "pav_faf": 5.821824265393146,
+      "pav_faf_per_mode": 0.4851520221160955,
+      "component_trajectory": [
+        {
+          "components": 1,
+          "state_norm": 0.00039999999999898315,
+          "fidelity": 0.3349844979476526,
+          "faf": 1.7763568394002505e-15,
+          "faf_per_mode": 1.4802973661668753e-16
+        },
+        {
+          "components": 2,
+          "state_norm": 0.0009097823014250119,
+          "fidelity": 0.5891246684787907,
+          "faf": 3.279432493690047,
+          "faf_per_mode": 0.27328604114083727
+        },
+        {
+          "components": 4,
+          "state_norm": 0.0030103084901329236,
+          "fidelity": 0.7121864067708418,
+          "faf": 3.954986253935962,
+          "faf_per_mode": 0.3295821878279968
+        },
+        {
+          "components": 8,
+          "state_norm": 0.009387568085371957,
+          "fidelity": 0.9135063596290626,
+          "faf": 5.226317854500337,
+          "faf_per_mode": 0.43552648787502807
+        },
+        {
+          "components": 16,
+          "state_norm": 0.03580140126655853,
+          "fidelity": 0.9581304467485661,
+          "faf": 5.5537168892149475,
+          "faf_per_mode": 0.4628097407679123
+        },
+        {
+          "components": 32,
+          "state_norm": 0.13855988126308552,
+          "fidelity": 0.9902552536003394,
+          "faf": 5.809605228367405,
+          "faf_per_mode": 0.4841337690306171
+        },
+        {
+          "components": 50,
+          "state_norm": 0.33768107200078884,
+          "fidelity": 0.992014435283534,
+          "faf": 5.821824265393146,
+          "faf_per_mode": 0.4851520221160955
+        }
+      ]
+    },
+    {
+      "nucleus": "Be8",
+      "valence_neutrons": 2,
+      "valence_protons": 2,
+      "dimension_NZ": 225,
+      "exact_energy": -30.29539461360554,
+      "exact_ground_state_faf": 11.787413122652199,
+      "exact_ground_state_faf_per_mode": 0.9822844268876832,
+      "hfb_energy": -25.689032344211583,
+      "hfb_converged": true,
+      "hfb_pairing_norm": 1.1211009754951944e-05,
+      "hfb_rho_idempotency": 7.546059184911724e-11,
+      "projection_state_chart": "Slater (pairing collapsed)",
+      "number_grid": [
+        7,
+        7
+      ],
+      "euler_grid": [
+        9,
+        4,
+        9
+      ],
+      "full_gaussian_components": 15876,
+      "euler_components_after_fixed_sector_gauge_collapse": 324,
+      "pav_energy": -30.193020948712938,
+      "pav_fidelity": 0.99548312760753,
+      "pav_faf": 11.70602501988013,
+      "pav_faf_per_mode": 0.9755020849900108,
+      "component_trajectory": [
+        {
+          "components": 1,
+          "state_norm": 4.610691709787788e-06,
+          "fidelity": 0.20181350460601769,
+          "faf": 7.105427357601002e-15,
+          "faf_per_mode": 5.921189464667501e-16
+        },
+        {
+          "components": 2,
+          "state_norm": 1.2513701011866611e-05,
+          "fidelity": 0.2974339411586716,
+          "faf": 2.514419029821884,
+          "faf_per_mode": 0.20953491915182365
+        },
+        {
+          "components": 4,
+          "state_norm": 2.8849458831039367e-05,
+          "fidelity": 0.5160581253518992,
+          "faf": 7.957594225747113,
+          "faf_per_mode": 0.6631328521455927
+        },
+        {
+          "components": 8,
+          "state_norm": 0.00010680689099240965,
+          "fidelity": 0.5575669323740917,
+          "faf": 8.010891929440433,
+          "faf_per_mode": 0.6675743274533694
+        },
+        {
+          "components": 16,
+          "state_norm": 0.0006749768477642983,
+          "fidelity": 0.6747279035760905,
+          "faf": 8.652342140305773,
+          "faf_per_mode": 0.7210285116921478
+        },
+        {
+          "components": 32,
+          "state_norm": 0.0026636212800533964,
+          "fidelity": 0.796366086087208,
+          "faf": 9.630040060143429,
+          "faf_per_mode": 0.8025033383452858
+        },
+        {
+          "components": 64,
+          "state_norm": 0.009681150464114868,
+          "fidelity": 0.8764320569037504,
+          "faf": 10.485708572217632,
+          "faf_per_mode": 0.8738090476848027
+        },
+        {
+          "components": 128,
+          "state_norm": 0.032520426667636375,
+          "fidelity": 0.9777860999672617,
+          "faf": 11.549467882590388,
+          "faf_per_mode": 0.9624556568825323
+        },
+        {
+          "components": 256,
+          "state_norm": 0.1265443514898917,
+          "fidelity": 0.98618361684891,
+          "faf": 11.618208455086663,
+          "faf_per_mode": 0.9681840379238885
+        },
+        {
+          "components": 324,
+          "state_norm": 0.2027292064719296,
+          "fidelity": 0.99548312760753,
+          "faf": 11.70602501988013,
+          "faf_per_mode": 0.9755020849900108
+        }
+      ]
+    },
+    {
+      "nucleus": "Be10",
+      "valence_neutrons": 4,
+      "valence_protons": 2,
+      "dimension_NZ": 225,
+      "exact_energy": -39.45341579805708,
+      "exact_ground_state_faf": 10.739276057567762,
+      "exact_ground_state_faf_per_mode": 0.8949396714639802,
+      "hfb_energy": -34.163589936395994,
+      "hfb_converged": true,
+      "hfb_pairing_norm": 2.078894369283852e-05,
+      "hfb_rho_idempotency": 2.2733971283816935e-10,
+      "projection_state_chart": "Slater (pairing collapsed)",
+      "number_grid": [
+        7,
+        7
+      ],
+      "euler_grid": [
+        9,
+        5,
+        9
+      ],
+      "full_gaussian_components": 19845,
+      "euler_components_after_fixed_sector_gauge_collapse": 405,
+      "pav_energy": -38.65652306845173,
+      "pav_fidelity": 0.9459976850809236,
+      "pav_faf": 9.043252566841826,
+      "pav_faf_per_mode": 0.7536043805701521,
+      "component_trajectory": [
+        {
+          "components": 1,
+          "state_norm": 2.1389402854463867e-06,
+          "fidelity": 0.19558095510375792,
+          "faf": 3.552713678800501e-15,
+          "faf_per_mode": 2.9605947323337506e-16
+        },
+        {
+          "components": 2,
+          "state_norm": 7.1149218791632085e-06,
+          "fidelity": 0.23518795626563355,
+          "faf": 0.4539015510837423,
+          "faf_per_mode": 0.03782512925697853
+        },
+        {
+          "components": 4,
+          "state_norm": 1.877391642428116e-05,
+          "fidelity": 0.3565252764385001,
+          "faf": 4.357242493963471,
+          "faf_per_mode": 0.3631035411636226
+        },
+        {
+          "components": 8,
+          "state_norm": 4.4695088557954025e-05,
+          "fidelity": 0.599025616366877,
+          "faf": 8.490702050708666,
+          "faf_per_mode": 0.7075585042257222
+        },
+        {
+          "components": 16,
+          "state_norm": 0.00033718865903004596,
+          "fidelity": 0.6643842041046009,
+          "faf": 8.398191246999133,
+          "faf_per_mode": 0.6998492705832611
+        },
+        {
+          "components": 32,
+          "state_norm": 0.0018213839360853566,
+          "fidelity": 0.7965978754233168,
+          "faf": 8.9545265723138,
+          "faf_per_mode": 0.7462105476928166
+        },
+        {
+          "components": 64,
+          "state_norm": 0.005416784277263844,
+          "fidelity": 0.8604859574790951,
+          "faf": 8.819400415181839,
+          "faf_per_mode": 0.7349500345984866
+        },
+        {
+          "components": 128,
+          "state_norm": 0.022237050191348032,
+          "fidelity": 0.9181462864090459,
+          "faf": 8.92323363259631,
+          "faf_per_mode": 0.7436028027163591
+        },
+        {
+          "components": 256,
+          "state_norm": 0.08483737560195523,
+          "fidelity": 0.9405374749966516,
+          "faf": 9.024704192260316,
+          "faf_per_mode": 0.7520586826883596
+        },
+        {
+          "components": 405,
+          "state_norm": 0.20674570154798635,
+          "fidelity": 0.945997685080923,
+          "faf": 9.043252566841826,
+          "faf_per_mode": 0.7536043805701521
+        }
+      ]
+    },
+    {
+      "nucleus": "Be12",
+      "valence_neutrons": 6,
+      "valence_protons": 2,
+      "dimension_NZ": 15,
+      "exact_energy": -41.221454571302836,
+      "exact_ground_state_faf": 5.369539105991828,
+      "exact_ground_state_faf_per_mode": 0.4474615921659857,
+      "hfb_energy": -39.015345709242,
+      "hfb_converged": true,
+      "hfb_pairing_norm": 3.2481980152318015e-05,
+      "hfb_rho_idempotency": 5.17882782851396e-10,
+      "projection_state_chart": "Slater (pairing collapsed)",
+      "number_grid": [
+        7,
+        7
+      ],
+      "euler_grid": [
+        5,
+        6,
+        5
+      ],
+      "full_gaussian_components": 7350,
+      "euler_components_after_fixed_sector_gauge_collapse": 150,
+      "pav_energy": -40.5048714446974,
+      "pav_fidelity": 0.9554020759842098,
+      "pav_faf": 4.331326870798467,
+      "pav_faf_per_mode": 0.36094390589987224,
+      "component_trajectory": [
+        {
+          "components": 1,
+          "state_norm": 1.1740832641898959e-05,
+          "fidelity": 0.39908356318725563,
+          "faf": 1.0658141036401503e-14,
+          "faf_per_mode": 8.881784197001252e-16
+        },
+        {
+          "components": 2,
+          "state_norm": 3.593867321595043e-05,
+          "fidelity": 0.5215076580439497,
+          "faf": 0.7174066652336499,
+          "faf_per_mode": 0.05978388876947083
+        },
+        {
+          "components": 4,
+          "state_norm": 9.487219560641623e-05,
+          "fidelity": 0.7902122716674904,
+          "faf": 3.3869294069760034,
+          "faf_per_mode": 0.2822441172480003
+        },
+        {
+          "components": 8,
+          "state_norm": 0.0007630915902891308,
+          "fidelity": 0.7864320459551306,
+          "faf": 3.335578897739147,
+          "faf_per_mode": 0.2779649081449289
+        },
+        {
+          "components": 16,
+          "state_norm": 0.005310968617310883,
+          "fidelity": 0.8986559130867727,
+          "faf": 4.150865901573719,
+          "faf_per_mode": 0.34590549179780994
+        },
+        {
+          "components": 32,
+          "state_norm": 0.018641724084889563,
+          "fidelity": 0.916012345004204,
+          "faf": 4.2242909155489565,
+          "faf_per_mode": 0.352024242962413
+        },
+        {
+          "components": 64,
+          "state_norm": 0.07175353277760939,
+          "fidelity": 0.951928008720965,
+          "faf": 4.3254520768177676,
+          "faf_per_mode": 0.36045433973481394
+        },
+        {
+          "components": 128,
+          "state_norm": 0.2945460270009635,
+          "fidelity": 0.9532457583733205,
+          "faf": 4.327803379559535,
+          "faf_per_mode": 0.36065028162996127
+        },
+        {
+          "components": 150,
+          "state_norm": 0.4177126804239691,
+          "fidelity": 0.9554020759842098,
+          "faf": 4.331326870798467,
+          "faf_per_mode": 0.36094390589987224
+        }
+      ]
+    }
+  ],
+  "elapsed_seconds": 79.94821339996997
+}
