@@ -30,7 +30,9 @@ def legacy_definitions(filename, names, namespace):
     exec(compile(ast.Module(body=nodes, type_ignores=[]), filename, 'exec'), namespace)
 
 
-def build_fermionic_hamiltonian(interaction, eps, particles=(2, 2)):
+def build_fermionic_hamiltonian(
+    interaction, eps, particles=(2, 2), *, symmetries=None
+):
     """Build CKI in the repository's FermiHubbardHamiltonian container.
 
     The benchmark loads only the two required legacy class definitions by AST
@@ -64,9 +66,18 @@ def build_fermionic_hamiltonian(interaction, eps, particles=(2, 2)):
     legacy_definitions('hamiltonian_utils.py', ['FermiHubbardHamiltonian'], namespace)
     cls = namespace['FermiHubbardHamiltonian']
 
-    # CKI orders six proton modes first and six neutron modes second. The legacy
-    # constructor names these generic subsystems a and b, respectively.
-    fermionic = cls(6, 6, particles[1], particles[0])
+    # The supported interaction files order equal proton and neutron mode
+    # blocks. CKI has six modes per species; USDB has twelve.
+    if len(eps) % 2:
+        raise ValueError("Expected equal proton and neutron mode blocks")
+    species_modes = len(eps) // 2
+    fermionic = cls(
+        species_modes,
+        species_modes,
+        particles[1],
+        particles[0],
+        symmetries=symmetries,
+    )
 
     # The one-body CKI contribution is diagonal in the supplied spherical basis.
     fermionic.get_external_potential(np.asarray(eps))

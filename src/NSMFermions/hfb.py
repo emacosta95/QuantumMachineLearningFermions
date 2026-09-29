@@ -415,6 +415,10 @@ class BogoliubovVacuumSeries:
         for weight, transform in zip(self.weights, self.transformations):
             # Rotate both creation-operator indices of the Thouless matrix.
             rotated_z = transform @ z @ transform.T
+            # Matrix exponentials in the larger sd-shell representation can
+            # leave roundoff-level symmetric noise above PFAPACK's strict
+            # assertion threshold. Restore the defining Z_q^T=-Z_q identity.
+            rotated_z = 0.5 * (rotated_z - rotated_z.T)
             # Evaluate only the configurations requested by the eventual observable.
             for index, occupied in enumerate(occupations):
                 # Unblocked even vacua have no odd-total-particle coefficients.
@@ -473,6 +477,155 @@ def state_from_parameters(x, modes):
     # The first modes columns of w are stacked as [U; V].  The remaining
     # columns are their particle-hole partners and need not be stored.
     return HFBState(w[:modes, :modes], w[modes:, :modes])
+
+
+def state_parameter_derivatives(x, modes):
+    """Return ``state, dU/dx, dV/dx`` for the exponential HFB chart.
+
+    The derivative uses the exact divided-difference representation of the
+    Frechet derivative of the matrix exponential.  The anti-Hermitian Nambu
+    generator is normal, so one Hermitian eigendecomposition supplies every
+    parameter direction at once.
+
+    References
+    ----------
+    N. J. Higham, *Functions of Matrices*, SIAM (2008), Secs. 3.1-3.2.
+    A. H. Al-Mohy and N. J. Higham, SIAM J. Matrix Anal. Appl. 30,
+    1639-1657 (2009), doi:10.1137/080716426.
+    """
+    ij = np.triu_indices(modes, 1)
+    pairs = len(ij[0])
+    x = np.asarray(x, dtype=float)
+    if x.shape != (2 * pairs,) or not np.isfinite(x).all():
+        raise ValueError("Expected modes*(modes-1) finite real parameters")
+
+    z = np.zeros((modes, modes), complex)
+    z[ij] = x[:pairs] + 1j * x[pairs:]
+    z -= z.T
+    zero = np.zeros_like(z)
+    generator = np.block([[zero, z.conj()], [z, zero]])
+
+    # i*G is Hermitian when G is anti-Hermitian. If iG=Q diag(mu) Q^dagger,
+    # then G=Q diag(-i*mu) Q^dagger.
+    mu, eigenvectors = np.linalg.eigh(1j * generator)
+    eigenvalues = -1j * mu
+    exponentials = np.exp(eigenvalues)
+    adjoint = eigenvectors.conj().T
+    transformation = (eigenvectors * exponentials) @ adjoint
+
+    # Build dG/dx for all real and imaginary antisymmetric coordinates.
+    dz = np.zeros((2 * pairs, modes, modes), complex)
+    directions = np.arange(pairs)
+    dz[directions, ij[0], ij[1]] = 1.0
+    dz[directions, ij[1], ij[0]] = -1.0
+    dz[pairs + directions, ij[0], ij[1]] = 1j
+    dz[pairs + directions, ij[1], ij[0]] = -1j
+    dgenerator = np.zeros(
+        (2 * pairs, 2 * modes, 2 * modes), dtype=complex
+    )
+    dgenerator[:, :modes, modes:] = dz.conj()
+    dgenerator[:, modes:, :modes] = dz
+
+    # L_exp(G,E)_ab=f[lambda_a,lambda_b] E_ab in the eigenbasis.
+    left = eigenvalues[:, None]
+    right = eigenvalues[None, :]
+    denominator = left - right
+    numerator = exponentials[:, None] - exponentials[None, :]
+    divided_difference = np.empty_like(denominator)
+    separated = np.abs(denominator) > 1e-12
+    divided_difference[separated] = (
+        numerator[separated] / denominator[separated]
+    )
+    divided_difference[~separated] = np.exp(
+        0.5 * (left + right)[~separated]
+    )
+    derivative_eigenbasis = np.matmul(
+        np.matmul(adjoint[None, :, :], dgenerator),
+        eigenvectors[None, :, :],
+    )
+    derivative_eigenbasis *= divided_difference[None, :, :]
+    derivatives = np.matmul(
+        np.matmul(eigenvectors[None, :, :], derivative_eigenbasis),
+        adjoint[None, :, :],
+    )
+
+    state = HFBState(
+        transformation[:modes, :modes],
+        transformation[modes:, :modes],
+    )
+    return (
+        state,
+        derivatives[:, :modes, :modes],
+        derivatives[:, modes:, :modes],
+    )
+
+
+def hfb_energy_number_jacobian(x, hamiltonian, neutron_modes):
+    """Analytic energy gradient and particle-number constraint Jacobian.
+
+    This differentiates the repository's Wick-contracted energy exactly through
+    the exponential Bogoliubov chart.  The density variations are the standard
+    HFB variations described in P. Ring and P. Schuck, *The Nuclear Many-Body
+    Problem*, Springer (1980), Chs. 7-8.  The matrix-exponential derivative is
+    evaluated by :func:`state_parameter_derivatives`.
+    """
+    modes = len(hamiltonian.h)
+    neutron_mask = np.zeros(modes, bool)
+    neutron_mask[np.asarray(neutron_modes, dtype=int)] = True
+    state, du, dv = state_parameter_derivatives(x, modes)
+    u, v = state.U, state.V
+    drho = (
+        np.matmul(dv.conj(), v.T)
+        + np.matmul(v.conj()[None, :, :], dv.transpose(0, 2, 1))
+    )
+    dkappa = (
+        np.matmul(dv.conj(), u.T)
+        + np.matmul(v.conj()[None, :, :], du.transpose(0, 2, 1))
+    )
+    rho, kappa = state.rho, state.kappa
+
+    one_body = np.einsum("ij,pji->p", hamiltonian.h, drho, optimize=True)
+    normal_left = 0.5 * np.einsum(
+        "ijkl,lj->ki", hamiltonian.v, rho, optimize=True
+    )
+    normal_right = 0.5 * np.einsum(
+        "ijkl,ki->lj", hamiltonian.v, rho, optimize=True
+    )
+    normal = (
+        np.einsum("ki,pki->p", normal_left, drho, optimize=True)
+        + np.einsum("lj,plj->p", normal_right, drho, optimize=True)
+    )
+    pairing_left = 0.25 * np.einsum(
+        "ijkl,kl->ij", hamiltonian.v, kappa, optimize=True
+    )
+    pairing_right = 0.25 * np.einsum(
+        "ijkl,ij->kl", hamiltonian.v, kappa.conj(), optimize=True
+    )
+    pairing = (
+        np.einsum("ij,pij->p", pairing_left, dkappa.conj(), optimize=True)
+        + np.einsum("kl,pkl->p", pairing_right, dkappa, optimize=True)
+    )
+    energy_gradient_complex = one_body + normal + pairing
+    if np.max(np.abs(energy_gradient_complex.imag), initial=0.0) > 2e-8:
+        raise ValueError("Analytic HFB energy gradient is not real")
+    energy_gradient = energy_gradient_complex.real
+
+    diagonal = np.diagonal(drho, axis1=1, axis2=2).real
+    number_jacobian = np.vstack((
+        diagonal[:, neutron_mask].sum(axis=1),
+        diagonal[:, ~neutron_mask].sum(axis=1),
+    ))
+    numbers = np.array([
+        state.rho.diagonal().real[neutron_mask].sum(),
+        state.rho.diagonal().real[~neutron_mask].sum(),
+    ])
+    return (
+        hamiltonian.energy(state),
+        numbers,
+        energy_gradient,
+        number_jacobian,
+        state,
+    )
 
 
 class HFBHamiltonian:
@@ -594,12 +747,24 @@ def solve_hfb(
     maxiter=300,
     tolerance=1e-8,
     initial_parameters=None,
+    stationarity_diagnostics=True,
+    shared_finite_difference_jacobian=False,
+    analytic_jacobian=False,
 ):
-    """Minimize E subject to <N>=targets[0], <Z>=targets[1] using SLSQP.
+    """Minimize E subject to <N>=targets[0], <Z>=targets[1].
 
-    Equality constraints implement the Lagrange-multiplier problem, without a
-    finite particle-number penalty. Finite-difference gradients and dense matrix
-    exponentials make this a reference solver, not a production nuclear solver.
+    With ``analytic_jacobian=True``, an analytic-gradient quadratic-penalty
+    continuation first brings a trial point onto the physically relevant
+    number surface, followed by an exactly constrained SLSQP refinement.  The
+    continuation avoids rank-deficient or poor stationary branches that SLSQP
+    can encounter when started from a generic Bogoliubov vacuum.  This is the
+    standard quadratic-penalty strategy of J. Nocedal and S. J. Wright,
+    *Numerical Optimization*, 2nd ed., Springer (2006), Sec. 17.1.
+
+    The final equality-constrained refinement implements the particle-number
+    Lagrange-multiplier problem without retaining a finite penalty.  Dense
+    matrix exponentials still make this a reference solver rather than a
+    large-scale production nuclear solver.
     Multiple paired starts reduce trapping; global optimality is not guaranteed.
     """
     # Establish which single-particle modes count as neutrons.  The complement
@@ -631,19 +796,84 @@ def solve_hfb(
         raise ValueError("Reference solver requires both species in the space")
     if starts < 1 or maxiter < 1 or tolerance <= 0:
         raise ValueError("Positive starts, maxiter and tolerance required")
+    if analytic_jacobian and shared_finite_difference_jacobian:
+        raise ValueError("Select either analytic or shared finite-difference Jacobian")
 
     def numbers(state):
         """Compute <N> and <Z> by summing diagonal occupations."""
         occupation = state.rho.diagonal().real
         return np.array([occupation[mask].sum(), occupation[~mask].sum()])
 
+    analytic_cache = {"x": None, "values": None}
+
+    def analytic_values(x):
+        x = np.asarray(x, float)
+        if (
+            analytic_cache["x"] is None
+            or not np.array_equal(x, analytic_cache["x"])
+        ):
+            analytic_cache["x"] = x.copy()
+            analytic_cache["values"] = hfb_energy_number_jacobian(
+                x, hamiltonian, indices
+            )
+        return analytic_cache["values"]
+
     def constraint(x):
         """Return equality-constraint residuals [<N>-N0, <Z>-Z0]."""
+        if analytic_jacobian:
+            return analytic_values(x)[1] - targets
         return numbers(state_from_parameters(x, m)) - targets
 
     def objective(x):
         """Map optimizer coordinates to the physical HFB energy."""
+        if analytic_jacobian:
+            return analytic_values(x)[0]
         return hamiltonian.energy(state_from_parameters(x, m))
+
+    derivative_cache = {"x": None, "energy": None, "constraints": None}
+
+    def joint_derivatives(x):
+        """Finite-difference E, N and Z together at identical trial points."""
+        x = np.asarray(x, float)
+        if (
+            derivative_cache["x"] is not None
+            and np.array_equal(x, derivative_cache["x"])
+        ):
+            return derivative_cache["energy"], derivative_cache["constraints"]
+        base_state = state_from_parameters(x, m)
+        base_energy = hamiltonian.energy(base_state)
+        base_numbers = numbers(base_state)
+        energy_gradient = np.empty(len(x), float)
+        constraint_jacobian = np.empty((2, len(x)), float)
+        steps = np.sqrt(np.finfo(float).eps) * np.maximum(1.0, np.abs(x))
+        for index, step_size in enumerate(steps):
+            shifted = x.copy()
+            shifted[index] += step_size
+            shifted_state = state_from_parameters(shifted, m)
+            energy_gradient[index] = (
+                hamiltonian.energy(shifted_state) - base_energy
+            ) / step_size
+            constraint_jacobian[:, index] = (
+                numbers(shifted_state) - base_numbers
+            ) / step_size
+        derivative_cache.update({
+            "x": x.copy(),
+            "energy": energy_gradient,
+            "constraints": constraint_jacobian,
+        })
+        return energy_gradient, constraint_jacobian
+
+    def finite_difference_objective_jacobian(x):
+        return joint_derivatives(x)[0]
+
+    def finite_difference_number_jacobian(x):
+        return joint_derivatives(x)[1]
+
+    def analytic_objective_jacobian(x):
+        return analytic_values(x)[2]
+
+    def analytic_number_jacobian(x):
+        return analytic_values(x)[3]
 
     # Run several randomized starts because the constrained HFB landscape is
     # non-convex.  A caller-supplied initial point is used for the first start.
@@ -655,11 +885,51 @@ def solve_hfb(
             if attempt == 0 and initial_parameters is not None
             else rng.normal(scale=0.5 / np.sqrt(m), size=m * (m - 1))
         )
+        preconditioner_evaluations = 0
+        if analytic_jacobian:
+            # Exact gradients make this continuation far cheaper than even a
+            # single finite-difference SLSQP iteration in a large model space.
+            # Its role is only to select a good constrained basin; SLSQP below
+            # still enforces the particle numbers to the requested tolerance.
+            penalty_iterations = max(5, min(100, maxiter // 4))
+            for penalty in (1.0, 10.0, 100.0, 1000.0):
+                def penalized_value_and_gradient(point):
+                    energy, particle_numbers, gradient, jacobian, _ = (
+                        analytic_values(point)
+                    )
+                    residual = particle_numbers - targets
+                    return (
+                        energy + penalty * residual @ residual,
+                        gradient + 2.0 * penalty * jacobian.T @ residual,
+                    )
+
+                prefit = minimize(
+                    penalized_value_and_gradient,
+                    x,
+                    method="L-BFGS-B",
+                    jac=True,
+                    options={
+                        "maxiter": penalty_iterations,
+                        "ftol": max(tolerance, 1e-12),
+                    },
+                )
+                x = prefit.x
+                preconditioner_evaluations += int(prefit.nfev)
+        constraint_specification = {"type": "eq", "fun": constraint}
+        if analytic_jacobian:
+            constraint_specification["jac"] = analytic_number_jacobian
+            scipy_jacobian = analytic_objective_jacobian
+        elif shared_finite_difference_jacobian:
+            constraint_specification["jac"] = finite_difference_number_jacobian
+            scipy_jacobian = finite_difference_objective_jacobian
+        else:
+            scipy_jacobian = None
         fit = minimize(
             objective,
             x,
             method="SLSQP",
-            constraints={"type": "eq", "fun": constraint},
+            jac=scipy_jacobian,
+            constraints=constraint_specification,
             options={"maxiter": maxiter, "ftol": tolerance},
         )
 
@@ -674,6 +944,10 @@ def solve_hfb(
                 "energy": float(fit.fun),
                 "number_error": residual,
                 "message": str(fit.message),
+                "iterations": int(fit.nit),
+                "function_evaluations": int(fit.nfev),
+                "jacobian_evaluations": int(getattr(fit, "njev", 0)),
+                "preconditioner_function_evaluations": preconditioner_evaluations,
             }
         )
         candidates.append((ok, residual, fit, state))
@@ -688,21 +962,43 @@ def solve_hfb(
     )
     ok, _, fit, state = best
 
+    if not stationarity_diagnostics:
+        # Large model spaces can spend more time on the 2*p central-difference
+        # post-fit audit than on a bounded pilot optimization. Skipping this
+        # audit does not change the SLSQP solution or its feasibility test.
+        return HFBResult(
+            state=state,
+            energy=float(fit.fun),
+            numbers=numbers(state),
+            converged=ok,
+            message=str(fit.message),
+            parameters=fit.x,
+            attempts=attempts,
+            chemical_potentials=np.full(2, np.nan),
+            stationarity_error=np.nan,
+        )
+
     # Recover multipliers in grad(E) = lambda_n grad(N) + lambda_p grad(Z).
     # Central finite differences are adequate here because this is a compact
     # reference implementation and the optimizer itself is finite-difference
     # based.  Each row of ``jacobian`` is the gradient of one constraint.
-    step = 1e-5
-    directions = np.eye(len(fit.x)) * step
-    gradient = np.array(
-        [(objective(fit.x + d) - objective(fit.x - d)) / (2 * step) for d in directions]
-    )
-    jacobian = np.array(
-        [
-            (constraint(fit.x + d) - constraint(fit.x - d)) / (2 * step)
-            for d in directions
-        ]
-    ).T
+    if analytic_jacobian:
+        _, _, gradient, jacobian, _ = analytic_values(fit.x)
+    else:
+        step = 1e-5
+        directions = np.eye(len(fit.x)) * step
+        gradient = np.array(
+            [
+                (objective(fit.x + d) - objective(fit.x - d)) / (2 * step)
+                for d in directions
+            ]
+        )
+        jacobian = np.array(
+            [
+                (constraint(fit.x + d) - constraint(fit.x - d)) / (2 * step)
+                for d in directions
+            ]
+        ).T
     multipliers = np.linalg.lstsq(jacobian.T, gradient, rcond=None)[0]
 
     # The remaining component of grad(E) tangent to the constraint surface is

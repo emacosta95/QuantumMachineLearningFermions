@@ -1,0 +1,33 @@
+{
+  "method": "USDB exact diagonalization and exact-ground-state FAF in fixed (N,Z,M=0)",
+  "interaction": "data/usdb.nat",
+  "faf_order": 2,
+  "hfb_analytic_jacobian": null,
+  "results": [
+    {
+      "nucleus": "Ne20",
+      "valence_neutrons": 2,
+      "valence_protons": 2,
+      "modes": 24,
+      "dimension_NZ_M0": 640,
+      "basis_sector": "fixed (N,Z,M=0)",
+      "exact_energy": -41.39649007256996,
+      "exact_ground_state_faf": 17.89089380273905,
+      "exact_ground_state_faf_per_mode": 0.7454539084474604,
+      "elapsed_seconds": 23.903618000098504
+    },
+    {
+      "nucleus": "Ne22",
+      "valence_neutrons": 4,
+      "valence_protons": 2,
+      "modes": 24,
+      "dimension_NZ_M0": 4206,
+      "basis_sector": "fixed (N,Z,M=0)",
+      "exact_energy": -59.93848562837611,
+      "exact_ground_state_faf": 18.654877937622242,
+      "exact_ground_state_faf_per_mode": 0.77728658073426,
+      "elapsed_seconds": 169.99240059999283
+    }
+  ],
+  "timing_note": "Isotopes were measured in separate exact-only runs; per-isotope times exclude interaction-loading overhead."
+}
