@@ -17,6 +17,7 @@ import warnings
 
 import numpy as np
 from scipy import sparse
+from scipy.sparse.linalg import eigsh
 
 if __package__:
     from .hfb import BogoliubovVacuumSeries, HFBState, ProjectionGridWarning
@@ -353,13 +354,23 @@ def project_particle_numbers(
 
 
 def exact_ground_state(hamiltonian):
-    """Return the lowest eigenpair of an assembled small fermionic Hamiltonian."""
+    """Return the lowest eigenpair of an assembled fermionic Hamiltonian.
+
+    Small sectors retain the dense reference diagonalization. Larger sparse
+    shell-model sectors use a Hermitian Lanczos solve so sd-shell isotope
+    studies do not allocate a quadratic dense matrix.
+    """
     # Reuse the same interface validation as projection so the returned vector
     # is guaranteed to follow the occupation ordering expected by HFBState.
     _, _, matrix = _require_fermionic_hamiltonian(hamiltonian)
 
-    # This helper is deliberately a small-system reference path. Convert sparse
-    # matrices to dense form and diagonalize the Hermitian matrix completely.
+    if sparse.issparse(matrix) and matrix.shape[0] > 2048:
+        energies, vectors = eigsh(
+            matrix.astype(complex), k=1, which="SA", tol=1e-10
+        )
+        index = int(np.argmin(energies))
+        return float(energies[index].real), vectors[:, index]
+
     dense = matrix.toarray() if sparse.issparse(matrix) else np.asarray(matrix)
     energies, vectors = np.linalg.eigh(dense)
 

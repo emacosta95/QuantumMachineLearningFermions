@@ -1,0 +1,93 @@
+{
+  "nucleus": "Be10",
+  "method": "P_N P_Z P_J=0 variation after projection",
+  "energy_backend": "fixed_sector_basis",
+  "projection_sampling": "metropolis",
+  "sampling_diagnostics": {
+    "samples": 64,
+    "burn_in": 200,
+    "thinning": 2,
+    "proposal_scale": 0.12,
+    "acceptance_rate": 0.6920731707317073,
+    "importance_ess": 49.15594640806985,
+    "average_overlap_phase": 0.9866321920249865,
+    "overlap_floor": 1e-10,
+    "seed": 41,
+    "targets": [
+      4,
+      2
+    ],
+    "target_J": 0,
+    "euler_samples": 64,
+    "number_grid": [
+      7,
+      7
+    ],
+    "number_grid_points": 49,
+    "M_vacua": 3136
+  },
+  "number_grid": [
+    7,
+    7
+  ],
+  "euler_grid": [
+    64
+  ],
+  "minimum_number_grid": [
+    7,
+    7
+  ],
+  "minimum_euler_grid": [
+    9,
+    5,
+    9
+  ],
+  "number_grid_guaranteed_exact": true,
+  "fixed_sector_gauge_sum_collapsed": true,
+  "euler_grid_guaranteed_exact": false,
+  "projected_vap_energy": -38.55669572355339,
+  "initial_projected_basis_energy": -38.23302903474234,
+  "initial_projected_fidelity": 0.8643240265642055,
+  "projected_basis_energy": -38.55669572355339,
+  "full_series_kernel_crosscheck": null,
+  "exact_quadrature_validation": {
+    "energy": -38.89248914734146,
+    "basis_energy": -38.89248914734146,
+    "fidelity": 0.9621094933640462,
+    "number_grid": [
+      7,
+      7
+    ],
+    "euler_grid": [
+      9,
+      5,
+      9
+    ]
+  },
+  "projected_fidelity": 0.9185755964292013,
+  "fidelity_improvement": 0.0542515698649958,
+  "projected_sector_weight": 0.2777669531365994,
+  "exact_ground_energy": -39.45341579805708,
+  "intrinsic_numbers": [
+    2.0507156628890466,
+    1.094875050349587
+  ],
+  "intrinsic_kappa_norm": 1.2454573581496216,
+  "converged": false,
+  "optimizer": "SPSA",
+  "gradient_norm": 68.73455582679628,
+  "attempts": [
+    {
+      "optimizer": "SPSA",
+      "initial_projected_energy": -38.23302903474234,
+      "projected_energy": -38.55669572355339,
+      "converged": false,
+      "gradient_norm": 68.73455582679628,
+      "iterations": 20,
+      "evaluations": 61,
+      "failed_evaluations": 0,
+      "message": "SPSA energy plateau reached"
+    }
+  ],
+  "elapsed_seconds": 47.399858899996616
+}

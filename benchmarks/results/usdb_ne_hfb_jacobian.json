@@ -1,0 +1,65 @@
+{
+  "method": "USDB HFB analytic-Jacobian optimization",
+  "interaction": "data/usdb.nat",
+  "faf_order": 2,
+  "hfb_analytic_jacobian": true,
+  "results": [
+    {
+      "nucleus": "Ne22",
+      "valence_neutrons": 4,
+      "valence_protons": 2,
+      "modes": 24,
+      "hfb_energy": -40.82324599736749,
+      "hfb_numbers": [
+        3.616125145502148,
+        3.5475131346561324
+      ],
+      "hfb_converged": false,
+      "hfb_pairing_norm": 1.6500368893636583,
+      "hfb_rho_idempotency": 0.7120246834338798,
+      "stationarity_error": 3.128076968462395,
+      "attempts": [
+        {
+          "converged": false,
+          "energy": -40.82324599736749,
+          "number_error": 1.5475131346554716,
+          "message": "Iteration limit reached",
+          "iterations": 120,
+          "function_evaluations": 941,
+          "jacobian_evaluations": 121,
+          "preconditioner_function_evaluations": 126
+        }
+      ],
+      "elapsed_seconds": 371.5436685999157
+    },
+    {
+      "nucleus": "Ne24",
+      "valence_neutrons": 6,
+      "valence_protons": 2,
+      "modes": 24,
+      "hfb_energy": -45.18208605563208,
+      "hfb_numbers": [
+        5.476511490476378,
+        2.7889454688753594
+      ],
+      "hfb_converged": false,
+      "hfb_pairing_norm": 0.9106881404638769,
+      "hfb_rho_idempotency": 0.25530064655811446,
+      "stationarity_error": 1.728936203272566,
+      "attempts": [
+        {
+          "converged": false,
+          "energy": -45.18208605563208,
+          "number_error": 0.7889454688753745,
+          "message": "Iteration limit reached",
+          "iterations": 120,
+          "function_evaluations": 802,
+          "jacobian_evaluations": 121,
+          "preconditioner_function_evaluations": 134
+        }
+      ],
+      "elapsed_seconds": 466.74785399995744
+    }
+  ],
+  "elapsed_seconds": 868.6850084000034
+}

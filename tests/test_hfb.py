@@ -64,6 +64,51 @@ class TestHFB(unittest.TestCase):
         with self.assertRaises(ValueError):
             _ = state.thouless_matrix
 
+    def test_analytic_energy_and_number_jacobian(self):
+        modes = 4
+        rng = np.random.default_rng(97)
+        h_one = rng.normal(size=(modes, modes))
+        h_one = h_one + h_one.T
+        interaction = rng.normal(size=(modes,) * 4)
+        interaction = interaction - interaction.swapaxes(0, 1)
+        interaction = interaction - interaction.swapaxes(2, 3)
+        interaction = (
+            interaction + interaction.transpose(2, 3, 0, 1)
+        ) / 2
+        hamiltonian = hfb.HFBHamiltonian(h_one, interaction)
+        parameters = rng.normal(scale=0.15, size=modes * (modes - 1))
+        direction = rng.normal(size=len(parameters))
+        direction /= np.linalg.norm(direction)
+        energy, numbers, gradient, jacobian, _ = (
+            hfb.hfb_energy_number_jacobian(
+                parameters, hamiltonian, [0, 1]
+            )
+        )
+        step = 2e-6
+
+        def values(point):
+            state = hfb.state_from_parameters(point, modes)
+            occupation = state.rho.diagonal().real
+            return (
+                hamiltonian.energy(state),
+                np.array([occupation[:2].sum(), occupation[2:].sum()]),
+            )
+
+        plus_energy, plus_numbers = values(parameters + step * direction)
+        minus_energy, minus_numbers = values(parameters - step * direction)
+        self.assertAlmostEqual(
+            float(gradient @ direction),
+            (plus_energy - minus_energy) / (2 * step),
+            places=7,
+        )
+        np.testing.assert_allclose(
+            jacobian @ direction,
+            (plus_numbers - minus_numbers) / (2 * step),
+            atol=2e-8,
+        )
+        self.assertAlmostEqual(energy, values(parameters)[0], places=12)
+        np.testing.assert_allclose(numbers, values(parameters)[1], atol=1e-12)
+
     def test_constrained_noninteracting_minimum(self):
         ham = hfb.HFBHamiltonian(np.diag([-2.,1.,-3.,2.]), np.zeros((4,)*4))
         result = hfb.solve_hfb(ham,[0,1],[1,1],starts=2,seed=3)
@@ -71,6 +116,39 @@ class TestHFB(unittest.TestCase):
         np.testing.assert_allclose(result.numbers,[1,1],atol=1e-7)
         self.assertAlmostEqual(result.energy,-5.,places=6)
         self.assertLess(np.linalg.norm(result.state.kappa),1e-3)
+
+    def test_stationarity_audit_can_be_skipped(self):
+        ham = hfb.HFBHamiltonian(
+            np.diag([-2., 1., -3., 2.]), np.zeros((4,) * 4)
+        )
+        result = hfb.solve_hfb(
+            ham,
+            [0, 1],
+            [1, 1],
+            starts=2,
+            seed=3,
+            stationarity_diagnostics=False,
+            shared_finite_difference_jacobian=True,
+        )
+        np.testing.assert_allclose(result.numbers, [1, 1], atol=1e-7)
+        self.assertTrue(np.isnan(result.stationarity_error))
+        self.assertTrue(np.isnan(result.chemical_potentials).all())
+
+    def test_analytic_jacobian_optimizer(self):
+        ham = hfb.HFBHamiltonian(
+            np.diag([-2., 1., -3., 2.]), np.zeros((4,) * 4)
+        )
+        result = hfb.solve_hfb(
+            ham,
+            [0, 1],
+            [1, 1],
+            starts=2,
+            seed=3,
+            analytic_jacobian=True,
+        )
+        self.assertTrue(result.converged, result.attempts)
+        self.assertAlmostEqual(result.energy, -5., places=6)
+        self.assertLess(result.stationarity_error, 1e-5)
 
     def test_invalid_interaction_rejected(self):
         with self.assertRaises(ValueError):

@@ -28,6 +28,10 @@ from angular_momentum import (
     project_state_observables,
 )
 from gaussian_fidelity import maximize_gaussian_fidelity, maximize_slater_fidelity
+from fermionic_antiflatness import (
+    fermionic_antiflatness,
+    vacuum_series_antiflatness,
+)
 
 namespace = dict(globals(), trange=range)
 
@@ -59,7 +63,6 @@ legacy_definitions(
 interaction, eps = namespace["get_twobody_nuclearshell_model"](
     str(ROOT / "data" / "cki")
 )
-title = "Be_isotopes"
 single_particle = namespace["SingleParticleState"](str(ROOT / "data" / "cki"))
 state_encoding = single_particle.state_encoding
 ham = HFBHamiltonian(np.diag(eps), interaction)
@@ -76,6 +79,10 @@ fidelities_bhf_gaussian = []
 is_hartree_fock_gaussian = []
 measure_from_relative_errors = []
 measure_from_fidelities = []
+pav_fidelities = []
+pav_sector_weights = []
+exact_ground_state_faf = []
+pav_faf = []
 labels = []
 for Z in proton_numbers:
     for N in neutron_numbers:
@@ -141,6 +148,29 @@ for Z in proton_numbers:
         hfb_fidelity = hfb_state.fixed_sector_fidelity(
             exact_target, fermionic.occupations
         )
+        # Particle-number projection after variation (PAV).  The fidelity and
+        # FAF are evaluated from the same coherent gauge-vacuum series.
+        pav_series = number_projected_series(hfb_state, fermionic)
+        pav = projected_series_observables(
+            pav_series, fermionic, exact_target
+        )
+        exact_faf = fermionic_antiflatness(
+            exact_target,
+            fermionic.occupations,
+            fermionic.modes,
+            order=2,
+        )
+        projected_faf = vacuum_series_antiflatness(
+            pav_series, fermionic.occupations, order=2
+        )
+        pav_fidelities.append(pav.fidelity)
+        pav_sector_weights.append(pav.sector_weight)
+        exact_ground_state_faf.append(exact_faf.value)
+        pav_faf.append(projected_faf.value)
+        print("particle-number PAV fidelity:", pav.fidelity)
+        print("particle-number PAV sector weight:", pav.sector_weight)
+        print("exact-ground-state FAF (k=2):", exact_faf.value)
+        print("particle-number PAV FAF (k=2):", projected_faf.value)
         relative_error = abs(ham.energy(hfb_raw) - exact_energy) / abs(exact_energy)
         relative_errors_in_energy_bhf.append(relative_error)
         fidelities_bhf.append(hfb_fidelity)
@@ -192,7 +222,7 @@ for Z in proton_numbers:
 
 import pickle as pkl
 
-with open("data/results_gaussianity/results_" + title + ".pkl", "wb") as f:
+with open("data/results_gaussianity/results.pkl", "wb") as f:
     pkl.dump(
         {
             "relative_errors_in_energy_bhf": relative_errors_in_energy_bhf,
@@ -202,6 +232,10 @@ with open("data/results_gaussianity/results_" + title + ".pkl", "wb") as f:
             "is_hartree_fock_gaussian": is_hartree_fock_gaussian,
             "measure_from_relative_errors": measure_from_relative_errors,
             "measure_from_fidelities": measure_from_fidelities,
+            "pav_fidelities": pav_fidelities,
+            "pav_sector_weights": pav_sector_weights,
+            "exact_ground_state_faf_k2": exact_ground_state_faf,
+            "pav_faf_k2": pav_faf,
             "labels": labels,
         },
         f,

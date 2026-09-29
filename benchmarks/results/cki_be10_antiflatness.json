@@ -1,0 +1,23 @@
+{
+  "nucleus": "Be10",
+  "definition": "F_k = L - Tr[(M^T M)^k]/2",
+  "order": 2,
+  "modes": 12,
+  "exact_ground_energy": -39.45341579805708,
+  "exact_ground_state_antiflatness": 10.73927605756776,
+  "exact_ground_state_antiflatness_per_mode": 0.89493967146398,
+  "projected_vap_series_antiflatness": 10.722327306982914,
+  "projected_vap_series_antiflatness_per_mode": 0.8935272755819095,
+  "series_number_grid": [
+    7,
+    7
+  ],
+  "series_euler_grid": [
+    9,
+    5,
+    9
+  ],
+  "exact_series_vacua": 19845,
+  "evaluated_vacua_after_fixed_sector_gauge_collapse": 405,
+  "source_state": "benchmarks\\results\\cki_be10_vap_n7x7_j9x5x9_state.npz"
+}
