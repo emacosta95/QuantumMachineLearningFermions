@@ -113,10 +113,53 @@ def main(
     label, targets = _nucleus(interaction_name, int(mass), species_modes)
     neutron_modes = list(range(species_modes, modes))
     intrinsic_hamiltonian = HFBHamiltonian(np.diag(eps), interaction)
+    # Rotated states and J operators need the complete fixed-(N,Z) basis, but
+    # the expensive exact diagonalization only needs M=0.  Embed that exact
+    # eigenvector back into the full basis for fidelities and J observables.
     fermionic = build_fermionic_hamiltonian(
         interaction, eps, particles=targets
     )
-    exact_energy, exact_state = exact_ground_state(fermionic)
+    print(
+        f"[{label}] full projection basis: {len(fermionic.occupations)} states",
+        flush=True,
+    )
+    magnetic_projections = np.asarray(
+        [float(state[3]) for state in encoding]
+    )
+
+    def m_zero(occupied):
+        return abs(float(np.sum(
+            magnetic_projections[list(occupied)]
+        ))) < 1e-10
+
+    exact_fermionic = build_fermionic_hamiltonian(
+        interaction, eps, particles=targets, symmetries=[m_zero]
+    )
+    print(
+        f"[{label}] exact M=0 diagonalization: "
+        f"{len(exact_fermionic.occupations)} states",
+        flush=True,
+    )
+    exact_energy, exact_m0_state = exact_ground_state(exact_fermionic)
+    exact_state = np.zeros(len(fermionic.occupations), complex)
+    full_indices = {
+        tuple(occupied): index
+        for index, occupied in enumerate(fermionic.occupations)
+    }
+    for coefficient, occupied in zip(
+        exact_m0_state, exact_fermionic.occupations
+    ):
+        exact_state[full_indices[tuple(occupied)]] = coefficient
+    exact_faf = fermionic_antiflatness(
+        exact_state,
+        fermionic.occupations,
+        fermionic.modes,
+        order=faf_order,
+    )
+    print(
+        f"[{label}] optimizing {intrinsic_method.upper()} with {starts} starts",
+        flush=True,
+    )
     intrinsic = solve_hfb(
         intrinsic_hamiltonian,
         neutron_modes,
@@ -139,7 +182,38 @@ def main(
         # representative is therefore sufficient even though the generic HFB
         # finite-space guarantee still reports the formal c+1 bound.
         number_grid = (1, 1)
-    rows = []
+    result_directory = (
+        ROOT / "benchmarks/results"
+        if output_dir is None
+        else Path(output_dir).expanduser().resolve()
+    )
+    result_directory.mkdir(parents=True, exist_ok=True)
+    output = result_directory / (
+        f"{interaction_name}_{label.lower()}_projection_grid_convergence.json"
+    )
+    report = {
+        "status": "running",
+        "interaction": interaction_name,
+        "interaction_path": str(interaction_path.relative_to(ROOT)),
+        "nucleus": label,
+        "targets": list(targets),
+        "intrinsic_method": intrinsic_method,
+        "intrinsic_converged": bool(intrinsic.converged),
+        "intrinsic_energy": intrinsic.energy,
+        "intrinsic_numbers": intrinsic.numbers.tolist(),
+        "intrinsic_pairing_norm": float(np.linalg.norm(intrinsic.state.kappa)),
+        "intrinsic_attempts": intrinsic.attempts,
+        "exact_energy": exact_energy,
+        "exact_diagonalization_sector": "fixed (N,Z,M=0)",
+        "exact_dimension_NZ_M0": len(exact_fermionic.occupations),
+        "projection_dimension_NZ": len(fermionic.occupations),
+        "exact_ground_state_faf": exact_faf.value,
+        "exact_ground_state_faf_per_mode": exact_faf.value_per_mode,
+        "faf_order": int(faf_order),
+        "grid_rows": [],
+        "elapsed_seconds": 0.0,
+    }
+    rows = report["grid_rows"]
     for magnetic_points in range(1, m_max + 1):
         for angular_points in range(1, j_max + 1):
             row = {
@@ -191,42 +265,31 @@ def main(
                     "minimum_number_grid": list(series.minimum_number_grid),
                     "minimum_euler_grid": list(series.minimum_euler_grid),
                     "projected_energy": projected.energy,
+                    "projected_energy_relative_error": float(
+                        abs((projected.energy - exact_energy) / exact_energy)
+                    ),
                     "fidelity": projected.fidelity,
                     "J2_expectation": j2,
                     "effective_J": effective_j,
                     "faf": faf.value,
                     "faf_per_mode": faf.value_per_mode,
+                    "faf_difference_from_exact_ground_state": float(
+                        faf.value - exact_faf.value
+                    ),
+                    "faf_ratio_to_exact_ground_state": (
+                        float(faf.value / exact_faf.value)
+                        if abs(exact_faf.value) > 1e-14 else None
+                    ),
                 })
             except ValueError as error:
                 row["error"] = str(error)
             rows.append(row)
             print(json.dumps(row, indent=2), flush=True)
+            report["elapsed_seconds"] = time.perf_counter() - started
+            output.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
-    report = {
-        "interaction": interaction_name,
-        "interaction_path": str(interaction_path.relative_to(ROOT)),
-        "nucleus": label,
-        "targets": list(targets),
-        "intrinsic_method": intrinsic_method,
-        "intrinsic_converged": bool(intrinsic.converged),
-        "intrinsic_energy": intrinsic.energy,
-        "intrinsic_numbers": intrinsic.numbers.tolist(),
-        "intrinsic_pairing_norm": float(np.linalg.norm(intrinsic.state.kappa)),
-        "intrinsic_attempts": intrinsic.attempts,
-        "exact_energy": exact_energy,
-        "faf_order": int(faf_order),
-        "grid_rows": rows,
-        "elapsed_seconds": time.perf_counter() - started,
-    }
-    result_directory = (
-        ROOT / "benchmarks/results"
-        if output_dir is None
-        else Path(output_dir).expanduser().resolve()
-    )
-    result_directory.mkdir(parents=True, exist_ok=True)
-    output = result_directory / (
-        f"{interaction_name}_{label.lower()}_projection_grid_convergence.json"
-    )
+    report["status"] = "complete"
+    report["elapsed_seconds"] = time.perf_counter() - started
     output.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"Wrote {output}", flush=True)
     return report

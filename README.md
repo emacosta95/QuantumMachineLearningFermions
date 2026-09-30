@@ -1,2 +1,57 @@
-# numerical_simulation_spinless_fermions
-Numerical Simulation of Spinless Fermions
+# Nuclear-shell-model fermions
+
+The two main study programs are located at the repository root.  They accept
+`--interaction cki` for the p-shell Be isotopes and `--interaction usdb` for
+the sd-shell Ne isotopes.
+
+## Gaussian fidelity and variational energy
+
+Compare the energy-optimized HF/HFB state and the maximum-overlap pure
+Gaussian state with the exact ground state:
+
+```bash
+python study_gaussian_fidelity.py --interaction cki
+python study_gaussian_fidelity.py --interaction usdb --isotopes 20 22 24
+```
+
+The JSON report includes raw and target-sector-conditioned fidelities, exact
+and variational energies, relative energy errors, convergence diagnostics,
+particle numbers, and pairing norms.  USDB exact diagonalization is restricted
+to the M=0 sector; M=0 is not imposed on the intrinsic HF/HFB calculation.
+
+Use `--variational-method hf` for the faster number-conserving calculation or
+`--variational-method hfb` for the paired Bogoliubov calculation.  Both the
+variational and closest-Gaussian searches are non-convex, so increase
+`--starts` and `--gaussian-starts` for production results.
+
+## Projected non-Gaussianity
+
+Increase the Euler quadrature from one point through `(M_MAX,J_MAX,M_MAX)`:
+
+```bash
+python study_projected_nongaussianity.py \
+  --interaction cki --mass 8 --m-max 9 --j-max 4
+
+python study_projected_nongaussianity.py \
+  --interaction usdb --mass 20 --m-max 17 --j-max 6
+```
+
+For every `(M,J)` pair the report stores projected fidelity, relative energy
+error, FAF non-Gaussianity, `<J^2>`, effective `J`, and the FAF difference and
+ratio relative to the exact ground state.  The exact-ground-state FAF is also
+stored once at report level.  Results default to the root `results/` directory.
+
+## Slurm
+
+Create `logs/` before submitting because Slurm opens its output files before
+the job script runs:
+
+```bash
+mkdir -p logs
+sbatch --export=ALL,RUN_MODE=projection,INTERACTION=cki,MASS=8,M_MAX=9,J_MAX=4 \
+  slurm/run_nuclear_projection.sbatch
+
+ISOTOPES="20 22 24" sbatch \
+  --export=ALL,RUN_MODE=fidelity,INTERACTION=usdb \
+  slurm/run_nuclear_projection.sbatch
+```

@@ -1,0 +1,233 @@
+"""Compare energy-optimized and closest-Gaussian states with exact nuclei.
+
+Choosing ``cki`` selects the p-shell Be chain, while ``usdb`` selects the
+sd-shell Ne chain.  Exact USDB diagonalization uses only the M=0 sector; this
+restriction is never imposed on the intrinsic HF/HFB optimization.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+
+
+ROOT = Path(__file__).resolve().parent
+for directory in (ROOT / "src" / "NSMFermions", ROOT / "benchmarks"):
+    if str(directory) not in sys.path:
+        sys.path.insert(0, str(directory))
+
+from cki_be8 import build_fermionic_hamiltonian  # noqa: E402
+from gaussian_fidelity import maximize_gaussian_fidelity  # noqa: E402
+from hfb import HFBHamiltonian, solve_hfb  # noqa: E402
+from number_projection import exact_ground_state  # noqa: E402
+from projection_grid_convergence import _load_interaction, _nucleus  # noqa: E402
+
+
+DEFAULT_ISOTOPES = {"cki": (8, 10, 12), "usdb": (20, 22, 24)}
+
+
+def _relative_error(value: float, exact: float) -> float:
+    return float(abs((value - exact) / exact))
+
+
+def _state_overlap(state, occupations, target):
+    """Return raw fidelity, sector weight, and sector-conditioned fidelity."""
+    amplitudes = state.occupation_amplitudes(occupations, normalized=True)
+    sector_weight = float(np.vdot(amplitudes, amplitudes).real)
+    raw_fidelity = float(abs(np.vdot(target, amplitudes)) ** 2)
+    conditional = (
+        raw_fidelity / sector_weight if sector_weight > 1e-14 else None
+    )
+    return raw_fidelity, sector_weight, conditional
+
+
+def run_study(
+    interaction_name="cki",
+    isotopes=None,
+    variational_method="hfb",
+    starts=4,
+    maxiter=500,
+    gaussian_starts=4,
+    gaussian_maxiter=1000,
+    seed=8,
+    output=None,
+):
+    interaction_name = interaction_name.lower()
+    interaction, eps, encoding, interaction_path = _load_interaction(
+        interaction_name
+    )
+    modes = len(eps)
+    species_modes = modes // 2
+    neutron_modes = list(range(species_modes, modes))
+    intrinsic_hamiltonian = HFBHamiltonian(np.diag(eps), interaction)
+    masses = tuple(isotopes or DEFAULT_ISOTOPES[interaction_name])
+    magnetic_projections = np.asarray([float(state[3]) for state in encoding])
+    results = []
+    started = time.perf_counter()
+    output_path = (
+        Path(output).expanduser().resolve()
+        if output
+        else ROOT / "results" / f"{interaction_name}_gaussian_fidelity.json"
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    for mass in masses:
+        isotope_started = time.perf_counter()
+        label, targets = _nucleus(interaction_name, int(mass), species_modes)
+        print(f"[{label}] building and diagonalizing the exact sector", flush=True)
+        symmetries = None
+        exact_sector = "fixed (N,Z)"
+        if interaction_name == "usdb":
+            def m_zero(occupied):
+                return abs(float(np.sum(
+                    magnetic_projections[list(occupied)]
+                ))) < 1e-10
+
+            symmetries = [m_zero]
+            exact_sector = "fixed (N,Z,M=0)"
+
+        fermionic = build_fermionic_hamiltonian(
+            interaction, eps, particles=targets, symmetries=symmetries
+        )
+        exact_energy, target = exact_ground_state(fermionic)
+        target = np.asarray(target, complex) / np.linalg.norm(target)
+
+        print(
+            f"[{label}] optimizing {variational_method.upper()} with "
+            f"{starts} starts",
+            flush=True,
+        )
+        variational = solve_hfb(
+            intrinsic_hamiltonian,
+            neutron_modes,
+            targets,
+            starts=starts,
+            seed=seed + int(mass),
+            maxiter=maxiter,
+            tolerance=1e-8,
+            analytic_jacobian=(variational_method == "hfb"),
+            method=variational_method,
+        )
+        var_raw, var_weight, var_conditional = _state_overlap(
+            variational.state, fermionic.occupations, target
+        )
+
+        print(
+            f"[{label}] optimizing closest Gaussian with "
+            f"{gaussian_starts} starts",
+            flush=True,
+        )
+        closest = maximize_gaussian_fidelity(
+            fermionic,
+            target,
+            starts=gaussian_starts,
+            seed=seed + 1000 + int(mass),
+            maxiter=gaussian_maxiter,
+            gradient_tolerance=2e-6,
+        )
+        gauss_raw, gauss_weight, gauss_conditional = _state_overlap(
+            closest.state, fermionic.occupations, target
+        )
+        closest_energy = float(intrinsic_hamiltonian.energy(closest.state))
+
+        row = {
+            "nucleus": label,
+            "interaction": interaction_name,
+            "valence_neutrons": targets[0],
+            "valence_protons": targets[1],
+            "exact_diagonalization_sector": exact_sector,
+            "exact_dimension": len(fermionic.occupations),
+            "exact_energy": exact_energy,
+            "variational_method": variational_method,
+            "variational_converged": bool(variational.converged),
+            "variational_energy": variational.energy,
+            "variational_energy_relative_error": _relative_error(
+                variational.energy, exact_energy
+            ),
+            "variational_ground_state_fidelity_raw": var_raw,
+            "variational_target_sector_weight": var_weight,
+            "variational_ground_state_fidelity_conditioned": var_conditional,
+            "variational_numbers": variational.numbers.tolist(),
+            "variational_pairing_norm": float(
+                np.linalg.norm(variational.state.kappa)
+            ),
+            "closest_gaussian_converged": bool(closest.converged),
+            "closest_gaussian_ground_state_fidelity_raw": gauss_raw,
+            "closest_gaussian_target_sector_weight": gauss_weight,
+            "closest_gaussian_ground_state_fidelity_conditioned": (
+                gauss_conditional
+            ),
+            "closest_gaussian_energy": closest_energy,
+            "closest_gaussian_energy_relative_error": _relative_error(
+                closest_energy, exact_energy
+            ),
+            "closest_gaussian_gradient_norm": closest.gradient_norm,
+            "elapsed_seconds": time.perf_counter() - isotope_started,
+        }
+        results.append(row)
+        print(json.dumps(row, indent=2), flush=True)
+
+        # Checkpoint after every isotope so a scheduler time limit does not
+        # discard nuclei that already completed.
+        checkpoint = {
+            "status": "running",
+            "study": "energy-optimized versus closest pure Gaussian state",
+            "interaction": interaction_name,
+            "interaction_path": str(interaction_path.relative_to(ROOT)),
+            "isotopes": list(masses),
+            "results": results,
+            "elapsed_seconds": time.perf_counter() - started,
+        }
+        output_path.write_text(json.dumps(checkpoint, indent=2), encoding="utf-8")
+
+    report = {
+        "study": "energy-optimized versus closest pure Gaussian state",
+        "interaction": interaction_name,
+        "interaction_path": str(interaction_path.relative_to(ROOT)),
+        "isotopes": list(masses),
+        "results": results,
+        "elapsed_seconds": time.perf_counter() - started,
+    }
+    report["status"] = "complete"
+    output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(f"Wrote {output_path}", flush=True)
+    return report
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Compare exact nuclei with HFB/HF and closest Gaussians."
+    )
+    parser.add_argument(
+        "--interaction", type=str.lower, choices=("cki", "usdb"), required=True
+    )
+    parser.add_argument(
+        "--isotopes", nargs="+", type=int,
+        help="Mass numbers; defaults to Be 8,10,12 or Ne 20,22,24.",
+    )
+    parser.add_argument(
+        "--variational-method", choices=("hf", "hfb"), default="hfb"
+    )
+    parser.add_argument("--starts", type=int, default=4)
+    parser.add_argument("--maxiter", type=int, default=500)
+    parser.add_argument("--gaussian-starts", type=int, default=4)
+    parser.add_argument("--gaussian-maxiter", type=int, default=1000)
+    parser.add_argument("--seed", type=int, default=8)
+    parser.add_argument("--output")
+    args = parser.parse_args()
+    run_study(
+        interaction_name=args.interaction,
+        isotopes=args.isotopes,
+        variational_method=args.variational_method,
+        starts=args.starts,
+        maxiter=args.maxiter,
+        gaussian_starts=args.gaussian_starts,
+        gaussian_maxiter=args.gaussian_maxiter,
+        seed=args.seed,
+        output=args.output,
+    )

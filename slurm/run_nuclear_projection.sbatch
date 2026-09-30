@@ -34,15 +34,16 @@ if [[ -f "$WORKDIR/.venv/bin/activate" ]]; then
 fi
 export PYTHONPATH="$WORKDIR/src/NSMFermions:$WORKDIR/benchmarks:${PYTHONPATH:-}"
 
-# Select "grid", "neon-hf", or "all" at submission time. Examples:
-# sbatch --export=ALL,RUN_MODE=grid,INTERACTION=cki,MASS=8,M_MAX=9,J_MAX=4 \
+# Select "projection", "fidelity", or "all" at submission time. Examples:
+# sbatch --export=ALL,RUN_MODE=projection,INTERACTION=cki,MASS=8,M_MAX=9,J_MAX=4 \
 #   slurm/run_nuclear_projection.sbatch
-# sbatch --export=ALL,RUN_MODE=grid,INTERACTION=usdb,MASS=20,M_MAX=17,J_MAX=6 \
+# sbatch --export=ALL,RUN_MODE=projection,INTERACTION=usdb,MASS=20,M_MAX=17,J_MAX=6 \
 #   slurm/run_nuclear_projection.sbatch
-# sbatch --export=ALL,RUN_MODE=neon-hf,ISOTOPES="20 22 24" \
+# ISOTOPES="20 22 24" sbatch --export=ALL,RUN_MODE=fidelity,INTERACTION=usdb \
 #   slurm/run_nuclear_projection.sbatch
-RUN_MODE="${RUN_MODE:-grid}"
+RUN_MODE="${RUN_MODE:-projection}"
 INTERACTION="${INTERACTION:-usdb}"
+INTERACTION="${INTERACTION,,}"
 MASS="${MASS:-20}"
 M_MAX="${M_MAX:-3}"
 J_MAX="${J_MAX:-3}"
@@ -51,11 +52,13 @@ STARTS="${STARTS:-8}"
 MAXITER="${MAXITER:-500}"
 SEED="${SEED:-8}"
 FAF_ORDER="${FAF_ORDER:-2}"
-ISOTOPES="${ISOTOPES:-20 22 24}"
+ISOTOPES="${ISOTOPES:-}"
+GAUSSIAN_STARTS="${GAUSSIAN_STARTS:-4}"
+GAUSSIAN_MAXITER="${GAUSSIAN_MAXITER:-1000}"
 
 run_grid() {
     command=(
-        "$PYTHON_BIN" -u benchmarks/projection_grid_convergence.py
+        "$PYTHON_BIN" -u study_projected_nongaussianity.py
         --interaction "$INTERACTION"
         --mass "$MASS"
         --m-max "$M_MAX"
@@ -74,29 +77,38 @@ run_grid() {
     "${command[@]}"
 }
 
-run_neon_hf() {
-    read -r -a isotope_values <<< "$ISOTOPES"
-    "$PYTHON_BIN" -u benchmarks/usdb_ne_hf.py \
-        --isotopes "${isotope_values[@]}" \
-        --starts "$STARTS" \
-        --maxiter "$MAXITER" \
-        --seed "$SEED" \
-        --output-dir "$OUTDIR"
+run_fidelity() {
+    command=(
+        "$PYTHON_BIN" -u study_gaussian_fidelity.py
+        --interaction "$INTERACTION"
+        --variational-method "$INTRINSIC_METHOD"
+        --starts "$STARTS"
+        --maxiter "$MAXITER"
+        --gaussian-starts "$GAUSSIAN_STARTS"
+        --gaussian-maxiter "$GAUSSIAN_MAXITER"
+        --seed "$SEED"
+        --output "$OUTDIR/${INTERACTION}_gaussian_fidelity.json"
+    )
+    if [[ -n "$ISOTOPES" ]]; then
+        read -r -a isotope_values <<< "$ISOTOPES"
+        command+=(--isotopes "${isotope_values[@]}")
+    fi
+    "${command[@]}"
 }
 
 case "$RUN_MODE" in
-    grid)
+    projection|grid)
         run_grid
         ;;
-    neon-hf)
-        run_neon_hf
+    fidelity)
+        run_fidelity
         ;;
     all)
-        run_neon_hf
+        run_fidelity
         run_grid
         ;;
     *)
-        echo "RUN_MODE must be grid, neon-hf, or all" >&2
+        echo "RUN_MODE must be projection, fidelity, or all" >&2
         exit 2
         ;;
 esac
