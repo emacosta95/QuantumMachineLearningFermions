@@ -117,6 +117,59 @@ class TestHFB(unittest.TestCase):
         self.assertAlmostEqual(result.energy,-5.,places=6)
         self.assertLess(np.linalg.norm(result.state.kappa),1e-3)
 
+    def test_hartree_fock_gradient_and_multistart_solver(self):
+        modes = 5
+        rng = np.random.default_rng(41)
+        one_body = rng.normal(size=(modes, modes))
+        one_body = one_body + one_body.T
+        interaction = rng.normal(size=(modes,) * 4)
+        interaction = interaction - interaction.swapaxes(0, 1)
+        interaction = interaction - interaction.swapaxes(2, 3)
+        interaction = (
+            interaction + interaction.transpose(2, 3, 0, 1)
+        ) / 2
+        ham = hfb.HFBHamiltonian(one_body, interaction)
+        orbitals = np.linalg.qr(
+            rng.normal(size=(modes, 2))
+            + 1j * rng.normal(size=(modes, 2))
+        )[0]
+        _, gradient, _, _ = hfb.hartree_fock_energy_gradient(
+            orbitals, ham
+        )
+        direction = (
+            rng.normal(size=orbitals.shape)
+            + 1j * rng.normal(size=orbitals.shape)
+        )
+        direction -= orbitals @ (orbitals.conj().T @ direction)
+        step = 1e-6
+        plus = np.linalg.qr(orbitals + step * direction)[0]
+        minus = np.linalg.qr(orbitals - step * direction)[0]
+        numerical = (
+            ham.energy(hfb.HFBState.from_slater(plus))
+            - ham.energy(hfb.HFBState.from_slater(minus))
+        ) / (2 * step)
+        self.assertAlmostEqual(
+            numerical, float(np.vdot(gradient, direction).real), places=7
+        )
+
+        noninteracting = hfb.HFBHamiltonian(
+            np.diag([-2., 1., -3., 2.]), np.zeros((4,) * 4)
+        )
+        result = hfb.solve_hfb(
+            noninteracting,
+            [0, 1],
+            [1, 1],
+            method="hf",
+            starts=3,
+            seed=3,
+            maxiter=100,
+        )
+        self.assertTrue(result.converged, result.attempts)
+        self.assertEqual(len(result.attempts), 3)
+        self.assertAlmostEqual(result.energy, -5., places=10)
+        np.testing.assert_array_equal(result.numbers, [1., 1.])
+        self.assertLess(np.linalg.norm(result.state.kappa), 1e-12)
+
     def test_stationarity_audit_can_be_skipped(self):
         ham = hfb.HFBHamiltonian(
             np.diag([-2., 1., -3., 2.]), np.zeros((4,) * 4)

@@ -3,3 +3,5 @@ data/quantum_chemistry
 *.txt
 .hfb-test-deps/
 __pycache__/
+logs/*
+!logs/.gitkeep

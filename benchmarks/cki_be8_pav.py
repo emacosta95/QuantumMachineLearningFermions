@@ -17,7 +17,14 @@ from hfb import HFBHamiltonian, solve_hfb
 from number_projection import exact_ground_state, projected_series_observables
 
 
-def main(number_grid=None):
+def main(
+    number_grid=None,
+    *,
+    intrinsic_method="hfb",
+    starts=3,
+    maxiter=1000,
+    seed=15,
+):
     """Optimize the intrinsic state first, then apply exact N,Z projection."""
     # Include loading, variation, projection, and validation in the elapsed time.
     start = time.perf_counter()
@@ -75,10 +82,11 @@ def main(number_grid=None):
         intrinsic_hamiltonian,
         neutron_modes,
         [2, 2],
-        starts=3,
-        seed=15,
-        maxiter=1000,
+        starts=starts,
+        seed=seed,
+        maxiter=maxiter,
         tolerance=1e-10,
+        method=intrinsic_method,
     )
 
     # Diagonalize the same FermiHubbardHamiltonian matrix to obtain the exact
@@ -117,7 +125,13 @@ def main(number_grid=None):
     # mistaken for a variation-after-projection calculation.
     report = {
         "method": "particle-number projection after variation",
-        "intrinsic_variation": "average-number constrained HFB",
+        "intrinsic_variation": (
+            "species-conserving multi-start HF"
+            if intrinsic_method == "hf"
+            else "average-number constrained HFB"
+        ),
+        "intrinsic_method": intrinsic_method,
+        "intrinsic_attempts": hfb_result.attempts,
         "hfb_converged": hfb_result.converged,
         "hfb_energy": hfb_result.energy,
         "intrinsic_numbers": hfb_result.numbers.tolist(),
@@ -161,7 +175,17 @@ if __name__ == "__main__":
     # Permit direct N,Z discretization control in convergence studies.
     parser = argparse.ArgumentParser()
     parser.add_argument("--number-grid", nargs=2, type=int, metavar=("LN", "LZ"))
+    parser.add_argument(
+        "--intrinsic-method", choices=("hf", "hfb"), default="hfb"
+    )
+    parser.add_argument("--starts", type=int, default=3)
+    parser.add_argument("--maxiter", type=int, default=1000)
+    parser.add_argument("--seed", type=int, default=15)
     arguments = parser.parse_args()
     main(
-        number_grid=(tuple(arguments.number_grid) if arguments.number_grid else None)
+        number_grid=(tuple(arguments.number_grid) if arguments.number_grid else None),
+        intrinsic_method=arguments.intrinsic_method,
+        starts=arguments.starts,
+        maxiter=arguments.maxiter,
+        seed=arguments.seed,
     )

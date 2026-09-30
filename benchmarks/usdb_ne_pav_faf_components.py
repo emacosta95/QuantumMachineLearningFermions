@@ -10,6 +10,7 @@ import argparse
 import json
 import time
 from dataclasses import replace
+from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -158,6 +159,8 @@ def main(
     exact_only=False,
     hfb_only=False,
     analytic_jacobian=True,
+    hartree_fock=False,
+    output_dir=None,
 ):
     if exact_only and hfb_only:
         raise ValueError("exact_only and hfb_only are mutually exclusive")
@@ -206,6 +209,7 @@ def main(
                 stationarity_diagnostics=True,
                 shared_finite_difference_jacobian=not analytic_jacobian,
                 analytic_jacobian=analytic_jacobian,
+                method="hf" if hartree_fock else "hfb",
             )
             rho = (hfb.state.rho + hfb.state.rho.conj().T) / 2
             hfb_row = {
@@ -213,6 +217,11 @@ def main(
                 "valence_neutrons": valence_neutrons,
                 "valence_protons": 2,
                 "modes": modes,
+                "intrinsic_method": "hf" if hartree_fock else "hfb",
+                "intrinsic_energy": hfb.energy,
+                "intrinsic_numbers": hfb.numbers.tolist(),
+                "intrinsic_converged": bool(hfb.converged),
+                "intrinsic_pairing_norm": float(np.linalg.norm(hfb.state.kappa)),
                 "hfb_energy": hfb.energy,
                 "hfb_numbers": hfb.numbers.tolist(),
                 "hfb_converged": bool(hfb.converged),
@@ -266,6 +275,7 @@ def main(
             stationarity_diagnostics=True,
             shared_finite_difference_jacobian=not analytic_jacobian,
             analytic_jacobian=analytic_jacobian,
+            method="hf" if hartree_fock else "hfb",
         )
         state, chart, pairing, idempotency = _working_state(
             hfb.state, sum(targets)
@@ -318,14 +328,23 @@ def main(
             "fixed (N,Z,M=0)"
             if exact_only
             else (
-                "USDB HFB analytic-Jacobian optimization"
+                (
+                    "USDB species-conserving multi-start Hartree-Fock optimization"
+                    if hartree_fock
+                    else "USDB HFB analytic-Jacobian optimization"
+                )
                 if hfb_only
                 else "USDB HFB followed by fixed-sector P_N P_Z P_J=0 PAV"
             )
         ),
         "interaction": "data/usdb.nat",
         "faf_order": int(order),
-        "hfb_analytic_jacobian": None if exact_only else analytic_jacobian,
+        "intrinsic_method": (
+            None if exact_only else ("hf" if hartree_fock else "hfb")
+        ),
+        "hfb_analytic_jacobian": (
+            None if exact_only or hartree_fock else analytic_jacobian
+        ),
         "results": results,
         "elapsed_seconds": time.perf_counter() - started,
     }
@@ -333,12 +352,22 @@ def main(
         "usdb_ne_exact_faf.json"
         if exact_only
         else (
-            "usdb_ne_hfb_jacobian.json"
+            (
+                "usdb_ne_hf_multistart.json"
+                if hartree_fock
+                else "usdb_ne_hfb_jacobian.json"
+            )
             if hfb_only
             else "usdb_ne_pav_faf_components.json"
         )
     )
-    output = ROOT / "benchmarks/results" / output_name
+    result_directory = (
+        ROOT / "benchmarks/results"
+        if output_dir is None
+        else Path(output_dir).expanduser().resolve()
+    )
+    result_directory.mkdir(parents=True, exist_ok=True)
+    output = result_directory / output_name
     output.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(f"Wrote {output}", flush=True)
     return report
@@ -360,6 +389,12 @@ if __name__ == "__main__":
         action="store_true",
         help="use the shared numerical HFB Jacobian instead of the analytic one",
     )
+    parser.add_argument(
+        "--hartree-fock",
+        action="store_true",
+        help="set kappa=0 and optimize species-conserving Slater determinants",
+    )
+    parser.add_argument("--output-dir")
     arguments = parser.parse_args()
     main(
         isotopes=tuple(arguments.isotopes),
@@ -373,4 +408,6 @@ if __name__ == "__main__":
         exact_only=arguments.exact_only,
         hfb_only=arguments.hfb_only,
         analytic_jacobian=not arguments.finite_difference_jacobian,
+        hartree_fock=arguments.hartree_fock,
+        output_dir=arguments.output_dir,
     )

@@ -111,6 +111,44 @@ diagnostics and must not be interpreted as variational nuclear results.  Use
 `benchmarks/usdb_ne_pav_faf_components.py --hfb-only` to repeat this isolated
 optimizer test without constructing the exact Hamiltonian or rotation series.
 
+## Number-conserving Hartree-Fock option
+
+Use `solve_hfb(..., method="hf", starts=8)` to set `kappa=0` identically and
+optimize separate neutron and proton Slater orbitals.  Integer N and Z are then
+exact at every iteration, rather than equality constraints that an optimizer
+may fail to satisfy.  For species capacities `d_n,d_p`, this reduces the number
+of physical real coordinates from `modes*(modes-1)` to
+`2*(N*(d_n-N) + Z*(d_p-Z))`.  The implementation uses an analytic Fock
+gradient, Riemannian Polak-Ribiere conjugate gradients, QR retraction, and
+multiple deterministic/random initial configurations.  The manifold method
+follows P.-A. Absil, R. Mahony and R. Sepulchre, *Optimization Algorithms on
+Matrix Manifolds*, Princeton University Press (2008), Chs. 3-4.
+
+With eight starts, the USDB calculations converged to:
+
+- Ne-22: `E_HF=-55.5488289279`, gradient norm `2.5e-7`, exact `(N,Z)=(4,2)`.
+- Ne-24: `E_HF=-69.6142044022`, gradient norm `5.3e-7`, exact `(N,Z)=(6,2)`.
+
+Both have zero pairing tensor to numerical precision.  Run the dedicated
+driver with `python benchmarks/usdb_ne_hf.py`.  CKI PAV scripts accept
+`--intrinsic-method hf` and retain `hfb` as an option.
+
+`benchmarks/projection_grid_convergence.py` sweeps Euler grids `(M,J,M)` with
+`M=1..M_max` azimuthal points and `J=1..J_max` beta points for either CKI or
+USDB.  The neutron/proton Fourier grid is a separate `--number-grid LN LZ`
+option; HF uses one redundant gauge representative by default because its N,Z
+are already exact.  Each row records exact-ground-state fidelity, projected
+energy, `<J^2>`, effective J, FAF, component count, and whether each grid meets
+the finite-space exactness bound.
+
+The BSC Slurm launcher is `slurm/run_nuclear_projection.sbatch`. Submit it
+from the repository root so the tracked `logs/` directory exists when Slurm
+opens the output files. Its main modes are `RUN_MODE=neon-hf` and
+`RUN_MODE=grid`; submission examples are included inside the script. Override
+`WORKDIR` if the server checkout is not
+`$HOME/QuantumMachineLearningFermions`, and use `OUTDIR` to choose the result
+directory.
+
 The first CKI Be8 benchmark is now recorded in
 `benchmarks/results/cki_be8.md`: it reproduces a collapsed HF solution in a
 bounded local optimization. No large computation has been run. Pairing

@@ -92,7 +92,15 @@ def _prefix_observables(series, fermionic, target, counts, order):
     return rows
 
 
-def main(*, isotopes=(6, 8, 10, 12), starts=2, maxiter=120, order=2, seed=8):
+def main(
+    *,
+    isotopes=(6, 8, 10, 12),
+    starts=2,
+    maxiter=120,
+    order=2,
+    seed=8,
+    intrinsic_method="hfb",
+):
     started = time.perf_counter()
     namespace = dict(globals(), trange=range)
     legacy_definitions(
@@ -134,6 +142,7 @@ def main(*, isotopes=(6, 8, 10, 12), starts=2, maxiter=120, order=2, seed=8):
             seed=seed,
             maxiter=maxiter,
             tolerance=1e-8,
+            method=intrinsic_method,
         )
         # Move numerically collapsed HFB solutions onto the exact Slater chart;
         # their nearly singular U matrices do not define a stable Thouless Z.
@@ -175,6 +184,8 @@ def main(*, isotopes=(6, 8, 10, 12), starts=2, maxiter=120, order=2, seed=8):
             "exact_ground_state_faf_per_mode": exact_faf.value_per_mode,
             "hfb_energy": hfb.energy,
             "hfb_converged": bool(hfb.converged),
+            "intrinsic_method": intrinsic_method,
+            "intrinsic_attempts": hfb.attempts,
             "hfb_pairing_norm": pairing_norm,
             "hfb_rho_idempotency": rho_idempotency,
             "projection_state_chart": state_chart,
@@ -193,7 +204,10 @@ def main(*, isotopes=(6, 8, 10, 12), starts=2, maxiter=120, order=2, seed=8):
         print(json.dumps(row, indent=2), flush=True)
 
     report = {
-        "method": "HFB followed by exact P_N P_Z P_J=0 projection (PAV)",
+        "method": (
+            f"{intrinsic_method.upper()} followed by exact "
+            "P_N P_Z P_J=0 projection (PAV)"
+        ),
         "faf_definition": "F_k = L - Tr[(M^T M)^k]/2",
         "faf_order": int(order),
         "component_trajectory_note": (
@@ -217,6 +231,9 @@ if __name__ == "__main__":
     parser.add_argument("--maxiter", type=int, default=120)
     parser.add_argument("--order", type=int, default=2)
     parser.add_argument("--seed", type=int, default=8)
+    parser.add_argument(
+        "--intrinsic-method", choices=("hf", "hfb"), default="hfb"
+    )
     arguments = parser.parse_args()
     main(
         isotopes=tuple(arguments.isotopes),
@@ -224,4 +241,5 @@ if __name__ == "__main__":
         maxiter=arguments.maxiter,
         order=arguments.order,
         seed=arguments.seed,
+        intrinsic_method=arguments.intrinsic_method,
     )

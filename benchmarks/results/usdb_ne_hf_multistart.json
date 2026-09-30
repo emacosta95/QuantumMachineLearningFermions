@@ -1,0 +1,190 @@
+{
+  "method": "USDB species-conserving multi-start Hartree-Fock optimization",
+  "interaction": "data/usdb.nat",
+  "faf_order": 2,
+  "intrinsic_method": "hf",
+  "hfb_analytic_jacobian": null,
+  "results": [
+    {
+      "nucleus": "Ne22",
+      "valence_neutrons": 4,
+      "valence_protons": 2,
+      "modes": 24,
+      "intrinsic_method": "hf",
+      "intrinsic_energy": -55.54882892785512,
+      "intrinsic_numbers": [
+        4.0,
+        2.0
+      ],
+      "intrinsic_converged": true,
+      "intrinsic_pairing_norm": 0.0,
+      "hfb_energy": -55.54882892785512,
+      "hfb_numbers": [
+        4.0,
+        2.0
+      ],
+      "hfb_converged": true,
+      "hfb_pairing_norm": 0.0,
+      "hfb_rho_idempotency": 6.611324737073971e-16,
+      "stationarity_error": 2.5070034298045764e-07,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -46.546735243870586,
+          "number_error": 0.0,
+          "gradient_norm": 4.6420746517679945e-07,
+          "iterations": 41,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.54882892785512,
+          "number_error": 0.0,
+          "gradient_norm": 2.5070034298045764e-07,
+          "iterations": 50,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.5488289278551,
+          "number_error": 0.0,
+          "gradient_norm": 4.343132717974382e-07,
+          "iterations": 55,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.548828927855084,
+          "number_error": 0.0,
+          "gradient_norm": 6.111052616442745e-07,
+          "iterations": 47,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.548828927855105,
+          "number_error": 0.0,
+          "gradient_norm": 5.535971261323286e-07,
+          "iterations": 47,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.54882892785507,
+          "number_error": 0.0,
+          "gradient_norm": 5.61434179008045e-07,
+          "iterations": 42,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.548828927855084,
+          "number_error": 0.0,
+          "gradient_norm": 6.350877927059699e-07,
+          "iterations": 44,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.54882892785511,
+          "number_error": 0.0,
+          "gradient_norm": 5.844040295548393e-07,
+          "iterations": 50,
+          "message": "Grassmann gradient converged"
+        }
+      ],
+      "elapsed_seconds": 3.7145124999806285
+    },
+    {
+      "nucleus": "Ne24",
+      "valence_neutrons": 6,
+      "valence_protons": 2,
+      "modes": 24,
+      "intrinsic_method": "hf",
+      "intrinsic_energy": -69.61420440215176,
+      "intrinsic_numbers": [
+        6.0,
+        2.0
+      ],
+      "intrinsic_converged": true,
+      "intrinsic_pairing_norm": 0.0,
+      "hfb_energy": -69.61420440215176,
+      "hfb_numbers": [
+        6.0,
+        2.0
+      ],
+      "hfb_converged": true,
+      "hfb_pairing_norm": 0.0,
+      "hfb_rho_idempotency": 1.324422799490917e-15,
+      "stationarity_error": 5.343160732474434e-07,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -66.9400866461925,
+          "number_error": 0.0,
+          "gradient_norm": 9.27385880501452e-07,
+          "iterations": 44,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215173,
+          "number_error": 0.0,
+          "gradient_norm": 5.605501338664782e-07,
+          "iterations": 73,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215176,
+          "number_error": 0.0,
+          "gradient_norm": 5.343160732474434e-07,
+          "iterations": 75,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215164,
+          "number_error": 0.0,
+          "gradient_norm": 5.09002779884825e-07,
+          "iterations": 100,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215167,
+          "number_error": 0.0,
+          "gradient_norm": 9.345090974100009e-07,
+          "iterations": 94,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215173,
+          "number_error": 0.0,
+          "gradient_norm": 4.887759037922744e-07,
+          "iterations": 83,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215143,
+          "number_error": 0.0,
+          "gradient_norm": 8.894543002724146e-07,
+          "iterations": 84,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215173,
+          "number_error": 0.0,
+          "gradient_norm": 7.576777454083278e-07,
+          "iterations": 81,
+          "message": "Grassmann gradient converged"
+        }
+      ],
+      "elapsed_seconds": 6.251399799948558
+    }
+  ],
+  "elapsed_seconds": 28.6634734000545
+}

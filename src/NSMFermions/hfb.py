@@ -737,6 +737,329 @@ class HFBResult:
     stationarity_error: float
 
 
+def hartree_fock_energy_gradient(orbitals, hamiltonian):
+    """Return the HF energy, orbital gradient and equivalent HFB state.
+
+    ``orbitals`` contains orthonormal occupied one-body states.  The pairing
+    tensor is therefore identically zero.  The Fock matrix is obtained by
+    differentiating the same antisymmetrized Wick energy used by
+    :class:`HFBHamiltonian`; see P. Ring and P. Schuck, *The Nuclear Many-Body
+    Problem*, Springer (1980), Chs. 3 and 7.
+    """
+    orbitals = np.asarray(orbitals, complex)
+    modes = len(hamiltonian.h)
+    if (
+        orbitals.ndim != 2
+        or orbitals.shape[0] != modes
+        or not np.isfinite(orbitals).all()
+        or not np.allclose(
+            orbitals.conj().T @ orbitals,
+            np.eye(orbitals.shape[1]),
+            atol=1e-10,
+        )
+    ):
+        raise ValueError("HF orbitals must have finite orthonormal columns")
+    state = HFBState.from_slater(orbitals)
+    rho = state.rho
+
+    # If dE=sum_ab G_ab d(rho_ab), the Hermitian Fock matrix satisfying
+    # dE=Tr(F d rho) is F=G^T.  Keeping both Wick contractions explicit avoids
+    # assuming additional interaction symmetries beyond those validated above.
+    normal_left = 0.5 * np.einsum(
+        "ijkl,lj->ki", hamiltonian.v, rho, optimize=True
+    )
+    normal_right = 0.5 * np.einsum(
+        "ijkl,ki->lj", hamiltonian.v, rho, optimize=True
+    )
+    fock = hamiltonian.h + normal_left.T + normal_right.T
+    fock = 0.5 * (fock + fock.conj().T)
+    gradient = 2.0 * fock @ orbitals
+    return hamiltonian.energy(state), gradient, fock, state
+
+
+def solve_hartree_fock(
+    hamiltonian,
+    neutron_modes,
+    targets,
+    *,
+    starts=8,
+    seed=0,
+    maxiter=500,
+    tolerance=1e-8,
+    initial_orbitals=None,
+):
+    """Optimize species-conserving HF determinants with multiple starts.
+
+    Neutron and proton orbitals are optimized on separate complex Grassmann
+    manifolds.  Thus ``kappa=0`` and integer N,Z are exact by construction,
+    while the real parameter count is reduced from ``modes*(modes-1)`` in the
+    unrestricted HFB chart to
+    ``2*(N*(d_n-N) + Z*(d_p-Z))`` physical orbital-rotation coordinates.
+
+    Every iteration uses the analytic Fock gradient, projects it onto the two
+    Grassmann tangent spaces, and restores orthonormality with QR retraction.
+    The first seed occupies the lowest one-body orbitals of each species;
+    remaining starts use independent random neutron/proton configurations.
+    This follows the manifold optimization framework of P.-A. Absil,
+    R. Mahony and R. Sepulchre, *Optimization Algorithms on Matrix
+    Manifolds*, Princeton University Press (2008), Chs. 3-4.
+    """
+    modes = len(hamiltonian.h)
+    neutron = np.asarray(neutron_modes, dtype=int)
+    if (
+        neutron.ndim != 1
+        or len(set(neutron)) != len(neutron)
+        or np.any(neutron < 0)
+        or np.any(neutron >= modes)
+    ):
+        raise ValueError("neutron_modes must contain distinct valid indices")
+    neutron_mask = np.zeros(modes, bool)
+    neutron_mask[neutron] = True
+    proton = np.nonzero(~neutron_mask)[0]
+    requested = np.asarray(targets, float)
+    integer_targets = np.rint(requested).astype(int)
+    capacities = np.array([len(neutron), len(proton)])
+    if (
+        requested.shape != (2,)
+        or not np.isfinite(requested).all()
+        or not np.allclose(requested, integer_targets, atol=1e-12)
+        or np.any(integer_targets < 0)
+        or np.any(integer_targets > capacities)
+    ):
+        raise ValueError("HF requires valid integer neutron/proton targets")
+    if starts < 1 or maxiter < 1 or tolerance <= 0:
+        raise ValueError("Positive starts, maxiter and tolerance required")
+    neutron_number, proton_number = integer_targets
+    particles = int(neutron_number + proton_number)
+
+    def assemble(neutron_orbitals, proton_orbitals):
+        combined = np.zeros((modes, particles), complex)
+        combined[neutron, :neutron_number] = neutron_orbitals
+        combined[proton, neutron_number:] = proton_orbitals
+        return combined
+
+    def split_and_orthonormalize(orbitals):
+        supplied = np.asarray(orbitals, complex)
+        if supplied.shape != (modes, particles):
+            raise ValueError("initial_orbitals has the wrong shape")
+        neutron_block = supplied[neutron, :neutron_number]
+        proton_block = supplied[proton, neutron_number:]
+        forbidden = supplied.copy()
+        forbidden[neutron, :neutron_number] = 0
+        forbidden[proton, neutron_number:] = 0
+        if np.linalg.norm(forbidden) > 1e-10:
+            raise ValueError("initial HF orbitals must not mix species")
+        return (
+            np.linalg.qr(neutron_block)[0][:, :neutron_number],
+            np.linalg.qr(proton_block)[0][:, :proton_number],
+        )
+
+    def lowest_one_body_seed(indices, occupied):
+        if occupied == 0:
+            return np.empty((len(indices), 0), complex)
+        block = hamiltonian.h[np.ix_(indices, indices)]
+        _, vectors = np.linalg.eigh(block)
+        return vectors[:, :occupied]
+
+    rng = np.random.default_rng(seed)
+    seeds = []
+    if initial_orbitals is not None:
+        supplied_array = np.asarray(initial_orbitals)
+        if supplied_array.ndim == 2:
+            supplied_seeds = [initial_orbitals]
+        elif isinstance(initial_orbitals, (list, tuple)):
+            supplied_seeds = list(initial_orbitals)
+        else:
+            raise ValueError(
+                "initial_orbitals must be one matrix or a sequence of matrices"
+            )
+        seeds.extend(split_and_orthonormalize(item) for item in supplied_seeds)
+    seeds.append((
+        lowest_one_body_seed(neutron, neutron_number),
+        lowest_one_body_seed(proton, proton_number),
+    ))
+    while len(seeds) < starts:
+        random_neutron = (
+            rng.normal(size=(len(neutron), neutron_number))
+            + 1j * rng.normal(size=(len(neutron), neutron_number))
+        )
+        random_proton = (
+            rng.normal(size=(len(proton), proton_number))
+            + 1j * rng.normal(size=(len(proton), proton_number))
+        )
+        seeds.append((
+            np.linalg.qr(random_neutron)[0][:, :neutron_number],
+            np.linalg.qr(random_proton)[0][:, :proton_number],
+        ))
+
+    attempts, candidates = [], []
+    # Below 1e-6 the dense Wick contractions and QR retractions can reach their
+    # line-search resolution before the formal gradient target.  This floor is
+    # still stringent on the nuclear energy scale and avoids labeling a stable
+    # determinant unconverged solely because of roundoff-level backtracking.
+    gradient_tolerance = max(tolerance, 1e-6)
+    for neutron_orbitals, proton_orbitals in seeds[:starts]:
+        message = "Iteration limit reached"
+        previous_gradient = None
+        previous_direction = None
+        previous_norm_squared = None
+        next_step = 0.25
+        for iteration in range(maxiter):
+            orbitals = assemble(neutron_orbitals, proton_orbitals)
+            energy, gradient, _, state = hartree_fock_energy_gradient(
+                orbitals, hamiltonian
+            )
+            gradient_neutron = gradient[neutron, :neutron_number]
+            gradient_proton = gradient[proton, neutron_number:]
+            tangent_neutron = gradient_neutron - neutron_orbitals @ (
+                neutron_orbitals.conj().T @ gradient_neutron
+            )
+            tangent_proton = gradient_proton - proton_orbitals @ (
+                proton_orbitals.conj().T @ gradient_proton
+            )
+            residual = float(np.sqrt(
+                np.linalg.norm(tangent_neutron) ** 2
+                + np.linalg.norm(tangent_proton) ** 2
+            ))
+            if residual <= gradient_tolerance:
+                message = "Grassmann gradient converged"
+                break
+            if previous_gradient is None:
+                direction_neutron = -tangent_neutron
+                direction_proton = -tangent_proton
+            else:
+                # Projecting an old tangent vector onto the new tangent space
+                # is a first-order vector transport for QR retraction.  The
+                # non-negative Polak-Ribiere coefficient gives a Riemannian
+                # nonlinear conjugate-gradient step and restarts automatically
+                # when conjugacy is lost.
+                old_gradient_neutron = previous_gradient[0] - neutron_orbitals @ (
+                    neutron_orbitals.conj().T @ previous_gradient[0]
+                )
+                old_gradient_proton = previous_gradient[1] - proton_orbitals @ (
+                    proton_orbitals.conj().T @ previous_gradient[1]
+                )
+                old_direction_neutron = previous_direction[0] - neutron_orbitals @ (
+                    neutron_orbitals.conj().T @ previous_direction[0]
+                )
+                old_direction_proton = previous_direction[1] - proton_orbitals @ (
+                    proton_orbitals.conj().T @ previous_direction[1]
+                )
+                numerator = float(np.real(
+                    np.vdot(
+                        tangent_neutron,
+                        tangent_neutron - old_gradient_neutron,
+                    )
+                    + np.vdot(
+                        tangent_proton,
+                        tangent_proton - old_gradient_proton,
+                    )
+                ))
+                beta = max(0.0, numerator / max(previous_norm_squared, 1e-30))
+                direction_neutron = (
+                    -tangent_neutron + beta * old_direction_neutron
+                )
+                direction_proton = (
+                    -tangent_proton + beta * old_direction_proton
+                )
+            directional_derivative = float(np.real(
+                np.vdot(tangent_neutron, direction_neutron)
+                + np.vdot(tangent_proton, direction_proton)
+            ))
+            if directional_derivative >= -1e-12 * residual ** 2:
+                direction_neutron = -tangent_neutron
+                direction_proton = -tangent_proton
+                directional_derivative = -(residual ** 2)
+            step = min(1.0, next_step)
+            accepted = False
+            for _ in range(30):
+                trial_neutron = np.linalg.qr(
+                    neutron_orbitals + step * direction_neutron
+                )[0][:, :neutron_number]
+                trial_proton = np.linalg.qr(
+                    proton_orbitals + step * direction_proton
+                )[0][:, :proton_number]
+                trial_orbitals = assemble(trial_neutron, trial_proton)
+                trial_energy = hamiltonian.energy(
+                    HFBState.from_slater(trial_orbitals)
+                )
+                if trial_energy <= energy + 1e-4 * step * directional_derivative:
+                    previous_gradient = (
+                        tangent_neutron.copy(),
+                        tangent_proton.copy(),
+                    )
+                    previous_direction = (
+                        direction_neutron.copy(),
+                        direction_proton.copy(),
+                    )
+                    previous_norm_squared = residual ** 2
+                    neutron_orbitals, proton_orbitals = (
+                        trial_neutron,
+                        trial_proton,
+                    )
+                    next_step = min(1.0, 1.5 * step)
+                    accepted = True
+                    break
+                step *= 0.5
+            if not accepted:
+                message = "Line search failed"
+                break
+
+        orbitals = assemble(neutron_orbitals, proton_orbitals)
+        energy, gradient, fock, state = hartree_fock_energy_gradient(
+            orbitals, hamiltonian
+        )
+        gradient_neutron = gradient[neutron, :neutron_number]
+        gradient_proton = gradient[proton, neutron_number:]
+        tangent_neutron = gradient_neutron - neutron_orbitals @ (
+            neutron_orbitals.conj().T @ gradient_neutron
+        )
+        tangent_proton = gradient_proton - proton_orbitals @ (
+            proton_orbitals.conj().T @ gradient_proton
+        )
+        residual = float(np.sqrt(
+            np.linalg.norm(tangent_neutron) ** 2
+            + np.linalg.norm(tangent_proton) ** 2
+        ))
+        converged = bool(residual <= gradient_tolerance)
+        attempts.append({
+            "converged": converged,
+            "energy": energy,
+            "number_error": 0.0,
+            "gradient_norm": residual,
+            "iterations": iteration + 1,
+            "message": message,
+        })
+        candidates.append((converged, energy, residual, orbitals, state, fock))
+
+    converged, energy, residual, orbitals, state, fock = min(
+        candidates, key=lambda item: (not item[0], item[1], item[2])
+    )
+    neutron_fock = orbitals[:, :neutron_number].conj().T @ fock @ orbitals[:, :neutron_number]
+    proton_fock = orbitals[:, neutron_number:].conj().T @ fock @ orbitals[:, neutron_number:]
+    chemical_potentials = np.array([
+        float(np.trace(neutron_fock).real / neutron_number)
+        if neutron_number else np.nan,
+        float(np.trace(proton_fock).real / proton_number)
+        if proton_number else np.nan,
+    ])
+    return HFBResult(
+        state=state,
+        energy=energy,
+        numbers=integer_targets.astype(float),
+        converged=converged,
+        message=next(
+            item["message"]
+            for item in attempts
+            if item["energy"] == energy
+        ),
+        parameters=orbitals,
+        attempts=attempts,
+        chemical_potentials=chemical_potentials,
+        stationarity_error=residual,
+    )
+
+
 def solve_hfb(
     hamiltonian,
     neutron_modes,
@@ -750,6 +1073,8 @@ def solve_hfb(
     stationarity_diagnostics=True,
     shared_finite_difference_jacobian=False,
     analytic_jacobian=False,
+    method="hfb",
+    initial_orbitals=None,
 ):
     """Minimize E subject to <N>=targets[0], <Z>=targets[1].
 
@@ -767,6 +1092,24 @@ def solve_hfb(
     large-scale production nuclear solver.
     Multiple paired starts reduce trapping; global optimality is not guaranteed.
     """
+    if method not in ("hfb", "hf"):
+        raise ValueError("method must be 'hfb' or 'hf'")
+    if method == "hf":
+        if initial_parameters is not None:
+            raise ValueError("HF mode uses initial_orbitals, not initial_parameters")
+        return solve_hartree_fock(
+            hamiltonian,
+            neutron_modes,
+            targets,
+            starts=starts,
+            seed=seed,
+            maxiter=maxiter,
+            tolerance=tolerance,
+            initial_orbitals=initial_orbitals,
+        )
+    if initial_orbitals is not None:
+        raise ValueError("initial_orbitals is only valid with method='hf'")
+
     # Establish which single-particle modes count as neutrons.  The complement
     # of this mask is treated as the proton subspace.
     m = len(hamiltonian.h)

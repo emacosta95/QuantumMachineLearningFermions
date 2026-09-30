@@ -3,6 +3,7 @@
 Reads selected legacy definitions by AST to avoid optional ML/Numba imports;
 the interaction conversion code itself is executed unchanged.
 """
+import argparse
 import ast
 import itertools
 import json
@@ -107,7 +108,7 @@ def annihilators(m):
     return result
 
 
-def main():
+def main(*, intrinsic_method="hfb", starts=2, maxiter=120, seed=8):
     start = time.perf_counter()
     ns = dict(globals(), trange=range)
     legacy_definitions('cg_utils.py',['CG','ClebschGordan','SelectCG',
@@ -172,7 +173,16 @@ def main():
             options={'maxiter':120,'ftol':1e-8})
         hf_runs.append({'energy':float(fit.fun),'success':bool(fit.success),
                         'number_error':float(abs(slater(fit.x).rho.diagonal()[neutrons].real.sum()-2))})
-    result=solve_hfb(ham,neutrons,[2,2],starts=2,seed=8,maxiter=120,tolerance=1e-8)
+    result=solve_hfb(
+        ham,
+        neutrons,
+        [2,2],
+        starts=starts,
+        seed=seed,
+        maxiter=maxiter,
+        tolerance=1e-8,
+        method=intrinsic_method,
+    )
     print('HFB',result.energy,result.converged,result.attempts,flush=True)
     # Independent normalized Gaussian vacuum in full 4096-dimensional Fock space.
     a=annihilators(m)
@@ -191,6 +201,7 @@ def main():
         'dimension_NZM0':int(mzero.sum()),'exact_M0_energy':float(e[0]),
         'exact_NZ_energy':float(np.linalg.eigvalsh(exact)[0]),
         'legacy_matrix_max_error':discrepancy,'hf_attempts':hf_runs,
+        'intrinsic_method':intrinsic_method,
         'hfb_energy':result.energy,'hfb_converged':result.converged,
         'hfb_attempts':result.attempts,'numbers':result.numbers.tolist(),
         'canonical_error':float(result.state.canonical_error()),
@@ -213,4 +224,15 @@ def main():
 
 
 if __name__=='__main__':
-    main()
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--intrinsic-method',choices=('hf','hfb'),default='hfb')
+    parser.add_argument('--starts',type=int,default=2)
+    parser.add_argument('--maxiter',type=int,default=120)
+    parser.add_argument('--seed',type=int,default=8)
+    arguments=parser.parse_args()
+    main(
+        intrinsic_method=arguments.intrinsic_method,
+        starts=arguments.starts,
+        maxiter=arguments.maxiter,
+        seed=arguments.seed,
+    )
