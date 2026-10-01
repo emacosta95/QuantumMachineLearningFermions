@@ -14,6 +14,14 @@ python study_gaussian_fidelity.py --interaction cki
 python study_gaussian_fidelity.py --interaction usdb --isotopes 20 22 24
 ```
 
+To test only the intrinsic Bogoliubov optimization, without exact
+diagonalization or the separate closest-Gaussian search, use:
+
+```bash
+python study_gaussian_fidelity.py --interaction usdb --isotopes 20 \
+  --variational-method hfb --real-bogoliubov --variational-only
+```
+
 The JSON report includes raw and target-sector-conditioned fidelities, exact
 and variational energies, relative energy errors, convergence diagnostics,
 particle numbers, and pairing norms.  USDB exact diagonalization is restricted

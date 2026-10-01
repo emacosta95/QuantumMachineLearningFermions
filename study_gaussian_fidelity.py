@@ -55,6 +55,7 @@ def run_study(
     gaussian_starts=4,
     gaussian_maxiter=1000,
     real_bogoliubov=False,
+    variational_only=False,
     seed=8,
     output=None,
 ):
@@ -73,13 +74,76 @@ def run_study(
     output_path = (
         Path(output).expanduser().resolve()
         if output
-        else ROOT / "results" / f"{interaction_name}_gaussian_fidelity.json"
+        else ROOT / "results" / (
+            f"{interaction_name}_{variational_method}_optimization.json"
+            if variational_only
+            else f"{interaction_name}_gaussian_fidelity.json"
+        )
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     for mass in masses:
         isotope_started = time.perf_counter()
         label, targets = _nucleus(interaction_name, int(mass), species_modes)
+        print(
+            f"[{label}] optimizing "
+            f"{'real ' if real_bogoliubov and variational_method == 'hfb' else ''}"
+            f"{variational_method.upper()} with {starts} starts",
+            flush=True,
+        )
+        variational = solve_hfb(
+            intrinsic_hamiltonian,
+            neutron_modes,
+            targets,
+            starts=starts,
+            seed=seed + int(mass),
+            maxiter=maxiter,
+            tolerance=1e-8,
+            analytic_jacobian=(variational_method == "hfb"),
+            real_bogoliubov=(
+                real_bogoliubov and variational_method == "hfb"
+            ),
+            method=variational_method,
+        )
+        if variational_only:
+            row = {
+                "nucleus": label,
+                "interaction": interaction_name,
+                "valence_neutrons": targets[0],
+                "valence_protons": targets[1],
+                "variational_method": variational_method,
+                "variational_real_bogoliubov": bool(
+                    real_bogoliubov and variational_method == "hfb"
+                ),
+                "variational_parameter_count": int(
+                    np.asarray(variational.parameters).size
+                ),
+                "variational_converged": bool(variational.converged),
+                "variational_energy": variational.energy,
+                "variational_numbers": variational.numbers.tolist(),
+                "variational_pairing_norm": float(
+                    np.linalg.norm(variational.state.kappa)
+                ),
+                "stationarity_error": variational.stationarity_error,
+                "attempts": variational.attempts,
+                "elapsed_seconds": time.perf_counter() - isotope_started,
+            }
+            results.append(row)
+            print(json.dumps(row, indent=2), flush=True)
+            checkpoint = {
+                "status": "running",
+                "study": "intrinsic variational optimization only",
+                "interaction": interaction_name,
+                "interaction_path": str(interaction_path.relative_to(ROOT)),
+                "isotopes": list(masses),
+                "results": results,
+                "elapsed_seconds": time.perf_counter() - started,
+            }
+            output_path.write_text(
+                json.dumps(checkpoint, indent=2), encoding="utf-8"
+            )
+            continue
+
         print(f"[{label}] building and diagonalizing the exact sector", flush=True)
         symmetries = None
         exact_sector = "fixed (N,Z)"
@@ -98,25 +162,6 @@ def run_study(
         exact_energy, target = exact_ground_state(fermionic)
         target = np.asarray(target, complex) / np.linalg.norm(target)
 
-        print(
-            f"[{label}] optimizing {variational_method.upper()} with "
-            f"{starts} starts",
-            flush=True,
-        )
-        variational = solve_hfb(
-            intrinsic_hamiltonian,
-            neutron_modes,
-            targets,
-            starts=starts,
-            seed=seed + int(mass),
-            maxiter=maxiter,
-            tolerance=1e-8,
-            analytic_jacobian=(variational_method == "hfb"),
-            real_bogoliubov=(
-                real_bogoliubov and variational_method == "hfb"
-            ),
-            method=variational_method,
-        )
         var_raw, var_weight, var_conditional = _state_overlap(
             variational.state, fermionic.occupations, target
         )
@@ -201,7 +246,11 @@ def run_study(
         output_path.write_text(json.dumps(checkpoint, indent=2), encoding="utf-8")
 
     report = {
-        "study": "energy-optimized versus closest pure Gaussian state",
+        "study": (
+            "intrinsic variational optimization only"
+            if variational_only
+            else "energy-optimized versus closest pure Gaussian state"
+        ),
         "interaction": interaction_name,
         "interaction_path": str(interaction_path.relative_to(ROOT)),
         "isotopes": list(masses),
@@ -237,6 +286,11 @@ if __name__ == "__main__":
         action="store_true",
         help="restrict HFB and closest-Gaussian searches to real manifolds",
     )
+    parser.add_argument(
+        "--variational-only",
+        action="store_true",
+        help="skip exact diagonalization and closest-Gaussian optimization",
+    )
     parser.add_argument("--seed", type=int, default=8)
     parser.add_argument("--output")
     args = parser.parse_args()
@@ -249,6 +303,7 @@ if __name__ == "__main__":
         gaussian_starts=args.gaussian_starts,
         gaussian_maxiter=args.gaussian_maxiter,
         real_bogoliubov=args.real_bogoliubov,
+        variational_only=args.variational_only,
         seed=args.seed,
         output=args.output,
     )

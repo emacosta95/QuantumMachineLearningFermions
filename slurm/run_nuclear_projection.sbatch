@@ -56,6 +56,7 @@ ISOTOPES="${ISOTOPES:-}"
 GAUSSIAN_STARTS="${GAUSSIAN_STARTS:-4}"
 GAUSSIAN_MAXITER="${GAUSSIAN_MAXITER:-1000}"
 REAL_BOGOLIUBOV="${REAL_BOGOLIUBOV:-0}"
+VARIATIONAL_ONLY="${VARIATIONAL_ONLY:-0}"
 
 run_grid() {
     command=(
@@ -99,6 +100,9 @@ run_fidelity() {
     fi
     if [[ "$REAL_BOGOLIUBOV" == "1" ]]; then
         command+=(--real-bogoliubov)
+    fi
+    if [[ "$VARIATIONAL_ONLY" == "1" ]]; then
+        command+=(--variational-only)
     fi
     "${command[@]}"
 }
