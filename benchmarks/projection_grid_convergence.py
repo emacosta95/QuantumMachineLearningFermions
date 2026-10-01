@@ -98,6 +98,7 @@ def main(
     maxiter=500,
     seed=8,
     faf_order=2,
+    real_bogoliubov=False,
     allow_unconverged_intrinsic=False,
     number_grid=None,
     output_dir=None,
@@ -169,6 +170,9 @@ def main(
         maxiter=maxiter,
         tolerance=1e-8,
         analytic_jacobian=(intrinsic_method == "hfb"),
+        real_bogoliubov=(
+            real_bogoliubov and intrinsic_method == "hfb"
+        ),
         method=intrinsic_method,
     )
     if not intrinsic.converged and not allow_unconverged_intrinsic:
@@ -198,6 +202,12 @@ def main(
         "nucleus": label,
         "targets": list(targets),
         "intrinsic_method": intrinsic_method,
+        "intrinsic_real_bogoliubov": bool(
+            real_bogoliubov and intrinsic_method == "hfb"
+        ),
+        "intrinsic_parameter_count": int(
+            np.asarray(intrinsic.parameters).size
+        ),
         "intrinsic_converged": bool(intrinsic.converged),
         "intrinsic_energy": intrinsic.energy,
         "intrinsic_numbers": intrinsic.numbers.tolist(),
@@ -306,6 +316,7 @@ if __name__ == "__main__":
     parser.add_argument("--maxiter", type=int, default=500)
     parser.add_argument("--seed", type=int, default=8)
     parser.add_argument("--faf-order", type=int, default=2)
+    parser.add_argument("--real-bogoliubov", action="store_true")
     parser.add_argument(
         "--number-grid", nargs=2, type=int, metavar=("LN", "LZ")
     )
@@ -322,6 +333,7 @@ if __name__ == "__main__":
         maxiter=arguments.maxiter,
         seed=arguments.seed,
         faf_order=arguments.faf_order,
+        real_bogoliubov=arguments.real_bogoliubov,
         allow_unconverged_intrinsic=arguments.allow_unconverged_intrinsic,
         number_grid=(
             tuple(arguments.number_grid) if arguments.number_grid else None

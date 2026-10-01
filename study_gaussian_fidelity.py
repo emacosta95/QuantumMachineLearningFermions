@@ -54,6 +54,7 @@ def run_study(
     maxiter=500,
     gaussian_starts=4,
     gaussian_maxiter=1000,
+    real_bogoliubov=False,
     seed=8,
     output=None,
 ):
@@ -111,6 +112,9 @@ def run_study(
             maxiter=maxiter,
             tolerance=1e-8,
             analytic_jacobian=(variational_method == "hfb"),
+            real_bogoliubov=(
+                real_bogoliubov and variational_method == "hfb"
+            ),
             method=variational_method,
         )
         var_raw, var_weight, var_conditional = _state_overlap(
@@ -129,6 +133,7 @@ def run_study(
             seed=seed + 1000 + int(mass),
             maxiter=gaussian_maxiter,
             gradient_tolerance=2e-6,
+            real_parameters=real_bogoliubov,
         )
         gauss_raw, gauss_weight, gauss_conditional = _state_overlap(
             closest.state, fermionic.occupations, target
@@ -144,6 +149,12 @@ def run_study(
             "exact_dimension": len(fermionic.occupations),
             "exact_energy": exact_energy,
             "variational_method": variational_method,
+            "variational_real_bogoliubov": bool(
+                real_bogoliubov and variational_method == "hfb"
+            ),
+            "variational_parameter_count": int(
+                np.asarray(variational.parameters).size
+            ),
             "variational_converged": bool(variational.converged),
             "variational_energy": variational.energy,
             "variational_energy_relative_error": _relative_error(
@@ -157,6 +168,10 @@ def run_study(
                 np.linalg.norm(variational.state.kappa)
             ),
             "closest_gaussian_converged": bool(closest.converged),
+            "closest_gaussian_real_bogoliubov": bool(real_bogoliubov),
+            "closest_gaussian_parameter_count": int(
+                closest.parameters.size
+            ),
             "closest_gaussian_ground_state_fidelity_raw": gauss_raw,
             "closest_gaussian_target_sector_weight": gauss_weight,
             "closest_gaussian_ground_state_fidelity_conditioned": (
@@ -217,6 +232,11 @@ if __name__ == "__main__":
     parser.add_argument("--maxiter", type=int, default=500)
     parser.add_argument("--gaussian-starts", type=int, default=4)
     parser.add_argument("--gaussian-maxiter", type=int, default=1000)
+    parser.add_argument(
+        "--real-bogoliubov",
+        action="store_true",
+        help="restrict HFB and closest-Gaussian searches to real manifolds",
+    )
     parser.add_argument("--seed", type=int, default=8)
     parser.add_argument("--output")
     args = parser.parse_args()
@@ -228,6 +248,7 @@ if __name__ == "__main__":
         maxiter=args.maxiter,
         gaussian_starts=args.gaussian_starts,
         gaussian_maxiter=args.gaussian_maxiter,
+        real_bogoliubov=args.real_bogoliubov,
         seed=args.seed,
         output=args.output,
     )

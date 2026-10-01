@@ -48,6 +48,15 @@ Wick-contracted energy in one pass.  The dense rank-four interaction and dense
 matrix operations are still intended as a reference implementation rather
 than a scalable production solver.
 
+Pass `real_bogoliubov=True` to restrict the antisymmetric generator to real
+entries.  The Nambu generator is then real antisymmetric, its exponential is
+real orthogonal, and `U`, `V`, `rho`, and `kappa` remain real up to floating
+point roundoff.  For `m` single-particle modes the unrestricted complex chart
+has `m*(m-1)` real coordinates, whereas the real chart has only
+`m*(m-1)/2`.  Thus CKI (`m=12`) changes from 132 to 66 coordinates and USDB
+(`m=24`) from 552 to 276.  This is a variational restriction, not merely a
+storage optimization, and may miss genuinely complex minima.
+
 ## Usage
 
 In an environment with the repository's legacy package dependencies installed:

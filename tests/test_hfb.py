@@ -117,6 +117,76 @@ class TestHFB(unittest.TestCase):
         self.assertAlmostEqual(result.energy,-5.,places=6)
         self.assertLess(np.linalg.norm(result.state.kappa),1e-3)
 
+    def test_real_bogoliubov_chart_and_analytic_jacobian(self):
+        modes = 4
+        rng = np.random.default_rng(109)
+        one_body = rng.normal(size=(modes, modes))
+        one_body = one_body + one_body.T
+        interaction = rng.normal(size=(modes,) * 4)
+        interaction = interaction - interaction.swapaxes(0, 1)
+        interaction = interaction - interaction.swapaxes(2, 3)
+        interaction = (
+            interaction + interaction.transpose(2, 3, 0, 1)
+        ) / 2
+        hamiltonian = hfb.HFBHamiltonian(one_body, interaction)
+        parameter_count = modes * (modes - 1) // 2
+        parameters = rng.normal(scale=0.15, size=parameter_count)
+        direction = rng.normal(size=parameter_count)
+        direction /= np.linalg.norm(direction)
+        energy, numbers, gradient, jacobian, state = (
+            hfb.hfb_energy_number_jacobian(
+                parameters,
+                hamiltonian,
+                [0, 1],
+                real_parameters=True,
+            )
+        )
+        self.assertLess(np.linalg.norm(state.U.imag), 1e-13)
+        self.assertLess(np.linalg.norm(state.V.imag), 1e-13)
+        step = 2e-6
+
+        def values(point):
+            candidate = hfb.state_from_parameters(
+                point, modes, real_parameters=True
+            )
+            occupation = candidate.rho.diagonal().real
+            return (
+                hamiltonian.energy(candidate),
+                np.array([
+                    occupation[:2].sum(), occupation[2:].sum()
+                ]),
+            )
+
+        plus_energy, plus_numbers = values(parameters + step * direction)
+        minus_energy, minus_numbers = values(parameters - step * direction)
+        self.assertAlmostEqual(
+            float(gradient @ direction),
+            (plus_energy - minus_energy) / (2 * step),
+            places=7,
+        )
+        np.testing.assert_allclose(
+            jacobian @ direction,
+            (plus_numbers - minus_numbers) / (2 * step),
+            atol=2e-8,
+        )
+        self.assertAlmostEqual(energy, values(parameters)[0], places=12)
+        np.testing.assert_allclose(numbers, values(parameters)[1], atol=1e-12)
+
+        result = hfb.solve_hfb(
+            hfb.HFBHamiltonian(
+                np.diag([-2., 1., -3., 2.]), np.zeros((4,) * 4)
+            ),
+            [0, 1],
+            [1, 1],
+            starts=1,
+            seed=3,
+            analytic_jacobian=True,
+            real_bogoliubov=True,
+        )
+        self.assertTrue(result.converged, result.attempts)
+        self.assertEqual(result.parameters.size, parameter_count)
+        self.assertAlmostEqual(result.energy, -5., places=6)
+
     def test_hartree_fock_gradient_and_multistart_solver(self):
         modes = 5
         rng = np.random.default_rng(41)

@@ -38,6 +38,11 @@ if __name__ == "__main__":
     parser.add_argument("--maxiter", type=int, default=500)
     parser.add_argument("--seed", type=int, default=8)
     parser.add_argument("--faf-order", type=int, default=2)
+    parser.add_argument(
+        "--real-bogoliubov",
+        action="store_true",
+        help="restrict HFB U,V to a real Bogoliubov manifold",
+    )
     parser.add_argument("--number-grid", nargs=2, type=int, metavar=("LN", "LZ"))
     parser.add_argument("--allow-unconverged-intrinsic", action="store_true")
     parser.add_argument("--output-dir", default=str(ROOT / "results"))
@@ -52,6 +57,7 @@ if __name__ == "__main__":
         maxiter=args.maxiter,
         seed=args.seed,
         faf_order=args.faf_order,
+        real_bogoliubov=args.real_bogoliubov,
         allow_unconverged_intrinsic=args.allow_unconverged_intrinsic,
         number_grid=tuple(args.number_grid) if args.number_grid else None,
         output_dir=args.output_dir,

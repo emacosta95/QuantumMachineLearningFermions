@@ -24,6 +24,13 @@ Use `--variational-method hf` for the faster number-conserving calculation or
 variational and closest-Gaussian searches are non-convex, so increase
 `--starts` and `--gaussian-starts` for production results.
 
+For real nuclear interactions, `--real-bogoliubov` restricts both the HFB
+generator and the closest-Gaussian Thouless search to real values.  The
+resulting intrinsic `U`, `V`, `rho`, and `kappa` matrices are real.  It halves
+the Gaussian coordinates: CKI (12 modes) uses 66 instead of 132 parameters,
+and USDB (24 modes) uses 276 instead of 552.  Do not use this restriction when
+complex or time-reversal-breaking intrinsic states are physically required.
+
 ## Projected non-Gaussianity
 
 Increase the Euler quadrature from one point through `(M_MAX,J_MAX,M_MAX)`:

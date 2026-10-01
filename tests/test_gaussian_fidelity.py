@@ -32,6 +32,23 @@ class TestGaussianFidelity(unittest.TestCase):
         self.assertGreaterEqual(result.fidelity,0)
         self.assertLessEqual(result.fidelity,1+1e-10)
 
+    def test_real_gaussian_chart_uses_half_the_coordinates(self):
+        _,hamiltonian=fermionic_pairing_model()
+        target=np.array([1., .2, -.3, .1])
+        objective=GaussianFidelityObjective(
+            hamiltonian,target,real_parameters=True
+        )
+        x=np.random.default_rng(18).normal(size=6)*.2
+        z=objective.unpack(x)
+        self.assertEqual(x.size, 6)
+        self.assertLess(np.linalg.norm(z.imag), 1e-14)
+        result=maximize_gaussian_fidelity(
+            hamiltonian,target,starts=1,seed=18,maxiter=5,
+            real_parameters=True,
+        )
+        self.assertEqual(result.parameters.size, 6)
+        self.assertLess(np.linalg.norm(result.thouless_matrix.imag), 1e-14)
+
     def test_slater_gradient_and_boundary_optimizer(self):
         _,hamiltonian=fermionic_pairing_model()
         target=np.array([1,0,0,0],complex)

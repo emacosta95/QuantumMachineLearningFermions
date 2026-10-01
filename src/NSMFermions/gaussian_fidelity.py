@@ -49,7 +49,7 @@ class GaussianFidelityObjective:
     overlap includes the probability that the intrinsic Gaussian occupies the
     target sector.
     """
-    def __init__(self, hamiltonian, target):
+    def __init__(self, hamiltonian, target, *, real_parameters=False):
         # Obtain the canonical determinant ordering directly from the assembled
         # FermiHubbardHamiltonian; no projection-specific space is rebuilt.
         occupations, _, _ = fermionic_basis_data(hamiltonian)
@@ -66,6 +66,7 @@ class GaussianFidelityObjective:
         self.occupations=occupations
         self.modes=hamiltonian.modes
         self.target=target/norm
+        self.real_parameters=bool(real_parameters)
 
         # Every unordered mode pair contributes one complex Z entry, stored as
         # consecutive real and imaginary blocks in the optimizer vector.
@@ -76,12 +77,14 @@ class GaussianFidelityObjective:
         """Convert real optimizer coordinates into antisymmetric complex Z."""
         pair_count=len(self.pairs)
         x=np.asarray(x,float)
-        if x.shape!=(2*pair_count,) or not np.isfinite(x).all():
+        expected=pair_count if self.real_parameters else 2*pair_count
+        if x.shape!=(expected,) or not np.isfinite(x).all():
             raise ValueError('Invalid Gaussian Thouless parameters')
 
         # Fill only i<j, then impose Z^T=-Z exactly.
         z=np.zeros((self.modes,self.modes),complex)
-        z[self.ij]=x[:pair_count]+1j*x[pair_count:]
+        z[self.ij]=(x if self.real_parameters else
+                    x[:pair_count]+1j*x[pair_count:])
         return z-z.T
 
     def fidelity(self,x):
@@ -98,12 +101,15 @@ class GaussianFidelityObjective:
 
 def maximize_gaussian_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=1000,
                                tolerance=1e-13,gradient_tolerance=1e-6,
-                               initial_parameters=None,parameter_bound=8.):
+                               initial_parameters=None,parameter_bound=8.,
+                               real_parameters=False):
     """Multi-start local optimization of the unrestricted Gaussian fidelity."""
     if (starts<1 or maxiter<1 or tolerance<=0 or gradient_tolerance<=0
             or parameter_bound<=0):
         raise ValueError('Positive optimizer settings required')
-    objective=GaussianFidelityObjective(hamiltonian,target)
+    objective=GaussianFidelityObjective(
+        hamiltonian,target,real_parameters=real_parameters
+    )
     rng=np.random.default_rng(seed)
     attempts=[]; candidates=[]
 
@@ -116,7 +122,9 @@ def maximize_gaussian_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=1000
             # Include both ordinary and large-norm starts to probe Slater-like
             # boundaries of the Thouless chart.
             scale=.35 if attempt%2==0 else 1.5
-            x=rng.normal(scale=scale,size=2*len(objective.pairs))
+            coordinate_count=(len(objective.pairs) if real_parameters
+                              else 2*len(objective.pairs))
+            x=rng.normal(scale=scale,size=coordinate_count)
 
         # SciPy finite-differences this scalar fidelity objective. Keeping the
         # optimizer separate from projection avoids reintroducing VAP logic.

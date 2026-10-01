@@ -439,7 +439,7 @@ class BogoliubovVacuumSeries:
         return projected
 
 
-def state_from_parameters(x, modes):
+def state_from_parameters(x, modes, *, real_parameters=False):
     """Exponentiate an arbitrary complex antisymmetric pairing generator.
 
     Unlike a vacuum Thouless inverse, this representation permits singular U.
@@ -452,16 +452,20 @@ def state_from_parameters(x, modes):
     ij = np.triu_indices(modes, 1)
     p = len(ij[0])
 
-    # Store the real and imaginary parts consecutively in one real optimizer
-    # vector.  Its required length is 2*p = modes*(modes-1).
+    # A real Bogoliubov vacuum uses one coordinate per antisymmetric pair.
+    # The unrestricted complex chart stores the real and imaginary parts
+    # consecutively and therefore uses twice as many real coordinates.
     x = np.asarray(x, dtype=float)
-    if x.shape != (2 * p,) or not np.isfinite(x).all():
-        raise ValueError("Expected modes*(modes-1) finite real parameters")
+    expected = p if real_parameters else 2 * p
+    if x.shape != (expected,) or not np.isfinite(x).all():
+        raise ValueError(
+            f"Expected {expected} finite Bogoliubov parameters"
+        )
 
     # Fill the independent upper-triangular entries, then reflect them with a
     # minus sign.  No complex conjugation is used: z^T = -z, not z^dagger = -z.
     z = np.zeros((modes, modes), complex)
-    z[ij] = x[:p] + 1j * x[p:]
+    z[ij] = x if real_parameters else x[:p] + 1j * x[p:]
     z -= z.T
 
     # Embed z in a 2*modes dimensional particle-hole (Nambu) generator.  The
@@ -479,7 +483,7 @@ def state_from_parameters(x, modes):
     return HFBState(w[:modes, :modes], w[modes:, :modes])
 
 
-def state_parameter_derivatives(x, modes):
+def state_parameter_derivatives(x, modes, *, real_parameters=False):
     """Return ``state, dU/dx, dV/dx`` for the exponential HFB chart.
 
     The derivative uses the exact divided-difference representation of the
@@ -496,11 +500,14 @@ def state_parameter_derivatives(x, modes):
     ij = np.triu_indices(modes, 1)
     pairs = len(ij[0])
     x = np.asarray(x, dtype=float)
-    if x.shape != (2 * pairs,) or not np.isfinite(x).all():
-        raise ValueError("Expected modes*(modes-1) finite real parameters")
+    parameter_count = pairs if real_parameters else 2 * pairs
+    if x.shape != (parameter_count,) or not np.isfinite(x).all():
+        raise ValueError(
+            f"Expected {parameter_count} finite Bogoliubov parameters"
+        )
 
     z = np.zeros((modes, modes), complex)
-    z[ij] = x[:pairs] + 1j * x[pairs:]
+    z[ij] = x if real_parameters else x[:pairs] + 1j * x[pairs:]
     z -= z.T
     zero = np.zeros_like(z)
     generator = np.block([[zero, z.conj()], [z, zero]])
@@ -514,14 +521,15 @@ def state_parameter_derivatives(x, modes):
     transformation = (eigenvectors * exponentials) @ adjoint
 
     # Build dG/dx for all real and imaginary antisymmetric coordinates.
-    dz = np.zeros((2 * pairs, modes, modes), complex)
+    dz = np.zeros((parameter_count, modes, modes), complex)
     directions = np.arange(pairs)
     dz[directions, ij[0], ij[1]] = 1.0
     dz[directions, ij[1], ij[0]] = -1.0
-    dz[pairs + directions, ij[0], ij[1]] = 1j
-    dz[pairs + directions, ij[1], ij[0]] = -1j
+    if not real_parameters:
+        dz[pairs + directions, ij[0], ij[1]] = 1j
+        dz[pairs + directions, ij[1], ij[0]] = -1j
     dgenerator = np.zeros(
-        (2 * pairs, 2 * modes, 2 * modes), dtype=complex
+        (parameter_count, 2 * modes, 2 * modes), dtype=complex
     )
     dgenerator[:, :modes, modes:] = dz.conj()
     dgenerator[:, modes:, :modes] = dz
@@ -560,7 +568,9 @@ def state_parameter_derivatives(x, modes):
     )
 
 
-def hfb_energy_number_jacobian(x, hamiltonian, neutron_modes):
+def hfb_energy_number_jacobian(
+    x, hamiltonian, neutron_modes, *, real_parameters=False
+):
     """Analytic energy gradient and particle-number constraint Jacobian.
 
     This differentiates the repository's Wick-contracted energy exactly through
@@ -572,7 +582,9 @@ def hfb_energy_number_jacobian(x, hamiltonian, neutron_modes):
     modes = len(hamiltonian.h)
     neutron_mask = np.zeros(modes, bool)
     neutron_mask[np.asarray(neutron_modes, dtype=int)] = True
-    state, du, dv = state_parameter_derivatives(x, modes)
+    state, du, dv = state_parameter_derivatives(
+        x, modes, real_parameters=real_parameters
+    )
     u, v = state.U, state.V
     drho = (
         np.matmul(dv.conj(), v.T)
@@ -1073,6 +1085,7 @@ def solve_hfb(
     stationarity_diagnostics=True,
     shared_finite_difference_jacobian=False,
     analytic_jacobian=False,
+    real_bogoliubov=False,
     method="hfb",
     initial_orbitals=None,
 ):
@@ -1086,6 +1099,12 @@ def solve_hfb(
     standard quadratic-penalty strategy of J. Nocedal and S. J. Wright,
     *Numerical Optimization*, 2nd ed., Springer (2006), Sec. 17.1.
 
+    Set ``real_bogoliubov=True`` to restrict the antisymmetric generator and
+    hence U, V, rho and kappa to real values.  This reduces the number of real
+    optimization coordinates from ``modes*(modes-1)`` to
+    ``modes*(modes-1)/2``.  The restriction is appropriate for real,
+    time-reversal-compatible solutions but can exclude lower complex minima.
+
     The final equality-constrained refinement implements the particle-number
     Lagrange-multiplier problem without retaining a finite penalty.  Dense
     matrix exponentials still make this a reference solver rather than a
@@ -1095,6 +1114,11 @@ def solve_hfb(
     if method not in ("hfb", "hf"):
         raise ValueError("method must be 'hfb' or 'hf'")
     if method == "hf":
+        if real_bogoliubov:
+            raise ValueError(
+                "real_bogoliubov applies to method='hfb'; HF has its own "
+                "orbital parameterization"
+            )
         if initial_parameters is not None:
             raise ValueError("HF mode uses initial_orbitals, not initial_parameters")
         return solve_hartree_fock(
@@ -1157,7 +1181,10 @@ def solve_hfb(
         ):
             analytic_cache["x"] = x.copy()
             analytic_cache["values"] = hfb_energy_number_jacobian(
-                x, hamiltonian, indices
+                x,
+                hamiltonian,
+                indices,
+                real_parameters=real_bogoliubov,
             )
         return analytic_cache["values"]
 
@@ -1165,13 +1192,21 @@ def solve_hfb(
         """Return equality-constraint residuals [<N>-N0, <Z>-Z0]."""
         if analytic_jacobian:
             return analytic_values(x)[1] - targets
-        return numbers(state_from_parameters(x, m)) - targets
+        return numbers(
+            state_from_parameters(
+                x, m, real_parameters=real_bogoliubov
+            )
+        ) - targets
 
     def objective(x):
         """Map optimizer coordinates to the physical HFB energy."""
         if analytic_jacobian:
             return analytic_values(x)[0]
-        return hamiltonian.energy(state_from_parameters(x, m))
+        return hamiltonian.energy(
+            state_from_parameters(
+                x, m, real_parameters=real_bogoliubov
+            )
+        )
 
     derivative_cache = {"x": None, "energy": None, "constraints": None}
 
@@ -1183,7 +1218,9 @@ def solve_hfb(
             and np.array_equal(x, derivative_cache["x"])
         ):
             return derivative_cache["energy"], derivative_cache["constraints"]
-        base_state = state_from_parameters(x, m)
+        base_state = state_from_parameters(
+            x, m, real_parameters=real_bogoliubov
+        )
         base_energy = hamiltonian.energy(base_state)
         base_numbers = numbers(base_state)
         energy_gradient = np.empty(len(x), float)
@@ -1192,7 +1229,9 @@ def solve_hfb(
         for index, step_size in enumerate(steps):
             shifted = x.copy()
             shifted[index] += step_size
-            shifted_state = state_from_parameters(shifted, m)
+            shifted_state = state_from_parameters(
+                shifted, m, real_parameters=real_bogoliubov
+            )
             energy_gradient[index] = (
                 hamiltonian.energy(shifted_state) - base_energy
             ) / step_size
@@ -1222,11 +1261,16 @@ def solve_hfb(
     # non-convex.  A caller-supplied initial point is used for the first start.
     rng = np.random.default_rng(seed)
     attempts, candidates = [], []
+    parameter_count = (
+        m * (m - 1) // 2 if real_bogoliubov else m * (m - 1)
+    )
     for attempt in range(starts):
         x = (
             np.array(initial_parameters, float)
             if attempt == 0 and initial_parameters is not None
-            else rng.normal(scale=0.5 / np.sqrt(m), size=m * (m - 1))
+            else rng.normal(
+                scale=0.5 / np.sqrt(m), size=parameter_count
+            )
         )
         preconditioner_evaluations = 0
         if analytic_jacobian:
@@ -1278,7 +1322,9 @@ def solve_hfb(
 
         # Recompute the physical state and number residual from the returned
         # parameters rather than relying only on the optimizer success flag.
-        state = state_from_parameters(fit.x, m)
+        state = state_from_parameters(
+            fit.x, m, real_parameters=real_bogoliubov
+        )
         residual = float(np.max(np.abs(constraint(fit.x))))
         ok = bool(fit.success and residual < max(1e-7, 10 * tolerance))
         attempts.append(
@@ -1291,6 +1337,8 @@ def solve_hfb(
                 "function_evaluations": int(fit.nfev),
                 "jacobian_evaluations": int(getattr(fit, "njev", 0)),
                 "preconditioner_function_evaluations": preconditioner_evaluations,
+                "real_bogoliubov": bool(real_bogoliubov),
+                "parameter_count": int(parameter_count),
             }
         )
         candidates.append((ok, residual, fit, state))
