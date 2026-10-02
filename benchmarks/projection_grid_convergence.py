@@ -93,12 +93,12 @@ def main(
     mass=8,
     m_max=3,
     j_max=3,
-    intrinsic_method="hf",
+    intrinsic_method="hfb",
     starts=8,
     maxiter=500,
     seed=8,
     faf_order=2,
-    real_bogoliubov=False,
+    real_bogoliubov=True,
     allow_unconverged_intrinsic=False,
     number_grid=None,
     output_dir=None,
@@ -158,7 +158,8 @@ def main(
         order=faf_order,
     )
     print(
-        f"[{label}] optimizing {intrinsic_method.upper()} with {starts} starts",
+        f"[{label}] optimizing {intrinsic_method.upper()} with the "
+        f"constrained-gradient solver and {starts} starts",
         flush=True,
     )
     intrinsic = solve_hfb(
@@ -169,10 +170,7 @@ def main(
         seed=seed,
         maxiter=maxiter,
         tolerance=1e-8,
-        analytic_jacobian=(intrinsic_method == "hfb"),
-        real_bogoliubov=(
-            real_bogoliubov and intrinsic_method == "hfb"
-        ),
+        real_bogoliubov=real_bogoliubov,
         method=intrinsic_method,
     )
     if not intrinsic.converged and not allow_unconverged_intrinsic:
@@ -202,6 +200,7 @@ def main(
         "nucleus": label,
         "targets": list(targets),
         "intrinsic_method": intrinsic_method,
+        "intrinsic_solver": "constrained manifold gradient",
         "intrinsic_real_bogoliubov": bool(
             real_bogoliubov and intrinsic_method == "hfb"
         ),
@@ -311,12 +310,18 @@ if __name__ == "__main__":
     parser.add_argument("--mass", type=int, default=8)
     parser.add_argument("--m-max", type=int, default=3)
     parser.add_argument("--j-max", type=int, default=3)
-    parser.add_argument("--intrinsic-method", choices=("hf", "hfb"), default="hf")
+    parser.add_argument("--intrinsic-method", choices=("hf", "hfb"), default="hfb")
     parser.add_argument("--starts", type=int, default=8)
     parser.add_argument("--maxiter", type=int, default=500)
     parser.add_argument("--seed", type=int, default=8)
     parser.add_argument("--faf-order", type=int, default=2)
-    parser.add_argument("--real-bogoliubov", action="store_true")
+    parser.add_argument(
+        "--real-bogoliubov", dest="real_bogoliubov", action="store_true"
+    )
+    parser.add_argument(
+        "--complex-bogoliubov", dest="real_bogoliubov", action="store_false"
+    )
+    parser.set_defaults(real_bogoliubov=True)
     parser.add_argument(
         "--number-grid", nargs=2, type=int, metavar=("LN", "LZ")
     )

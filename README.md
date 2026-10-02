@@ -19,7 +19,7 @@ diagonalization or the separate closest-Gaussian search, use:
 
 ```bash
 python study_gaussian_fidelity.py --interaction usdb --isotopes 20 \
-  --variational-method hfb --real-bogoliubov --variational-only
+  --variational-method hfb --variational-only
 ```
 
 The JSON report includes raw and target-sector-conditioned fidelities, exact
@@ -27,17 +27,24 @@ and variational energies, relative energy errors, convergence diagnostics,
 particle numbers, and pairing norms.  USDB exact diagonalization is restricted
 to the M=0 sector; M=0 is not imposed on the intrinsic HF/HFB calculation.
 
-Use `--variational-method hf` for the faster number-conserving calculation or
-`--variational-method hfb` for the paired Bogoliubov calculation.  Both the
-variational and closest-Gaussian searches are non-convex, so increase
+Use `--variational-method hf` for the number-conserving `kappa=0` manifold or
+`--variational-method hfb` for the paired Bogoliubov manifold. Both use the
+library's constrained analytic-gradient interface and multistart policy. HFB
+uses local `H20` gradients, per-iteration neutron/proton multipliers,
+heavy-ball updates, and local number corrections rather than SLSQP or a
+quadratic number penalty. Both variational searches are non-convex, so increase
 `--starts` and `--gaussian-starts` for production results.
 
-For real nuclear interactions, `--real-bogoliubov` restricts both the HFB
-generator and the closest-Gaussian Thouless search to real values.  The
-resulting intrinsic `U`, `V`, `rho`, and `kappa` matrices are real.  It halves
+The study scripts use real HFB and closest-Gaussian states by default, matching
+the real TAURUS formulation. Pass `--complex-bogoliubov` to allow complex
+states. The real restriction makes intrinsic `U`, `V`, `rho`, and `kappa`
+real and halves
 the Gaussian coordinates: CKI (12 modes) uses 66 instead of 132 parameters,
 and USDB (24 modes) uses 276 instead of 552.  Do not use this restriction when
 complex or time-reversal-breaking intrinsic states are physically required.
+
+The implementation and references are described in
+[`docs/hfb_reference_solver.md`](docs/hfb_reference_solver.md).
 
 ## Projected non-Gaussianity
 

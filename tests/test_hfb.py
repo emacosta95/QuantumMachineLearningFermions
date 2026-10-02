@@ -187,6 +187,53 @@ class TestHFB(unittest.TestCase):
         self.assertEqual(result.parameters.size, parameter_count)
         self.assertAlmostEqual(result.energy, -5., places=6)
 
+    def test_local_h20_gradient_and_canonical_step(self):
+        modes = 6
+        rng = np.random.default_rng(211)
+        one_body = rng.normal(size=(modes, modes))
+        one_body = one_body + one_body.T
+        interaction = rng.normal(size=(modes,) * 4)
+        interaction = interaction - interaction.swapaxes(0, 1)
+        interaction = interaction - interaction.swapaxes(2, 3)
+        interaction = (
+            interaction + interaction.transpose(2, 3, 0, 1)
+        ) / 2
+        hamiltonian = hfb.HFBHamiltonian(one_body, interaction)
+        parameters = rng.normal(scale=0.15, size=modes * (modes - 1) // 2)
+        state = hfb.state_from_parameters(
+            parameters, modes, real_parameters=True
+        )
+        energy, numbers, gradient, jacobian = hfb.hfb_local_gradient(
+            state, hamiltonian, [0, 1, 2], real_parameters=True
+        )
+        direction = rng.normal(size=gradient.size)
+        direction /= np.linalg.norm(direction)
+        step = 1e-6
+        plus = hfb.apply_thouless_step(
+            state, step * direction, real_parameters=True
+        )
+        minus = hfb.apply_thouless_step(
+            state, -step * direction, real_parameters=True
+        )
+
+        def particle_numbers(candidate):
+            occupation = candidate.rho.diagonal().real
+            return np.array([occupation[:3].sum(), occupation[3:].sum()])
+
+        self.assertAlmostEqual(
+            float(gradient @ direction),
+            (hamiltonian.energy(plus) - hamiltonian.energy(minus)) / (2 * step),
+            places=7,
+        )
+        np.testing.assert_allclose(
+            jacobian @ direction,
+            (particle_numbers(plus) - particle_numbers(minus)) / (2 * step),
+            atol=2e-8,
+        )
+        self.assertAlmostEqual(energy, hamiltonian.energy(state), places=12)
+        np.testing.assert_allclose(numbers, particle_numbers(state), atol=1e-12)
+        self.assertLess(plus.canonical_error(), 1e-12)
+
     def test_hartree_fock_gradient_and_multistart_solver(self):
         modes = 5
         rng = np.random.default_rng(41)

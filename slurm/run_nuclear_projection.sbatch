@@ -55,7 +55,7 @@ FAF_ORDER="${FAF_ORDER:-2}"
 ISOTOPES="${ISOTOPES:-}"
 GAUSSIAN_STARTS="${GAUSSIAN_STARTS:-4}"
 GAUSSIAN_MAXITER="${GAUSSIAN_MAXITER:-1000}"
-REAL_BOGOLIUBOV="${REAL_BOGOLIUBOV:-0}"
+COMPLEX_BOGOLIUBOV="${COMPLEX_BOGOLIUBOV:-0}"
 VARIATIONAL_ONLY="${VARIATIONAL_ONLY:-0}"
 
 run_grid() {
@@ -76,8 +76,8 @@ run_grid() {
         read -r number_grid_n number_grid_z <<< "$NUMBER_GRID"
         command+=(--number-grid "$number_grid_n" "$number_grid_z")
     fi
-    if [[ "$REAL_BOGOLIUBOV" == "1" ]]; then
-        command+=(--real-bogoliubov)
+    if [[ "$COMPLEX_BOGOLIUBOV" == "1" ]]; then
+        command+=(--complex-bogoliubov)
     fi
     "${command[@]}"
 }
@@ -98,8 +98,8 @@ run_fidelity() {
         read -r -a isotope_values <<< "$ISOTOPES"
         command+=(--isotopes "${isotope_values[@]}")
     fi
-    if [[ "$REAL_BOGOLIUBOV" == "1" ]]; then
-        command+=(--real-bogoliubov)
+    if [[ "$COMPLEX_BOGOLIUBOV" == "1" ]]; then
+        command+=(--complex-bogoliubov)
     fi
     if [[ "$VARIATIONAL_ONLY" == "1" ]]; then
         command+=(--variational-only)

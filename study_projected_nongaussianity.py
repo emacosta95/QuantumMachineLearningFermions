@@ -40,9 +40,17 @@ if __name__ == "__main__":
     parser.add_argument("--faf-order", type=int, default=2)
     parser.add_argument(
         "--real-bogoliubov",
+        dest="real_bogoliubov",
         action="store_true",
-        help="restrict HFB U,V to a real Bogoliubov manifold",
+        help="use a real HFB manifold (default)",
     )
+    parser.add_argument(
+        "--complex-bogoliubov",
+        dest="real_bogoliubov",
+        action="store_false",
+        help="allow a complex HFB manifold",
+    )
+    parser.set_defaults(real_bogoliubov=True)
     parser.add_argument("--number-grid", nargs=2, type=int, metavar=("LN", "LZ"))
     parser.add_argument("--allow-unconverged-intrinsic", action="store_true")
     parser.add_argument("--output-dir", default=str(ROOT / "results"))

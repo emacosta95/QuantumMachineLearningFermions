@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="NSMFermions",
-    version="0.1.1",
+    version="0.2.0",
     description="Quantum Machine Learning for Fermions",
     author="Emanuele Costa",
     packages=find_packages(where="src"),

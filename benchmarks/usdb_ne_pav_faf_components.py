@@ -158,7 +158,6 @@ def main(
     euler_grid=None,
     exact_only=False,
     hfb_only=False,
-    analytic_jacobian=True,
     hartree_fock=False,
     output_dir=None,
 ):
@@ -207,8 +206,7 @@ def main(
                 maxiter=maxiter,
                 tolerance=1e-8,
                 stationarity_diagnostics=True,
-                shared_finite_difference_jacobian=not analytic_jacobian,
-                analytic_jacobian=analytic_jacobian,
+                real_bogoliubov=not hartree_fock,
                 method="hf" if hartree_fock else "hfb",
             )
             rho = (hfb.state.rho + hfb.state.rho.conj().T) / 2
@@ -273,8 +271,7 @@ def main(
             maxiter=maxiter,
             tolerance=1e-8,
             stationarity_diagnostics=True,
-            shared_finite_difference_jacobian=not analytic_jacobian,
-            analytic_jacobian=analytic_jacobian,
+            real_bogoliubov=not hartree_fock,
             method="hf" if hartree_fock else "hfb",
         )
         state, chart, pairing, idempotency = _working_state(
@@ -331,7 +328,7 @@ def main(
                 (
                     "USDB species-conserving multi-start Hartree-Fock optimization"
                     if hartree_fock
-                    else "USDB HFB analytic-Jacobian optimization"
+                    else "USDB constrained-gradient HFB optimization"
                 )
                 if hfb_only
                 else "USDB HFB followed by fixed-sector P_N P_Z P_J=0 PAV"
@@ -342,8 +339,8 @@ def main(
         "intrinsic_method": (
             None if exact_only else ("hf" if hartree_fock else "hfb")
         ),
-        "hfb_analytic_jacobian": (
-            None if exact_only or hartree_fock else analytic_jacobian
+        "intrinsic_solver": (
+            None if exact_only else "constrained manifold gradient"
         ),
         "results": results,
         "elapsed_seconds": time.perf_counter() - started,
@@ -385,11 +382,6 @@ if __name__ == "__main__":
     mode.add_argument("--exact-only", action="store_true")
     mode.add_argument("--hfb-only", action="store_true")
     parser.add_argument(
-        "--finite-difference-jacobian",
-        action="store_true",
-        help="use the shared numerical HFB Jacobian instead of the analytic one",
-    )
-    parser.add_argument(
         "--hartree-fock",
         action="store_true",
         help="set kappa=0 and optimize species-conserving Slater determinants",
@@ -407,7 +399,6 @@ if __name__ == "__main__":
         ),
         exact_only=arguments.exact_only,
         hfb_only=arguments.hfb_only,
-        analytic_jacobian=not arguments.finite_difference_jacobian,
         hartree_fock=arguments.hartree_fock,
         output_dir=arguments.output_dir,
     )

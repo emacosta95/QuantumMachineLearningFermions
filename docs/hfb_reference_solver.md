@@ -1,182 +1,108 @@
-# Unrestricted complex HFB reference solver
+# Constrained HF/HFB solver
 
-Implemented in `src/NSMFermions/hfb.py`. Requires NumPy and SciPy.
+The implementation is in `src/NSMFermions/hfb.py` and requires NumPy and
+SciPy. `solve_hfb(..., method="hfb")` and `solve_hfb(..., method="hf")` share
+one public interface, multistart policy, result type, and convergence
+diagnostics. They differ only in the physical variational manifold: HFB allows
+an anomalous density, while HF fixes `kappa=0` exactly.
 
-## Scope
+## HFB algorithm
 
-All mode pairs are allowed in complex U,V: nn, pp, and np anomalous densities,
-and neutron-proton normal mixing. Species indices define number constraints,
-not variational blocks. This first implementation covers even total fermion
-parity. It does not fix neutron or proton parity separately. Odd-total blocked
-states are not implemented. Particle-number and J=0 projection after variation
-are implemented in the projection modules; variation after projection is
-deliberately outside the current scope.
+The production HFB path follows the gradient method used by TAURUS. At the
+current quasiparticle vacuum it evaluates the local Thouless derivatives
 
-The optimizer minimizes the physical energy subject to average N and Z.  Its
-default path uses SLSQP finite differences.  With `analytic_jacobian=True`, a
-quadratic-penalty continuation using exact gradients selects a suitable number
-surface basin, then SLSQP performs the final equality-constrained refinement.
-The final result is therefore a Lagrange-multiplier solution, not the minimum
-of an energy with a retained finite penalty. Chemical potentials are recovered
-from the final stationarity equation; NaN indicates a rank-deficient constraint
-Jacobian where they cannot be uniquely inferred. `converged` checks optimizer status, number
-residuals, and a parameter-space stationarity residual. It is not a proof of
-global optimality or stability against all perturbations.
+```text
+dU = V* dZ
+dV = U* dZ
+```
 
-## Conventions
+and obtains the energy gradient `H20` and number gradients `N20`, `Z20`
+directly from the density variations. It then solves the two-constraint Gram
+system for the neutron and proton chemical potentials,
 
-`beta = U.conj().T c + V.conj().T c_dagger`.
+```text
+G = H20 - lambda_N N20 - lambda_Z Z20,
+(Q Q^T) lambda = Q H20,
+```
 
-`rho = V.conj() @ V.T`, `kappa = V.conj() @ U.T`.
+takes a heavy-ball step, and applies local minimum-norm corrections until the
+requested average particle numbers are recovered. A backtracking safeguard
+rejects energy-increasing steps. Each accepted step is a canonical
+quasiparticle rotation, so the Bogoliubov identities are preserved without a
+generic constrained optimizer.
 
-Hamiltonian: H = sum h_ij c_i† c_j + (1/4) sum v_ijkl c_i† c_j† c_l c_k.
+This removes the former quadratic-penalty continuation and SLSQP refinement.
+It also avoids constructing the Frechet derivative of a global matrix
+exponential for every variational coordinate. The old
+`analytic_jacobian`, `shared_finite_difference_jacobian`, and
+`number_penalty_max` keywords remain accepted as compatibility no-ops, but new
+code should not use them.
 
-Interaction inputs must be antisymmetric in each index pair and Hermitian
-under pair exchange. Dictionary entries are copied as supplied: missing
-permutations are not silently reconstructed. This matches the operator order
-in the existing `get_twobody_interaction`, whose call sets j1=i4, j2=i3.
-The nuclear reader constructs antisymmetric permutations. Actual USDB input
-and comparison with the existing builder remain to be validated.
+The implementation follows:
 
-Energy = Tr(h rho) + (1/2) sum v_ijkl rho_ki rho_lj
-         + (1/4) sum v_ijkl kappa_ij* kappa_kl.
+- B. Bally et al., *Eur. Phys. J. A* **57**, 69 (2021),
+  https://doi.org/10.1140/epja/s10050-021-00369-z.
+- P. Ring and P. Schuck, *The Nuclear Many-Body Problem*, Springer (1980),
+  Chapters 7–8.
 
-Exponentiating a complex antisymmetric generator preserves canonical constraints
-and avoids inverse-U formulas. HF states with singular U are representable.
-The analytic Jacobian differentiates the exponential Bogoliubov chart and the
-Wick-contracted energy in one pass.  The dense rank-four interaction and dense
-matrix operations are still intended as a reference implementation rather
-than a scalable production solver.
+It is an independent implementation of the published method, not copied
+TAURUS source code.
 
-Pass `real_bogoliubov=True` to restrict the antisymmetric generator to real
-entries.  The Nambu generator is then real antisymmetric, its exponential is
-real orthogonal, and `U`, `V`, `rho`, and `kappa` remain real up to floating
-point roundoff.  For `m` single-particle modes the unrestricted complex chart
-has `m*(m-1)` real coordinates, whereas the real chart has only
-`m*(m-1)/2`.  Thus CKI (`m=12`) changes from 132 to 66 coordinates and USDB
-(`m=24`) from 552 to 276.  This is a variational restriction, not merely a
-storage optimization, and may miss genuinely complex minima.
+## HF algorithm
+
+`method="hf"` optimizes separate neutron and proton occupied-orbital
+Grassmann manifolds using the analytic Fock gradient, conjugate-gradient
+momentum, a line search, and QR retraction. Integer neutron and proton numbers
+are exact by construction. This is the `kappa=0` restriction of the physical
+ansatz, not a separate command-line optimizer selection.
+
+## Real and complex states
+
+`real_bogoliubov=True` restricts HFB to real antisymmetric Thouless steps. It
+uses `m*(m-1)/2` real coordinates: 66 for CKI and 276 for USDB. The complex
+manifold uses twice as many. The repository study scripts default to the real
+TAURUS-compatible manifold; pass `--complex-bogoliubov` when complex intrinsic
+states are required.
+
+All mode pairs remain available, including neutron-proton pairing. Neutron and
+proton mode lists define expectation-value constraints, not forbidden matrix
+blocks. The vacuum solver supports even total fermion parity; blocked odd-total
+states are not implemented.
 
 ## Usage
-
-In an environment with the repository's legacy package dependencies installed:
 
 ```python
 import numpy as np
 from NSMFermions.hfb import HFBHamiltonian, solve_hfb
 
-h = np.diag([-2., 1., -3., 2.])
-ham = HFBHamiltonian(h, np.zeros((4, 4, 4, 4)))
+h = np.diag([-2.0, 1.0, -3.0, 2.0])
+hamiltonian = HFBHamiltonian(h, np.zeros((4, 4, 4, 4)))
 result = solve_hfb(
-    ham,
+    hamiltonian,
     neutron_modes=[0, 1],
     targets=[1, 1],
+    method="hfb",
+    real_bogoliubov=True,
+    starts=4,
     seed=3,
-    analytic_jacobian=True,
 )
 if not result.converged:
     raise RuntimeError(result.attempts)
-print(result.energy, result.numbers, np.linalg.norm(result.state.kappa))
+print(result.energy, result.numbers, result.stationarity_error)
 ```
 
-The legacy package initializer eagerly imports optional ML modules. For an
-isolated NumPy/SciPy environment, add `src/NSMFermions` to `sys.path` and use
-`from hfb import HFBHamiltonian, solve_hfb`; the tests use an explicit file
-import to avoid changing the package's existing import behavior.
+Every attempt reports the number residual, constrained `H20` norm, iteration
+count, final step size, number of local constraint corrections, and solver
+name. Multistart HFB uses a deterministic lowest-orbital Slater seed plus
+perturbed paired seeds. This lets the calculation find either a collapsed HF
+minimum or a lower paired solution without forcing either result.
 
-## Validation performed
+The default HFB gradient tolerance is `1e-3`, consistent with the scale used
+in TAURUS examples. Pass `gradient_tolerance=` to `solve_hfb` for a stricter
+or looser calculation. `HFBResult.parameters` stores accumulated transported
+step coordinates for diagnostics; the authoritative reusable solution is
+`HFBResult.state` (`U` and `V`).
 
-`python -m unittest discover -s tests -v` (with NumPy/SciPy installed).
-
-The analytic energy and number derivatives are checked against centered
-directional finite differences.  On the four-mode constrained test, the
-analytic penalty continuation plus SLSQP reaches the same energy and particle
-numbers as the finite-difference solver.  A bounded five-iteration Ne-20 pilot
-gave 33.6 s for the analytic path and 35.3 s for the shared finite-difference
-path.  Neither five-iteration pilot was converged, so these numbers demonstrate
-only per-pilot cost, not a production Ne-20 solution.
-
-The HFB module's eight focused tests passed on 2026-09-29, including:
-- Complex random HFB energy agrees with independent full Fock-space algebra.
-- Canonical identities hold, including mixed normal and anomalous densities.
-- A singular-U Slater limit is represented without inversion.
-- Constrained noninteracting optimization reaches energy -5 and zero pairing.
-- An attractive four-mode np pairing model reaches energy -1.5 with nonzero
-  np pairing; malformed interactions are rejected.
-- Analytic energy and number Jacobians agree with independent centered finite
-  differences, and the analytic-gradient optimizer reaches the constrained
-  noninteracting minimum.
-
-## USDB sd-shell scaling check
-
-Exact diagonalization in the fixed `(N,Z,M=0)` sector gives dimensions 4,206
-and 7,562 for Ne-22 and Ne-24, respectively.  Their exact energies are
-`-59.9384856284` and `-75.7005862670`; their order-two FAF values are
-`18.6548779376` and `16.9151649473`.  The corresponding analytic-Jacobian HFB
-runs were deliberately bounded to one start and 120 iterations.  Neither was
-feasible at the iteration cap: the maximum number residuals were 1.55 for
-Ne-22 and 0.79 for Ne-24.  Consequently, the stored HFB energies are optimizer
-diagnostics and must not be interpreted as variational nuclear results.  Use
-`benchmarks/usdb_ne_pav_faf_components.py --hfb-only` to repeat this isolated
-optimizer test without constructing the exact Hamiltonian or rotation series.
-
-## Number-conserving Hartree-Fock option
-
-Use `solve_hfb(..., method="hf", starts=8)` to set `kappa=0` identically and
-optimize separate neutron and proton Slater orbitals.  Integer N and Z are then
-exact at every iteration, rather than equality constraints that an optimizer
-may fail to satisfy.  For species capacities `d_n,d_p`, this reduces the number
-of physical real coordinates from `modes*(modes-1)` to
-`2*(N*(d_n-N) + Z*(d_p-Z))`.  The implementation uses an analytic Fock
-gradient, Riemannian Polak-Ribiere conjugate gradients, QR retraction, and
-multiple deterministic/random initial configurations.  The manifold method
-follows P.-A. Absil, R. Mahony and R. Sepulchre, *Optimization Algorithms on
-Matrix Manifolds*, Princeton University Press (2008), Chs. 3-4.
-
-With eight starts, the USDB calculations converged to:
-
-- Ne-22: `E_HF=-55.5488289279`, gradient norm `2.5e-7`, exact `(N,Z)=(4,2)`.
-- Ne-24: `E_HF=-69.6142044022`, gradient norm `5.3e-7`, exact `(N,Z)=(6,2)`.
-
-Both have zero pairing tensor to numerical precision.  Run the dedicated
-driver with `python benchmarks/usdb_ne_hf.py`.  CKI PAV scripts accept
-`--intrinsic-method hf` and retain `hfb` as an option.
-
-`benchmarks/projection_grid_convergence.py` sweeps Euler grids `(M,J,M)` with
-`M=1..M_max` azimuthal points and `J=1..J_max` beta points for either CKI or
-USDB.  The neutron/proton Fourier grid is a separate `--number-grid LN LZ`
-option; HF uses one redundant gauge representative by default because its N,Z
-are already exact.  Each row records exact-ground-state fidelity, projected
-energy, `<J^2>`, effective J, FAF, component count, and whether each grid meets
-the finite-space exactness bound.
-
-The BSC Slurm launcher is `slurm/run_nuclear_projection.sbatch`. Submit it
-from the repository root so the tracked `logs/` directory exists when Slurm
-opens the output files. Its main modes are `RUN_MODE=neon-hf` and
-`RUN_MODE=grid`; submission examples are included inside the script. Override
-`WORKDIR` if the server checkout is not
-`$HOME/QuantumMachineLearningFermions`, and use `OUTDIR` to choose the result
-directory.
-
-The first CKI Be8 benchmark is now recorded in
-`benchmarks/results/cki_be8.md`: it reproduces a collapsed HF solution in a
-bounded local optimization. No large computation has been run. Pairing
-collapse is a permissible result: inspect paired starts, convergence and
-stability rather than forcing a nonzero anomalous density. After number
-projection, use number-conserving pairing diagnostics because the
-projected state's anomalous expectation vanishes by number conservation.
-
-Primary methodological references:
-- TAURUS I: https://arxiv.org/abs/2010.14169
-- Stoitsov et al.: https://arxiv.org/abs/nucl-th/0610061
-- P. Ring and P. Schuck, *The Nuclear Many-Body Problem*, Springer (1980),
-  Chs. 7-8 (HFB densities and energy variations).
-- N. J. Higham, *Functions of Matrices*, SIAM (2008), Secs. 3.1-3.2
-  (Frechet derivative and divided differences).
-- A. H. Al-Mohy and N. J. Higham, SIAM J. Matrix Anal. Appl. 30,
-  1639-1657 (2009), https://doi.org/10.1137/080716426
-  (matrix-exponential Frechet derivative).
-- J. Nocedal and S. J. Wright, *Numerical Optimization*, 2nd ed., Springer
-  (2006), Sec. 17.1 (quadratic-penalty continuation).
-
-This reference optimizer is not a reproduction of the TAURUS implementation.
+The dense four-index interaction remains the principal scaling limitation.
+OpenMP-enabled BLAS can accelerate contractions, but increasing CPU count does
+not remove that memory and arithmetic cost.

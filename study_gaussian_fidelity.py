@@ -54,7 +54,7 @@ def run_study(
     maxiter=500,
     gaussian_starts=4,
     gaussian_maxiter=1000,
-    real_bogoliubov=False,
+    real_bogoliubov=True,
     variational_only=False,
     seed=8,
     output=None,
@@ -86,9 +86,8 @@ def run_study(
         isotope_started = time.perf_counter()
         label, targets = _nucleus(interaction_name, int(mass), species_modes)
         print(
-            f"[{label}] optimizing "
-            f"{'real ' if real_bogoliubov and variational_method == 'hfb' else ''}"
-            f"{variational_method.upper()} with {starts} starts",
+            f"[{label}] optimizing {variational_method.upper()} with "
+            f"the constrained-gradient solver and {starts} starts",
             flush=True,
         )
         variational = solve_hfb(
@@ -99,10 +98,7 @@ def run_study(
             seed=seed + int(mass),
             maxiter=maxiter,
             tolerance=1e-8,
-            analytic_jacobian=(variational_method == "hfb"),
-            real_bogoliubov=(
-                real_bogoliubov and variational_method == "hfb"
-            ),
+            real_bogoliubov=real_bogoliubov,
             method=variational_method,
         )
         if variational_only:
@@ -112,6 +108,7 @@ def run_study(
                 "valence_neutrons": targets[0],
                 "valence_protons": targets[1],
                 "variational_method": variational_method,
+                "variational_solver": "constrained manifold gradient",
                 "variational_real_bogoliubov": bool(
                     real_bogoliubov and variational_method == "hfb"
                 ),
@@ -194,6 +191,7 @@ def run_study(
             "exact_dimension": len(fermionic.occupations),
             "exact_energy": exact_energy,
             "variational_method": variational_method,
+            "variational_solver": "constrained manifold gradient",
             "variational_real_bogoliubov": bool(
                 real_bogoliubov and variational_method == "hfb"
             ),
@@ -283,9 +281,17 @@ if __name__ == "__main__":
     parser.add_argument("--gaussian-maxiter", type=int, default=1000)
     parser.add_argument(
         "--real-bogoliubov",
+        dest="real_bogoliubov",
         action="store_true",
-        help="restrict HFB and closest-Gaussian searches to real manifolds",
+        help="use real HFB and closest-Gaussian manifolds (default)",
     )
+    parser.add_argument(
+        "--complex-bogoliubov",
+        dest="real_bogoliubov",
+        action="store_false",
+        help="allow complex HFB and closest-Gaussian manifolds",
+    )
+    parser.set_defaults(real_bogoliubov=True)
     parser.add_argument(
         "--variational-only",
         action="store_true",

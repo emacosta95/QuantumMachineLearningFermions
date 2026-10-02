@@ -1,9 +1,11 @@
-"""Complex, species-unrestricted HFB reference implementation (NumPy/SciPy).
+"""Structure-preserving HF/HFB implementation (NumPy/SciPy).
 
 H = h_ij c_i^dag c_j + v_ijkl c_i^dag c_j^dag c_l c_k / 4.
 rho_ij = <c_j^dag c_i>, kappa_ij = <c_j c_i>.
-No species, reality, or time-reversal blocks are imposed. The vacuum-based
-solver currently covers even total number parity only, not blocked odd states.
+No species or time-reversal blocks are imposed. HFB uses constrained local
+Thouless gradients and heavy-ball updates following the TAURUS method, with
+real or complex variational manifolds. The vacuum solver covers even total
+number parity only, not blocked odd states.
 """
 
 from dataclasses import dataclass
@@ -640,6 +642,175 @@ def hfb_energy_number_jacobian(
     )
 
 
+def _antisymmetric_coordinates(matrix, *, real_parameters=False):
+    """Pack an antisymmetric matrix into real optimizer coordinates."""
+    matrix = np.asarray(matrix, complex)
+    pairs = np.triu_indices(len(matrix), 1)
+    upper = matrix[pairs]
+    if real_parameters:
+        return upper.real.copy()
+    return np.concatenate((upper.real, upper.imag))
+
+
+def _antisymmetric_matrix(coordinates, modes, *, real_parameters=False):
+    """Unpack real coordinates into a complex antisymmetric matrix."""
+    pairs = np.triu_indices(modes, 1)
+    pair_count = len(pairs[0])
+    coordinates = np.asarray(coordinates, float)
+    expected = pair_count if real_parameters else 2 * pair_count
+    if coordinates.shape != (expected,) or not np.isfinite(coordinates).all():
+        raise ValueError(f"Expected {expected} finite Thouless coordinates")
+    matrix = np.zeros((modes, modes), complex)
+    matrix[pairs] = (
+        coordinates
+        if real_parameters
+        else coordinates[:pair_count] + 1j * coordinates[pair_count:]
+    )
+    matrix -= matrix.T
+    return matrix
+
+
+def apply_thouless_step(state, coordinates, *, real_parameters=False):
+    """Apply one canonical quasiparticle Thouless rotation to ``state``.
+
+    The update is local to the current quasiparticle vacuum.  Consequently it
+    needs only one Nambu-space exponential per optimization iteration, rather
+    than one Frechet derivative for every global chart coordinate.
+    """
+    modes = len(state.U)
+    z = _antisymmetric_matrix(
+        coordinates, modes, real_parameters=real_parameters
+    )
+    zero = np.zeros_like(z)
+    local = expm(np.block([[zero, z.conj()], [z, zero]]))
+    transformation = np.block([
+        [state.U, state.V.conj()],
+        [state.V, state.U.conj()],
+    ]) @ local
+    return HFBState(
+        transformation[:modes, :modes],
+        transformation[modes:, :modes],
+    )
+
+
+def hfb_local_gradient(
+    state, hamiltonian, neutron_modes, *, real_parameters=False
+):
+    """Return energy, numbers and their local Thouless derivatives.
+
+    This is the ``H20`` gradient used by gradient-based HFB solvers.  The
+    tangent relation ``dU=V* dZ, dV=U* dZ`` evaluates all independent
+    directions with dense BLAS contractions and avoids differentiating a
+    global matrix exponential.
+
+    References
+    ----------
+    P. Ring and P. Schuck, *The Nuclear Many-Body Problem*, Springer (1980),
+    Chs. 7-8.
+    B. Bally et al., Eur. Phys. J. A 57, 69 (2021),
+    doi:10.1140/epja/s10050-021-00369-z (TAURUS heavy-ball method).
+    """
+    modes = len(state.U)
+    neutron_mask = np.zeros(modes, bool)
+    neutron_mask[np.asarray(neutron_modes, dtype=int)] = True
+    pair_rows, pair_columns = np.triu_indices(modes, 1)
+    pair_count = len(pair_rows)
+    parameter_count = pair_count if real_parameters else 2 * pair_count
+
+    dz = np.zeros((parameter_count, modes, modes), complex)
+    directions = np.arange(pair_count)
+    dz[directions, pair_rows, pair_columns] = 1.0
+    dz[directions, pair_columns, pair_rows] = -1.0
+    if not real_parameters:
+        dz[pair_count + directions, pair_rows, pair_columns] = 1j
+        dz[pair_count + directions, pair_columns, pair_rows] = -1j
+
+    du = np.matmul(state.V.conj()[None, :, :], dz)
+    dv = np.matmul(state.U.conj()[None, :, :], dz)
+    drho = (
+        np.matmul(dv.conj(), state.V.T)
+        + np.matmul(state.V.conj()[None, :, :], dv.transpose(0, 2, 1))
+    )
+    dkappa = (
+        np.matmul(dv.conj(), state.U.T)
+        + np.matmul(state.V.conj()[None, :, :], du.transpose(0, 2, 1))
+    )
+    rho, kappa = state.rho, state.kappa
+
+    one_body = np.einsum("ij,pji->p", hamiltonian.h, drho, optimize=True)
+    normal_left = 0.5 * np.einsum(
+        "ijkl,lj->ki", hamiltonian.v, rho, optimize=True
+    )
+    normal_right = 0.5 * np.einsum(
+        "ijkl,ki->lj", hamiltonian.v, rho, optimize=True
+    )
+    normal = (
+        np.einsum("ki,pki->p", normal_left, drho, optimize=True)
+        + np.einsum("lj,plj->p", normal_right, drho, optimize=True)
+    )
+    pairing_left = 0.25 * np.einsum(
+        "ijkl,kl->ij", hamiltonian.v, kappa, optimize=True
+    )
+    pairing_right = 0.25 * np.einsum(
+        "ijkl,ij->kl", hamiltonian.v, kappa.conj(), optimize=True
+    )
+    pairing = (
+        np.einsum("ij,pij->p", pairing_left, dkappa.conj(), optimize=True)
+        + np.einsum("kl,pkl->p", pairing_right, dkappa, optimize=True)
+    )
+    energy_gradient_complex = one_body + normal + pairing
+    if np.max(np.abs(energy_gradient_complex.imag), initial=0.0) > 2e-8:
+        raise ValueError("Local HFB energy gradient is not real")
+
+    diagonal = np.diagonal(drho, axis1=1, axis2=2).real
+    number_jacobian = np.vstack((
+        diagonal[:, neutron_mask].sum(axis=1),
+        diagonal[:, ~neutron_mask].sum(axis=1),
+    ))
+    occupations = rho.diagonal().real
+    numbers = np.array([
+        occupations[neutron_mask].sum(), occupations[~neutron_mask].sum()
+    ])
+    return (
+        hamiltonian.energy(state),
+        numbers,
+        energy_gradient_complex.real,
+        number_jacobian,
+    )
+
+
+def _hfb_local_number_jacobian(state, neutron_modes, *, real_parameters=False):
+    """Evaluate only N, Z and their local gradients for constraint repair."""
+    modes = len(state.U)
+    neutron_mask = np.zeros(modes, bool)
+    neutron_mask[np.asarray(neutron_modes, dtype=int)] = True
+    rows, columns = np.triu_indices(modes, 1)
+    pair_count = len(rows)
+    parameter_count = pair_count if real_parameters else 2 * pair_count
+    dz = np.zeros((parameter_count, modes, modes), complex)
+    directions = np.arange(pair_count)
+    dz[directions, rows, columns] = 1.0
+    dz[directions, columns, rows] = -1.0
+    if not real_parameters:
+        dz[pair_count + directions, rows, columns] = 1j
+        dz[pair_count + directions, columns, rows] = -1j
+    dv = np.matmul(state.U.conj()[None, :, :], dz)
+    drho = (
+        np.matmul(dv.conj(), state.V.T)
+        + np.matmul(state.V.conj()[None, :, :], dv.transpose(0, 2, 1))
+    )
+    diagonal = np.diagonal(drho, axis1=1, axis2=2).real
+    jacobian = np.vstack((
+        diagonal[:, neutron_mask].sum(axis=1),
+        diagonal[:, ~neutron_mask].sum(axis=1),
+    ))
+    occupation = state.rho.diagonal().real
+    values = np.array([
+        occupation[neutron_mask].sum(), occupation[~neutron_mask].sum()
+    ])
+    return values, jacobian
+
+
 class HFBHamiltonian:
     """Validated one- plus antisymmetrized two-body Hamiltonian.
 
@@ -1072,7 +1243,7 @@ def solve_hartree_fock(
     )
 
 
-def solve_hfb(
+def _solve_hfb_slsqp_legacy(
     hamiltonian,
     neutron_modes,
     targets,
@@ -1086,6 +1257,7 @@ def solve_hfb(
     shared_finite_difference_jacobian=False,
     analytic_jacobian=False,
     real_bogoliubov=False,
+    number_penalty_max=1000.0,
     method="hfb",
     initial_orbitals=None,
 ):
@@ -1163,6 +1335,8 @@ def solve_hfb(
         raise ValueError("Reference solver requires both species in the space")
     if starts < 1 or maxiter < 1 or tolerance <= 0:
         raise ValueError("Positive starts, maxiter and tolerance required")
+    if not np.isfinite(number_penalty_max) or number_penalty_max < 1:
+        raise ValueError("number_penalty_max must be finite and at least one")
     if analytic_jacobian and shared_finite_difference_jacobian:
         raise ValueError("Select either analytic or shared finite-difference Jacobian")
 
@@ -1279,7 +1453,13 @@ def solve_hfb(
             # Its role is only to select a good constrained basin; SLSQP below
             # still enforces the particle numbers to the requested tolerance.
             penalty_iterations = max(5, min(100, maxiter // 4))
-            for penalty in (1.0, 10.0, 100.0, 1000.0):
+            penalty_schedule = []
+            penalty = 1.0
+            while penalty < number_penalty_max:
+                penalty_schedule.append(penalty)
+                penalty *= 10.0
+            penalty_schedule.append(float(number_penalty_max))
+            for penalty in penalty_schedule:
                 def penalized_value_and_gradient(point):
                     energy, particle_numbers, gradient, jacobian, _ = (
                         analytic_values(point)
@@ -1339,6 +1519,7 @@ def solve_hfb(
                 "preconditioner_function_evaluations": preconditioner_evaluations,
                 "real_bogoliubov": bool(real_bogoliubov),
                 "parameter_count": int(parameter_count),
+                "maximum_number_penalty": float(number_penalty_max),
             }
         )
         candidates.append((ok, residual, fit, state))
@@ -1412,6 +1593,380 @@ def solve_hfb(
         converged=ok,
         message=str(fit.message),
         parameters=fit.x,
+        attempts=attempts,
+        chemical_potentials=multipliers,
+        stationarity_error=stationarity,
+    )
+
+
+def solve_hfb(
+    hamiltonian,
+    neutron_modes,
+    targets,
+    *,
+    starts=3,
+    seed=0,
+    maxiter=300,
+    tolerance=1e-8,
+    initial_parameters=None,
+    stationarity_diagnostics=True,
+    shared_finite_difference_jacobian=False,
+    analytic_jacobian=False,
+    real_bogoliubov=False,
+    number_penalty_max=None,
+    method="hfb",
+    initial_orbitals=None,
+    step_size=0.05,
+    momentum=0.3,
+    constraint_iterations=12,
+    gradient_tolerance=None,
+):
+    """Optimize an HF or HFB vacuum with structure-preserving gradients.
+
+    HFB uses the TAURUS strategy: compute the local quasiparticle ``H20``
+    gradient, determine the neutron/proton Lagrange multipliers from their
+    two-by-two Gram system, take a heavy-ball Thouless step, and correct the
+    number constraints locally.  It never builds the derivative of a global
+    matrix exponential and does not use a quadratic particle-number penalty.
+
+    ``method='hf'`` fixes the anomalous density to zero and uses the analogous
+    analytic-gradient manifold solver for occupied orbitals.  Thus the public
+    entry point, multistart behavior and result diagnostics are common to both
+    approximations; only their physical manifolds differ.
+
+    ``analytic_jacobian``, ``shared_finite_difference_jacobian`` and
+    ``number_penalty_max`` are accepted as compatibility no-ops for older
+    scripts.  The new HFB path always uses the local analytic ``H20`` gradient.
+
+    References
+    ----------
+    B. Bally et al., Eur. Phys. J. A 57, 69 (2021),
+    doi:10.1140/epja/s10050-021-00369-z.
+    P. Ring and P. Schuck, *The Nuclear Many-Body Problem*, Springer (1980),
+    Chs. 7-8.
+    """
+    if method not in ("hfb", "hf"):
+        raise ValueError("method must be 'hfb' or 'hf'")
+    if method == "hf":
+        if initial_parameters is not None:
+            raise ValueError("HF mode uses initial_orbitals, not initial_parameters")
+        return solve_hartree_fock(
+            hamiltonian,
+            neutron_modes,
+            targets,
+            starts=starts,
+            seed=seed,
+            maxiter=maxiter,
+            tolerance=tolerance,
+            initial_orbitals=initial_orbitals,
+        )
+    if initial_orbitals is not None:
+        raise ValueError("initial_orbitals is only valid with method='hf'")
+
+    modes = len(hamiltonian.h)
+    neutron = np.asarray(neutron_modes, dtype=int)
+    if gradient_tolerance is not None and (
+        not np.isfinite(gradient_tolerance) or gradient_tolerance <= 0
+    ):
+        raise ValueError("gradient_tolerance must be finite and positive")
+    if (
+        neutron.ndim != 1
+        or len(set(neutron)) != len(neutron)
+        or np.any(neutron < 0)
+        or np.any(neutron >= modes)
+    ):
+        raise ValueError("neutron_modes must contain distinct valid indices")
+    neutron_mask = np.zeros(modes, bool)
+    neutron_mask[neutron] = True
+    proton = np.nonzero(~neutron_mask)[0]
+    requested = np.asarray(targets, float)
+    capacities = np.array([len(neutron), len(proton)])
+    if (
+        requested.shape != (2,)
+        or not np.isfinite(requested).all()
+        or np.any(requested < 0)
+        or np.any(requested > capacities)
+        or np.any(capacities == 0)
+    ):
+        raise ValueError("Invalid neutron/proton targets")
+    if starts < 1 or maxiter < 1 or tolerance <= 0:
+        raise ValueError("Positive starts, maxiter and tolerance required")
+    if (
+        not np.isfinite(step_size)
+        or step_size <= 0
+        or not np.isfinite(momentum)
+        or momentum < 0
+        or momentum >= 1
+        or constraint_iterations < 1
+    ):
+        raise ValueError("Invalid heavy-ball solver controls")
+
+    parameter_count = (
+        modes * (modes - 1) // 2
+        if real_bogoliubov
+        else modes * (modes - 1)
+    )
+    number_tolerance = max(1e-8, 10 * tolerance)
+    stationarity_tolerance = (
+        1e-3 if gradient_tolerance is None else float(gradient_tolerance)
+    )
+
+    def paired_seed():
+        """Construct a real BCS seed with the requested mean N and Z."""
+        z = np.zeros((modes, modes), complex)
+        for indices, target in ((neutron, requested[0]), (proton, requested[1])):
+            if len(indices) % 2:
+                return None
+            angle = np.arcsin(np.sqrt(float(target) / len(indices)))
+            for left, right in zip(indices[::2], indices[1::2]):
+                z[left, right] = angle
+                z[right, left] = -angle
+        return apply_thouless_step(
+            HFBState(np.eye(modes, dtype=complex), np.zeros((modes, modes), complex)),
+            _antisymmetric_coordinates(z, real_parameters=real_bogoliubov),
+            real_parameters=real_bogoliubov,
+        )
+
+    def hartree_fock_seed():
+        """Use the lowest species orbitals as a deterministic HFB boundary."""
+        rounded = np.rint(requested).astype(int)
+        if not np.allclose(requested, rounded, atol=1e-12):
+            return None
+        occupied = []
+        for indices, count in ((neutron, rounded[0]), (proton, rounded[1])):
+            block = hamiltonian.h[np.ix_(indices, indices)]
+            _, vectors = np.linalg.eigh(block)
+            embedded = np.zeros((modes, count), complex)
+            if count:
+                embedded[indices, :] = vectors[:, :count]
+            occupied.append(embedded)
+        return HFBState.from_slater(np.hstack(occupied))
+
+    def correct_numbers(state):
+        """Apply minimum-norm local Newton corrections to N and Z."""
+        corrections = 0
+        for corrections in range(constraint_iterations):
+            values, jacobian = _hfb_local_number_jacobian(
+                state,
+                neutron,
+                real_parameters=real_bogoliubov,
+            )
+            residual = requested - values
+            if np.max(np.abs(residual)) <= number_tolerance:
+                return state, corrections, True
+            correction = np.linalg.lstsq(jacobian, residual, rcond=1e-10)[0]
+            correction_norm = np.linalg.norm(correction)
+            if not np.isfinite(correction_norm) or correction_norm < 1e-14:
+                break
+            if correction_norm > 0.3:
+                correction *= 0.3 / correction_norm
+            state = apply_thouless_step(
+                state, correction, real_parameters=real_bogoliubov
+            )
+        values, _ = _hfb_local_number_jacobian(
+            state,
+            neutron,
+            real_parameters=real_bogoliubov,
+        )
+        return (
+            state,
+            corrections + 1,
+            bool(np.max(np.abs(values - requested)) <= number_tolerance),
+        )
+
+    rng = np.random.default_rng(seed)
+    seeds = []
+    if initial_parameters is not None:
+        supplied = np.asarray(initial_parameters, float)
+        supplied = supplied[None, :] if supplied.ndim == 1 else supplied
+        if supplied.ndim != 2 or supplied.shape[1] != parameter_count:
+            raise ValueError("initial_parameters has the wrong shape")
+        seeds.extend(
+            state_from_parameters(
+                coordinates, modes, real_parameters=real_bogoliubov
+            )
+            for coordinates in supplied
+        )
+    hf_base = hartree_fock_seed()
+    if hf_base is not None:
+        seeds.append(hf_base)
+    paired_base = paired_seed()
+    base = paired_base if paired_base is not None else hf_base
+    if base is None:
+        base = state_from_parameters(
+            rng.normal(scale=0.15, size=parameter_count),
+            modes,
+            real_parameters=real_bogoliubov,
+        )
+        seeds.append(base)
+    while len(seeds) < starts:
+        perturbation = rng.normal(scale=0.08, size=parameter_count)
+        seeds.append(apply_thouless_step(
+            base, perturbation, real_parameters=real_bogoliubov
+        ))
+
+    attempts = []
+    candidates = []
+    for start_index, state in enumerate(seeds[:starts]):
+        state, initial_corrections, _ = correct_numbers(state)
+        velocity = np.zeros(parameter_count, float)
+        accumulated = np.zeros(parameter_count, float)
+        eta = float(step_size)
+        message = "Iteration limit reached"
+        total_constraint_corrections = initial_corrections
+
+        for iteration in range(maxiter):
+            energy, values, gradient, jacobian = hfb_local_gradient(
+                state,
+                hamiltonian,
+                neutron,
+                real_parameters=real_bogoliubov,
+            )
+            multipliers = np.linalg.lstsq(
+                jacobian.T, gradient, rcond=1e-10
+            )[0]
+            constrained_gradient = gradient - jacobian.T @ multipliers
+            stationarity = float(np.linalg.norm(constrained_gradient))
+            number_error = float(np.max(np.abs(values - requested)))
+            if (
+                stationarity <= stationarity_tolerance
+                and number_error <= number_tolerance
+            ):
+                message = "Constrained H20 gradient converged"
+                break
+
+            proposed_velocity = (
+                momentum * velocity - eta * constrained_gradient
+            )
+            proposed_norm = np.linalg.norm(proposed_velocity)
+            if proposed_norm > 0.25:
+                proposed_velocity *= 0.25 / proposed_norm
+            directional_derivative = float(
+                constrained_gradient @ proposed_velocity
+            )
+            if directional_derivative >= 0:
+                proposed_velocity = -eta * constrained_gradient
+                proposed_norm = np.linalg.norm(proposed_velocity)
+                if proposed_norm > 0.25:
+                    proposed_velocity *= 0.25 / proposed_norm
+                directional_derivative = float(
+                    constrained_gradient @ proposed_velocity
+                )
+
+            accepted = False
+            trial_step = proposed_velocity.copy()
+            for _ in range(14):
+                trial = apply_thouless_step(
+                    state, trial_step, real_parameters=real_bogoliubov
+                )
+                trial, corrections, feasible = correct_numbers(trial)
+                total_constraint_corrections += corrections
+                trial_energy = hamiltonian.energy(trial)
+                if feasible and trial_energy <= (
+                    energy + 1e-4 * directional_derivative
+                ):
+                    state = trial
+                    velocity = trial_step
+                    accumulated += trial_step
+                    eta = min(0.2, eta * 1.1)
+                    accepted = True
+                    break
+                trial_step *= 0.5
+                directional_derivative *= 0.5
+            if not accepted:
+                velocity.fill(0.0)
+                eta *= 0.25
+                if eta < 1e-10:
+                    message = "Heavy-ball line search stalled"
+                    break
+
+        energy, values, gradient, jacobian = hfb_local_gradient(
+            state,
+            hamiltonian,
+            neutron,
+            real_parameters=real_bogoliubov,
+        )
+        multipliers = np.linalg.lstsq(
+            jacobian.T, gradient, rcond=1e-10
+        )[0]
+        constrained_gradient = gradient - jacobian.T @ multipliers
+        stationarity = float(np.linalg.norm(constrained_gradient))
+        number_error = float(np.max(np.abs(values - requested)))
+        converged = bool(
+            stationarity <= stationarity_tolerance
+            and number_error <= number_tolerance
+        )
+        if not stationarity_diagnostics:
+            reported_stationarity = np.nan
+            reported_multipliers = np.full(2, np.nan)
+        else:
+            reported_stationarity = stationarity
+            reported_multipliers = multipliers
+        attempt = {
+            "converged": converged,
+            "energy": float(energy),
+            "number_error": number_error,
+            "gradient_norm": stationarity,
+            "gradient_tolerance": stationarity_tolerance,
+            "iterations": int(iteration + 1),
+            "message": message,
+            "solver": "TAURUS-style constrained H20 heavy ball",
+            "step_size": eta,
+            "momentum": float(momentum),
+            "constraint_corrections": int(total_constraint_corrections),
+            "real_bogoliubov": bool(real_bogoliubov),
+            "parameter_count": int(parameter_count),
+        }
+        attempts.append(attempt)
+        candidates.append((
+            converged,
+            energy,
+            number_error,
+            stationarity,
+            state,
+            accumulated,
+            reported_multipliers,
+            reported_stationarity,
+            message,
+        ))
+
+    # Return the lowest-energy number-feasible state even when a stricter
+    # stationarity threshold was not reached at the iteration cap. This keeps
+    # the best variational result while preserving ``converged=False`` and its
+    # residual diagnostics, instead of preferring a higher stationary basin.
+    feasible = [
+        candidate for candidate in candidates
+        if candidate[2] <= number_tolerance
+    ]
+    best = (
+        min(feasible, key=lambda item: item[1])
+        if feasible
+        else min(candidates, key=lambda item: (item[2], item[3], item[1]))
+    )
+    (
+        converged,
+        energy,
+        _,
+        _,
+        state,
+        parameters,
+        multipliers,
+        stationarity,
+        message,
+    ) = best
+    _, values, _, _ = hfb_local_gradient(
+        state,
+        hamiltonian,
+        neutron,
+        real_parameters=real_bogoliubov,
+    )
+    return HFBResult(
+        state=state,
+        energy=float(energy),
+        numbers=values,
+        converged=converged,
+        message=message,
+        parameters=parameters,
         attempts=attempts,
         chemical_potentials=multipliers,
         stationarity_error=stationarity,
