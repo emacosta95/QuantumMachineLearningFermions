@@ -211,6 +211,7 @@ def run_study(
                 np.linalg.norm(variational.state.kappa)
             ),
             "closest_gaussian_converged": bool(closest.converged),
+            "closest_gaussian_solver": "analytic local-overlap heavy ball",
             "closest_gaussian_real_bogoliubov": bool(real_bogoliubov),
             "closest_gaussian_parameter_count": int(
                 closest.parameters.size
@@ -225,6 +226,7 @@ def run_study(
                 closest_energy, exact_energy
             ),
             "closest_gaussian_gradient_norm": closest.gradient_norm,
+            "closest_gaussian_attempts": closest.attempts,
             "elapsed_seconds": time.perf_counter() - isotope_started,
         }
         results.append(row)

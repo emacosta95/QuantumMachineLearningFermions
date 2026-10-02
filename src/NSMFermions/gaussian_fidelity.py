@@ -1,19 +1,18 @@
 """Best-overlap pure fermionic Gaussian state for a fixed-sector target.
 
-This is a non-convex optimizer. It returns the best stationary point found,
-not a certificate of the global maximum. The Thouless chart contains all even
-Gaussian vacua with nonzero particle-vacuum overlap; singular boundary states
+The optimizer differentiates normalized Pfaffian amplitudes analytically and
+uses local canonical Thouless heavy-ball updates. It returns the best stationary
+point found, not a certificate of the global maximum. Singular boundary states
 such as exact non-vacuum Slater determinants are approached as limits.
 """
 from dataclasses import dataclass
 import numpy as np
-from scipy.optimize import minimize
 
 if __package__:
-    from .hfb import HFBState
+    from .hfb import HFBState, apply_thouless_step
     from .number_projection import fermionic_basis_data
 else:
-    from hfb import HFBState
+    from hfb import HFBState, apply_thouless_step
     from number_projection import fermionic_basis_data
 
 
@@ -41,6 +40,26 @@ class SlaterFidelityResult:
     attempts: list
 
 
+def _batch_pfaffian(matrices):
+    """Evaluate small antisymmetric Pfaffians with vectorized recursion."""
+    matrices=np.asarray(matrices,complex)
+    if matrices.ndim!=3 or matrices.shape[1]!=matrices.shape[2]:
+        raise ValueError('Expected a batch of square matrices')
+    size=matrices.shape[1]
+    if size%2:
+        return np.zeros(len(matrices),complex)
+    if size==0:
+        return np.ones(len(matrices),complex)
+    if size==2:
+        return matrices[:,0,1]
+    result=np.zeros(len(matrices),complex)
+    for column in range(1,size):
+        retained=[index for index in range(1,size) if index!=column]
+        minor=matrices[:,retained,:][:,:,retained]
+        result+=((-1)**(column+1))*matrices[:,0,column]*_batch_pfaffian(minor)
+    return result
+
+
 class GaussianFidelityObjective:
     """Maximize raw |<target|Omega(Z)>|^2 over unrestricted complex Z.
 
@@ -64,6 +83,7 @@ class GaussianFidelityObjective:
             raise ValueError('Target cannot vanish')
         self.hamiltonian=hamiltonian
         self.occupations=occupations
+        self.occupation_array=np.asarray(occupations,int)
         self.modes=hamiltonian.modes
         self.target=target/norm
         self.real_parameters=bool(real_parameters)
@@ -87,6 +107,12 @@ class GaussianFidelityObjective:
                     x[:pair_count]+1j*x[pair_count:])
         return z-z.T
 
+    def pack(self,z):
+        """Convert an antisymmetric Thouless matrix to real coordinates."""
+        upper=np.asarray(z,complex)[self.ij]
+        return (upper.real.copy() if self.real_parameters else
+                np.concatenate((upper.real,upper.imag)))
+
     def fidelity(self,x):
         """Return raw fidelity between the intrinsic Gaussian and target."""
         # HFBState owns construction, normalization, Pfaffian amplitudes, and
@@ -94,18 +120,130 @@ class GaussianFidelityObjective:
         state=HFBState.from_thouless(self.unpack(x))
         return state.fixed_sector_fidelity(self.target,self.occupations)
 
+    def fidelity_state(self,state):
+        """Return raw target fidelity for an already constructed vacuum."""
+        z=state.thouless_matrix
+        z=.5*(z-z.T)
+        metric=np.eye(self.modes)+z.conj().T@z
+        normalization=np.exp(-.25*np.linalg.slogdet(metric)[1])
+        particles=self.occupation_array.shape[1]
+        if particles:
+            submatrices=z[
+                self.occupation_array[:,:,None],
+                self.occupation_array[:,None,:],
+            ]
+            values=_batch_pfaffian(submatrices)
+        else:
+            values=np.ones(len(self.target),complex)
+        polynomial=self.target.conj()@values
+        return float(abs(normalization*polynomial)**2)
+
     def minimize(self,x):
         """Negate fidelity for SciPy's minimization interface."""
         return -self.fidelity(x)
+
+    def local_value_gradient(self,state):
+        """Return fidelity and its analytic local quasiparticle gradient.
+
+        An infinitesimal canonical update obeys ``dU=V* dZ_qp`` and
+        ``dV=U* dZ_qp``. These variations are mapped to the particle-vacuum
+        Thouless matrix, where every fixed-sector coefficient is a normalized
+        Pfaffian. Differentiating those Pfaffians produces the overlap analogue
+        of the HFB ``H20`` field without finite differences over all coordinates.
+
+        This combines the Thouless representation and Pfaffian amplitudes with
+        the local heavy-ball strategy of B. Bally et al., Eur. Phys. J. A 57,
+        69 (2021), doi:10.1140/epja/s10050-021-00369-z.
+        """
+        z=state.thouless_matrix
+        z=.5*(z-z.T)
+        modes=self.modes
+        pair_rows,pair_columns=self.ij
+        pair_count=len(pair_rows)
+        parameter_count=(pair_count if self.real_parameters else 2*pair_count)
+
+        dz_qp=np.zeros((parameter_count,modes,modes),complex)
+        directions=np.arange(pair_count)
+        dz_qp[directions,pair_rows,pair_columns]=1.
+        dz_qp[directions,pair_columns,pair_rows]=-1.
+        if not self.real_parameters:
+            dz_qp[pair_count+directions,pair_rows,pair_columns]=1j
+            dz_qp[pair_count+directions,pair_columns,pair_rows]=-1j
+
+        # Z=V* (U*)^-1 and local dU=V* dZ_qp, dV=U* dZ_qp.
+        inverse_u_conjugate=np.linalg.inv(state.U.conj())
+        left=state.U-z@state.V
+        dz_global=np.matmul(
+            np.matmul(left[None,:,:],dz_qp.conj()),
+            inverse_u_conjugate[None,:,:],
+        )
+        dz_global=.5*(dz_global-dz_global.transpose(0,2,1))
+
+        metric=np.eye(modes)+z.conj().T@z
+        inverse_metric=np.linalg.inv(metric)
+        normalization=np.exp(-.25*np.linalg.slogdet(metric)[1])
+        dmetric=(
+            np.matmul(dz_global.conj().transpose(0,2,1),z)
+            +np.matmul(z.conj().T[None,:,:],dz_global)
+        )
+        dlog_norm=-.25*np.einsum(
+            'ij,pji->p',inverse_metric,dmetric,optimize=True
+        ).real
+
+        occupations=self.occupation_array
+        particles=occupations.shape[1]
+        coefficients=self.target.conj()
+        if particles:
+            submatrices=z[
+                occupations[:,:,None],occupations[:,None,:]
+            ]
+            pfaffians=_batch_pfaffian(submatrices)
+            overlap_polynomial=coefficients@pfaffians
+            polynomial_derivative=np.zeros((modes,modes),complex)
+            for row in range(particles-1):
+                for column in range(row+1,particles):
+                    retained=[index for index in range(particles)
+                              if index not in (row,column)]
+                    cofactors=((-1)**(row+column+1))*_batch_pfaffian(
+                        submatrices[:,retained,:][:,:,retained]
+                    )
+                    np.add.at(
+                        polynomial_derivative,
+                        (occupations[:,row],occupations[:,column]),
+                        coefficients*cofactors,
+                    )
+            derivative_polynomial=np.einsum(
+                'ij,pij->p',polynomial_derivative,dz_global,optimize=True
+            )
+        else:
+            overlap_polynomial=coefficients.sum()
+            derivative_polynomial=np.zeros(parameter_count,complex)
+
+        amplitude=normalization*overlap_polynomial
+        derivative_amplitude=normalization*(
+            derivative_polynomial+overlap_polynomial*dlog_norm
+        )
+        fidelity=float(abs(amplitude)**2)
+        gradient=2*np.real(amplitude.conjugate()*derivative_amplitude)
+        return fidelity,gradient
 
 
 def maximize_gaussian_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=1000,
                                tolerance=1e-13,gradient_tolerance=1e-6,
                                initial_parameters=None,parameter_bound=8.,
-                               real_parameters=False):
-    """Multi-start local optimization of the unrestricted Gaussian fidelity."""
+                               real_parameters=False,step_size=.1,momentum=.3):
+    """Maximize raw Gaussian fidelity with local heavy-ball Thouless steps.
+
+    The analytic overlap ``20`` field replaces the former finite-difference
+    L-BFGS-B optimization. ``parameter_bound`` remains accepted for API
+    compatibility but no bound is needed by the canonical local chart.
+
+    References: D. J. Thouless, Ann. Phys. 10, 553 (1960); L. M. Robledo,
+    Phys. Rev. C 79, 021302(R) (2009); B. Bally et al., Eur. Phys. J. A 57,
+    69 (2021).
+    """
     if (starts<1 or maxiter<1 or tolerance<=0 or gradient_tolerance<=0
-            or parameter_bound<=0):
+            or parameter_bound<=0 or step_size<=0 or momentum<0 or momentum>=1):
         raise ValueError('Positive optimizer settings required')
     objective=GaussianFidelityObjective(
         hamiltonian,target,real_parameters=real_parameters
@@ -126,26 +264,74 @@ def maximize_gaussian_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=1000
                               else 2*len(objective.pairs))
             x=rng.normal(scale=scale,size=coordinate_count)
 
-        # SciPy finite-differences this scalar fidelity objective. Keeping the
-        # optimizer separate from projection avoids reintroducing VAP logic.
-        fit=minimize(objective.minimize,x,jac=False,method='L-BFGS-B',
-                     bounds=[(-parameter_bound,parameter_bound)]*len(x),
-                     options={'maxiter':maxiter,'ftol':tolerance,
-                              'gtol':gradient_tolerance/10,'maxls':50})
-        fidelity=objective.fidelity(fit.x)
-        # L-BFGS-B reports its numerical objective gradient at the returned point.
-        residual=float(np.linalg.norm(fit.jac))
-        ok=bool(fit.success and residual<=gradient_tolerance)
+        state=HFBState.from_thouless(objective.unpack(x))
+        velocity=np.zeros_like(x)
+        eta=float(step_size)
+        message='Iteration limit reached'
+        for iteration in range(maxiter):
+            fidelity,gradient=objective.local_value_gradient(state)
+            residual=float(np.linalg.norm(gradient))
+            if residual<=gradient_tolerance:
+                message='Local overlap gradient converged'
+                break
+            # Fidelity gradients are dimensionless and become small well before
+            # their direction becomes uninformative. Use eta as a tangent-space
+            # angular step, while backtracking determines its safe magnitude.
+            proposed=(momentum*velocity+
+                      eta*gradient/max(residual,1e-15))
+            proposed_norm=np.linalg.norm(proposed)
+            if proposed_norm>.25:
+                proposed*=.25/proposed_norm
+            directional_derivative=float(gradient@proposed)
+            if directional_derivative<=0:
+                proposed=eta*gradient/max(residual,1e-15)
+                proposed_norm=np.linalg.norm(proposed)
+                if proposed_norm>.25:
+                    proposed*=.25/proposed_norm
+                directional_derivative=float(gradient@proposed)
+            accepted=False
+            trial_step=proposed.copy()
+            for _ in range(30):
+                trial=apply_thouless_step(
+                    state,trial_step,real_parameters=real_parameters
+                )
+                try:
+                    trial_fidelity=objective.fidelity_state(trial)
+                except (ValueError,np.linalg.LinAlgError):
+                    trial_fidelity=-np.inf
+                if trial_fidelity>=fidelity+1e-4*directional_derivative:
+                    state=trial
+                    velocity=trial_step
+                    eta=min(.3,eta*1.1)
+                    accepted=True
+                    break
+                trial_step*=.5
+                directional_derivative*=.5
+            if not accepted:
+                velocity.fill(0.)
+                eta*=.25
+                if eta<1e-10:
+                    message='Local overlap line search stalled'
+                    break
+        fidelity,gradient=objective.local_value_gradient(state)
+        residual=float(np.linalg.norm(gradient))
+        ok=bool(residual<=gradient_tolerance)
+        parameters=objective.pack(state.thouless_matrix)
         attempts.append({'fidelity':fidelity,'converged':ok,
-                         'gradient_norm':residual,'iterations':int(fit.nit),
-                         'message':str(fit.message)})
-        candidates.append((fidelity,ok,residual,fit.x))
+                         'gradient_norm':residual,'iterations':iteration+1,
+                         'message':message,
+                         'solver':'analytic local-overlap heavy ball',
+                         'step_size':eta,'momentum':float(momentum)})
+        candidates.append((fidelity,ok,residual,parameters,state))
     # Report the largest-fidelity point found, even if no attempt met the strict
     # convergence threshold; ``converged`` communicates that distinction.
-    fidelity,ok,residual,x=max(candidates,key=lambda item:item[0])
-    z=objective.unpack(x)
-    return GaussianFidelityResult(fidelity,x,z,HFBState.from_thouless(z),ok,
-                                  residual,attempts)
+    fidelity,ok,residual,x,state=max(candidates,key=lambda item:item[0])
+    z=state.thouless_matrix
+    z=.5*(z-z.T)
+    state=HFBState.from_thouless(z)
+    return GaussianFidelityResult(
+        fidelity,x,z,state,ok,residual,attempts
+    )
 
 
 def _slater_value_gradient(orbitals,occupations,target):

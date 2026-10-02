@@ -46,6 +46,11 @@ complex or time-reversal-breaking intrinsic states are physically required.
 The implementation and references are described in
 [`docs/hfb_reference_solver.md`](docs/hfb_reference_solver.md).
 
+The closest-Gaussian search also uses an analytic local Thouless gradient. It
+differentiates the normalized Pfaffian overlap, applies canonical heavy-ball
+updates, and evaluates only scalar overlaps during backtracking. This replaces
+the previous finite-difference L-BFGS-B search over every Gaussian coordinate.
+
 ## Projected non-Gaussianity
 
 Increase the Euler quadrature from one point through `(M_MAX,J_MAX,M_MAX)`:

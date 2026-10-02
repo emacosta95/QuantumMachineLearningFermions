@@ -1,12 +1,22 @@
 import unittest
 import numpy as np
 from test_number_projection import fermionic_pairing_model
-from hfb import HFBState
+from hfb import HFBState, apply_thouless_step
 from gaussian_fidelity import (GaussianFidelityObjective, maximize_gaussian_fidelity,
-                               maximize_slater_fidelity, _slater_value_gradient)
+                               maximize_slater_fidelity, _slater_value_gradient,
+                               _batch_pfaffian)
 
 
 class TestGaussianFidelity(unittest.TestCase):
+    def test_batched_four_particle_pfaffian(self):
+        rng=np.random.default_rng(31)
+        matrices=rng.normal(size=(9,4,4))+1j*rng.normal(size=(9,4,4))
+        matrices=matrices-matrices.transpose(0,2,1)
+        expected=(matrices[:,0,1]*matrices[:,2,3]
+                  -matrices[:,0,2]*matrices[:,1,3]
+                  +matrices[:,0,3]*matrices[:,1,2])
+        np.testing.assert_allclose(_batch_pfaffian(matrices),expected,atol=1e-12)
+
     def test_objective_matches_state_api(self):
         _,hamiltonian=fermionic_pairing_model()
         target=np.array([1,2j,-.3,.7+1j])
@@ -27,7 +37,7 @@ class TestGaussianFidelity(unittest.TestCase):
         x=rng.normal(size=12)*.3
         initial=GaussianFidelityObjective(hamiltonian,target).fidelity(x)
         result=maximize_gaussian_fidelity(hamiltonian,target,starts=2,seed=9,
-                                          initial_parameters=x)
+                                          initial_parameters=x,maxiter=100)
         self.assertGreater(result.fidelity,initial+.1)
         self.assertGreaterEqual(result.fidelity,0)
         self.assertLessEqual(result.fidelity,1+1e-10)
@@ -48,6 +58,33 @@ class TestGaussianFidelity(unittest.TestCase):
         )
         self.assertEqual(result.parameters.size, 6)
         self.assertLess(np.linalg.norm(result.thouless_matrix.imag), 1e-14)
+
+    def test_local_overlap_gradient_matches_centered_difference(self):
+        _,hamiltonian=fermionic_pairing_model()
+        target=np.array([1.,.2j,-.3,.7+1j])
+        rng=np.random.default_rng(42)
+        for real_parameters in (True,False):
+            objective=GaussianFidelityObjective(
+                hamiltonian,target,real_parameters=real_parameters
+            )
+            coordinate_count=(len(objective.pairs) if real_parameters
+                              else 2*len(objective.pairs))
+            parameters=rng.normal(scale=.3,size=coordinate_count)
+            state=HFBState.from_thouless(objective.unpack(parameters))
+            value,gradient=objective.local_value_gradient(state)
+            direction=rng.normal(size=coordinate_count)
+            direction/=np.linalg.norm(direction)
+            step=2e-6
+            plus=apply_thouless_step(
+                state,step*direction,real_parameters=real_parameters
+            )
+            minus=apply_thouless_step(
+                state,-step*direction,real_parameters=real_parameters
+            )
+            numerical=(objective.fidelity_state(plus)-
+                       objective.fidelity_state(minus))/(2*step)
+            self.assertAlmostEqual(float(gradient@direction),numerical,places=8)
+            self.assertAlmostEqual(value,objective.fidelity_state(state),places=12)
 
     def test_slater_gradient_and_boundary_optimizer(self):
         _,hamiltonian=fermionic_pairing_model()
