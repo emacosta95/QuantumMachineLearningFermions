@@ -196,6 +196,125 @@ class HFBState:
             for occupied in occupations
         ])
 
+    @staticmethod
+    def _particle_hole_excitation_sign(reference, excitation):
+        """Sign of a particle-hole excitation relative to ``|reference>``.
+
+        For a reference determinant R, particle-hole creation operators are
+        d_i^dagger=c_i for i in R and d_i^dagger=c_i^dagger otherwise.  This
+        routine applies their ordered product and returns the fermionic sign
+        relating the result to the canonical physical determinant ordering.
+        """
+        reference = set(int(index) for index in reference)
+        occupied = set(reference)
+        sign = 1
+        # Operators written in increasing order act on the ket right-to-left.
+        for mode in reversed(tuple(sorted(int(index) for index in excitation))):
+            if sum(index < mode for index in occupied) % 2:
+                sign = -sign
+            if mode in reference:
+                if mode not in occupied:
+                    raise ValueError("Invalid repeated hole excitation")
+                occupied.remove(mode)
+            else:
+                if mode in occupied:
+                    raise ValueError("Invalid repeated particle excitation")
+                occupied.add(mode)
+        return sign, occupied
+
+    def _reference_chart_amplitudes(self, occupations):
+        """Normalized amplitudes in a nonsingular determinant-reference chart.
+
+        A particle-vacuum Thouless chart fails when ``U`` is singular, even for
+        a valid partially paired HFB vacuum.  Particle-hole conjugating the
+        modes occupied in a determinant R replaces the vacuum reference by
+        ``|R>``.  We choose the requested-sector determinant maximizing
+        ``|det(U_R)|`` and expand the same physical state in that stable chart.
+
+        The returned vector is defined up to one global phase, which cannot
+        affect a single-state fidelity or a normalized fixed-sector state.
+        It must not be used to phase independent terms of a projected vacuum
+        series; those terms use their dedicated phase-tracking implementation.
+        """
+        configurations = [tuple(int(index) for index in row) for row in occupations]
+        if not configurations:
+            return np.empty(0, complex)
+        if any(tuple(sorted(row)) != row for row in configurations):
+            raise ValueError("Occupied modes must be in increasing order")
+        particle_counts = {len(row) for row in configurations}
+        if len(particle_counts) != 1:
+            raise ValueError("Reference-chart amplitudes require one particle sector")
+
+        # |det(U_R)| is the squared-overlap scale of the R-reference chart.
+        # Maximizing it selects a determinant on which the HFB vacuum has a
+        # numerically resolvable coefficient.
+        best_reference = None
+        best_log_determinant = -np.inf
+        best_u = None
+        best_v = None
+        for reference in configurations:
+            u_reference = self.U.copy()
+            v_reference = self.V.copy()
+            if reference:
+                rows = np.asarray(reference, dtype=int)
+                u_reference[rows] = self.V[rows]
+                v_reference[rows] = self.U[rows]
+            sign, log_determinant = np.linalg.slogdet(u_reference)
+            if sign != 0 and log_determinant > best_log_determinant:
+                best_reference = reference
+                best_log_determinant = float(log_determinant)
+                best_u = u_reference
+                best_v = v_reference
+        if best_reference is None or np.linalg.cond(best_u) > 1e12:
+            raise ValueError(
+                "No nonsingular particle-hole Thouless chart was found in "
+                "the requested determinant sector"
+            )
+
+        z = np.linalg.solve(best_u.conj().T, best_v.conj().T).T
+        antisymmetry_error = np.linalg.norm(z + z.T)
+        if antisymmetry_error > 1e-8 * max(1.0, np.linalg.norm(z)):
+            raise ValueError("Reference-chart Thouless matrix is not antisymmetric")
+        z = 0.5 * (z - z.T)
+        log_metric = np.linalg.slogdet(
+            np.eye(len(z)) + z.conj().T @ z
+        )[1]
+        normalization = np.exp(-0.25 * log_metric)
+        reference_set = set(best_reference)
+        amplitudes = np.empty(len(configurations), complex)
+        for position, occupied in enumerate(configurations):
+            excitation = tuple(sorted(reference_set.symmetric_difference(occupied)))
+            sign, result = self._particle_hole_excitation_sign(
+                best_reference, excitation
+            )
+            if result != set(occupied):
+                raise ValueError("Particle-hole excitation produced wrong determinant")
+            if excitation:
+                submatrix = z[np.ix_(excitation, excitation)]
+                coefficient = pf.pfaffian(
+                    submatrix, overwrite_a=False, method="P"
+                )
+            else:
+                coefficient = 1.0 + 0.0j
+            amplitudes[position] = sign * normalization * coefficient
+        return amplitudes
+
+    def stable_normalized_occupation_amplitudes(self, occupations):
+        """Normalized single-vacuum amplitudes with a stable chart fallback.
+
+        The ordinary particle-vacuum chart is retained whenever it is valid.
+        Singular or numerically non-antisymmetric recovery switches to a
+        determinant-reference particle-hole chart.  Both routes describe the
+        identical normalized HFB vacuum up to an irrelevant global phase.
+        """
+        try:
+            return self.occupation_amplitudes(occupations, normalized=True)
+        except ValueError as particle_chart_error:
+            try:
+                return self._reference_chart_amplitudes(occupations)
+            except ValueError:
+                raise particle_chart_error
+
     def fixed_sector_state(self, occupations):
         """Return this vacuum normalized within a selected determinant sector.
 

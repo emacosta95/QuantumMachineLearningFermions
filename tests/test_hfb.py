@@ -1,5 +1,6 @@
 """Small independent Fock-space checks; avoids legacy package eager imports."""
 import importlib.util
+import itertools
 from pathlib import Path
 import sys
 import unittest
@@ -319,6 +320,55 @@ class TestHFB(unittest.TestCase):
         self.assertTrue(result.converged, result.attempts)
         self.assertAlmostEqual(result.energy, -5., places=6)
         self.assertLess(result.stationarity_error, 1e-5)
+
+    def test_particle_hole_reference_chart_matches_regular_chart(self):
+        rng = np.random.default_rng(23)
+        modes = 6
+        z = rng.normal(size=(modes, modes)) + 1j * rng.normal(
+            size=(modes, modes)
+        )
+        z = 0.2 * (z - z.T)
+        state = hfb.HFBState.from_thouless(z)
+        occupations = list(itertools.combinations(range(modes), 2))
+
+        ordinary = state.occupation_amplitudes(
+            occupations, normalized=True
+        )
+        reference = state._reference_chart_amplitudes(occupations)
+        phase = np.vdot(ordinary, reference)
+        phase /= abs(phase)
+
+        np.testing.assert_allclose(reference, phase * ordinary, atol=2e-12)
+
+    def test_particle_hole_chart_handles_partially_paired_singular_u(self):
+        modes = 6
+        strength = 0.7
+        relative_z = np.zeros((modes, modes), complex)
+        relative_z[2, 3] = strength
+        relative_z[3, 2] = -strength
+        relative = hfb.HFBState.from_thouless(relative_z)
+
+        # Particle-hole conjugate modes 0 and 1. They are exactly occupied,
+        # while modes 2 and 3 remain paired, so U is singular but kappa != 0.
+        u = relative.U.copy()
+        v = relative.V.copy()
+        rows = np.array([0, 1])
+        u[rows] = relative.V[rows]
+        v[rows] = relative.U[rows]
+        state = hfb.HFBState(u, v)
+        occupations = list(itertools.combinations(range(modes), 4))
+
+        amplitudes = state.stable_normalized_occupation_amplitudes(
+            occupations
+        )
+
+        self.assertTrue(np.isinf(np.linalg.cond(state.U)))
+        self.assertGreater(np.linalg.norm(state.kappa), 0.1)
+        self.assertAlmostEqual(
+            float(np.vdot(amplitudes, amplitudes).real),
+            strength**2 / (1 + strength**2),
+            places=12,
+        )
 
     def test_invalid_interaction_rejected(self):
         with self.assertRaises(ValueError):

@@ -37,7 +37,7 @@ def _relative_error(value: float, exact: float) -> float:
 
 def _state_overlap(state, occupations, target):
     """Return raw fidelity, sector weight, and sector-conditioned fidelity."""
-    amplitudes = state.occupation_amplitudes(occupations, normalized=True)
+    amplitudes = state.stable_normalized_occupation_amplitudes(occupations)
     sector_weight = float(np.vdot(amplitudes, amplitudes).real)
     raw_fidelity = float(abs(np.vdot(target, amplitudes)) ** 2)
     conditional = (
