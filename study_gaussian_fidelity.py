@@ -36,14 +36,13 @@ def _relative_error(value: float, exact: float) -> float:
 
 
 def _state_overlap(state, occupations, target):
-    """Return raw fidelity, sector weight, and sector-conditioned fidelity."""
+    """Return the intrinsic fidelity ``|<Psi_0|Phi>|^2``.
+
+    Although ``occupations`` enumerate the symmetry sector supporting the exact
+    state, the Gaussian is neither projected nor renormalized in that sector.
+    """
     amplitudes = state.stable_normalized_occupation_amplitudes(occupations)
-    sector_weight = float(np.vdot(amplitudes, amplitudes).real)
-    raw_fidelity = float(abs(np.vdot(target, amplitudes)) ** 2)
-    conditional = (
-        raw_fidelity / sector_weight if sector_weight > 1e-14 else None
-    )
-    return raw_fidelity, sector_weight, conditional
+    return float(abs(np.vdot(target, amplitudes)) ** 2)
 
 
 def _stable_variational_fidelity_state(state, particles):
@@ -190,7 +189,7 @@ def run_study(
                 variational.state, sum(targets)
             )
         )
-        var_raw, var_weight, var_conditional = _state_overlap(
+        var_fidelity = _state_overlap(
             variational_fidelity_state, fermionic.occupations, target
         )
 
@@ -208,7 +207,7 @@ def run_study(
             gradient_tolerance=2e-6,
             real_parameters=real_bogoliubov,
         )
-        gauss_raw, gauss_weight, gauss_conditional = _state_overlap(
+        gauss_fidelity = _state_overlap(
             closest.state, fermionic.occupations, target
         )
         closest_energy = float(intrinsic_hamiltonian.energy(closest.state))
@@ -234,9 +233,7 @@ def run_study(
             "variational_energy_relative_error": _relative_error(
                 variational.energy, exact_energy
             ),
-            "variational_ground_state_fidelity_raw": var_raw,
-            "variational_target_sector_weight": var_weight,
-            "variational_ground_state_fidelity_conditioned": var_conditional,
+            "variational_ground_state_fidelity": var_fidelity,
             "variational_numbers": variational.numbers.tolist(),
             "variational_pairing_norm": float(
                 np.linalg.norm(variational.state.kappa)
@@ -255,11 +252,7 @@ def run_study(
             "closest_gaussian_parameter_count": int(
                 closest.parameters.size
             ),
-            "closest_gaussian_ground_state_fidelity_raw": gauss_raw,
-            "closest_gaussian_target_sector_weight": gauss_weight,
-            "closest_gaussian_ground_state_fidelity_conditioned": (
-                gauss_conditional
-            ),
+            "closest_gaussian_ground_state_fidelity": gauss_fidelity,
             "closest_gaussian_energy": closest_energy,
             "closest_gaussian_energy_relative_error": _relative_error(
                 closest_energy, exact_energy

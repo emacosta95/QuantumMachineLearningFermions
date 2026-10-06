@@ -22,10 +22,17 @@ python study_gaussian_fidelity.py --interaction usdb --isotopes 20 \
   --variational-method hfb --variational-only
 ```
 
-The JSON report includes raw and target-sector-conditioned fidelities, exact
-and variational energies, relative energy errors, convergence diagnostics,
-particle numbers, and pairing norms.  USDB exact diagonalization is restricted
-to the M=0 sector; M=0 is not imposed on the intrinsic HF/HFB calculation.
+The JSON report includes the intrinsic fidelity
+`|<exact ground state|Gaussian>|^2`, exact and variational energies, relative
+energy errors, convergence diagnostics, particle numbers, and pairing norms.
+It does not report a sector-conditioned fidelity or a target-sector weight:
+those are properties of a projected analysis, not of the intrinsic Gaussian
+comparison performed here. USDB exact diagonalization is restricted to the
+M=0 sector; M=0 is not imposed on the intrinsic HF/HFB calculation.
+
+New reports use the unambiguous fields `variational_ground_state_fidelity` and
+`closest_gaussian_ground_state_fidelity`. The plotter still accepts older JSON
+files whose corresponding field names ended in `_raw`.
 
 Use `--variational-method hf` for the number-conserving `kappa=0` manifold or
 `--variational-method hfb` for the paired Bogoliubov manifold. Both use the
@@ -51,23 +58,26 @@ differentiates the normalized Pfaffian overlap, applies canonical heavy-ball
 updates, and evaluates only scalar overlaps during backtracking. This replaces
 the previous finite-difference L-BFGS-B search over every Gaussian coordinate.
 
-A step-by-step Neon tutorial, including the distinction between raw,
-target-sector-conditioned, and rotationally projected fidelities, is available
+A step-by-step Neon tutorial, including the distinction between intrinsic and
+rotationally projected fidelities, is available
 in [`NeonGaussianFidelityTutorial.ipynb`](NeonGaussianFidelityTutorial.ipynb).
 
 Visualize any JSON report from either study script with:
 
 ```bash
-python plot_study_results.py results/usdb_gaussian_fidelity.json
+python plot_study_results.py results/usdb_gaussian_fidelity.json --per-isotope
 python plot_study_results.py \
   results/usdb_ne20_projection_grid_convergence.json \
   --output results/ne20_projection.png
 ```
 
-The first format produces fidelity, sector-weight, energy-error, and optimizer
+The first format produces intrinsic-fidelity, energy, relative-error, and optimizer
 residual panels. The projection format produces heat maps against the two Euler
 grid sizes. The image defaults to the JSON filename with a `.png` extension;
 `--output figure.pdf` or `--output figure.svg` creates a vector figure instead.
+With `--per-isotope`, the Gaussian study also writes one four-panel image for
+every completed nucleus, for example `..._ne20.png`, `..._ne22.png`, and
+`..._ne24.png`.
 
 ## Projected non-Gaussianity
 

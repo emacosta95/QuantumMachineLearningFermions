@@ -23,11 +23,15 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
 
-def _values(rows, key):
+def _values(rows, key, legacy_key=None):
     """Return a float array, representing absent/None entries as NaN."""
-    return np.asarray([
-        np.nan if row.get(key) is None else float(row[key]) for row in rows
-    ])
+    values = []
+    for row in rows:
+        value = row.get(key)
+        if value is None and legacy_key is not None:
+            value = row.get(legacy_key)
+        values.append(np.nan if value is None else float(value))
+    return np.asarray(values)
 
 
 def _positive(values):
@@ -44,50 +48,53 @@ def plot_gaussian_fidelity(report):
 
     labels = [str(row["nucleus"]) for row in rows]
     x = np.arange(len(rows), dtype=float)
-    width = 0.19
+    width = 0.34
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
 
     fidelity_series = (
-        ("HFB/HF raw", "variational_ground_state_fidelity_raw", "C0", ""),
-        ("HFB/HF conditioned", "variational_ground_state_fidelity_conditioned", "C0", "//"),
-        ("max-overlap raw", "closest_gaussian_ground_state_fidelity_raw", "C1", ""),
-        ("max-overlap conditioned", "closest_gaussian_ground_state_fidelity_conditioned", "C1", "//"),
+        ("energy-optimized HFB/HF", "variational_ground_state_fidelity",
+         "variational_ground_state_fidelity_raw", "C0"),
+        ("maximum-overlap Gaussian", "closest_gaussian_ground_state_fidelity",
+         "closest_gaussian_ground_state_fidelity_raw", "C1"),
     )
-    for index, (label, key, color, hatch) in enumerate(fidelity_series):
+    for index, (label, key, legacy_key, color) in enumerate(fidelity_series):
         axes[0, 0].bar(
-            x + (index - 1.5) * width,
-            _values(rows, key),
+            x + (index - 0.5) * width,
+            _values(rows, key, legacy_key),
             width,
             label=label,
             color=color,
-            hatch=hatch,
-            alpha=0.9 if not hatch else 0.55,
-            edgecolor="black" if hatch else color,
-            linewidth=0.6,
         )
-    axes[0, 0].set_title("Ground-state fidelity")
-    axes[0, 0].set_ylabel("fidelity")
+    axes[0, 0].set_title("Intrinsic ground-state fidelity")
+    axes[0, 0].set_ylabel(r"$|\langle\Psi_0|\Phi\rangle|^2$")
     axes[0, 0].set_ylim(0.0, 1.05)
-    axes[0, 0].legend(fontsize=8, ncols=2)
+    axes[0, 0].legend(fontsize=8)
 
+    energy_width = 0.25
     axes[0, 1].bar(
-        x - width / 2,
-        _values(rows, "variational_target_sector_weight"),
-        width,
+        x - energy_width,
+        _values(rows, "exact_energy"),
+        energy_width,
+        label="exact",
+        color="black",
+    )
+    axes[0, 1].bar(
+        x,
+        _values(rows, "variational_energy"),
+        energy_width,
         label="HFB/HF",
         color="C0",
     )
     axes[0, 1].bar(
-        x + width / 2,
-        _values(rows, "closest_gaussian_target_sector_weight"),
-        width,
-        label="max overlap",
+        x + energy_width,
+        _values(rows, "closest_gaussian_energy"),
+        energy_width,
+        label="maximum overlap",
         color="C1",
     )
-    axes[0, 1].set_title("Weight in the exact $(N,Z,M=0)$ sector")
-    axes[0, 1].set_ylabel("sector weight")
-    axes[0, 1].set_ylim(0.0, 1.05)
-    axes[0, 1].legend()
+    axes[0, 1].set_title("Energy comparison")
+    axes[0, 1].set_ylabel("energy")
+    axes[0, 1].legend(fontsize=8)
 
     axes[1, 0].bar(
         x - width / 2,
@@ -133,7 +140,10 @@ def plot_gaussian_fidelity(report):
 
     interaction = str(report.get("interaction", "unknown")).upper()
     status = str(report.get("status", "unknown"))
-    fig.suptitle(f"{interaction} Gaussian comparison ({status})", fontsize=14)
+    nucleus = f" {labels[0]}" if len(labels) == 1 else " isotope chain"
+    fig.suptitle(
+        f"{interaction}{nucleus} Gaussian comparison ({status})", fontsize=14
+    )
     return fig
 
 
@@ -215,6 +225,11 @@ def main():
         "--output",
         help="PNG/PDF/SVG path (default: report name with .png extension)",
     )
+    parser.add_argument(
+        "--per-isotope",
+        action="store_true",
+        help="also save a separate four-panel figure for every isotope",
+    )
     parser.add_argument("--dpi", type=int, default=180)
     args = parser.parse_args()
 
@@ -230,6 +245,23 @@ def main():
     figure.savefig(output_path, dpi=args.dpi, bbox_inches="tight")
     plt.close(figure)
     print(f"Wrote {output_path}")
+
+    if args.per_isotope:
+        if "results" not in report:
+            parser.error("--per-isotope applies only to Gaussian-fidelity reports")
+        for row in report.get("results", []):
+            isotope_report = dict(report)
+            isotope_report["results"] = [row]
+            isotope_figure = plot_gaussian_fidelity(isotope_report)
+            isotope_path = output_path.with_name(
+                f"{output_path.stem}_{str(row['nucleus']).lower()}"
+                f"{output_path.suffix}"
+            )
+            isotope_figure.savefig(
+                isotope_path, dpi=args.dpi, bbox_inches="tight"
+            )
+            plt.close(isotope_figure)
+            print(f"Wrote {isotope_path}")
 
 
 if __name__ == "__main__":
