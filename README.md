@@ -53,10 +53,21 @@ complex or time-reversal-breaking intrinsic states are physically required.
 The implementation and references are described in
 [`docs/hfb_reference_solver.md`](docs/hfb_reference_solver.md).
 
-The closest-Gaussian search also uses an analytic local Thouless gradient. It
-differentiates the normalized Pfaffian overlap, applies canonical heavy-ball
-updates, and evaluates only scalar overlaps during backtracking. This replaces
-the previous finite-difference L-BFGS-B search over every Gaussian coordinate.
+The closest-Gaussian search uses no numerical differentiation. It accumulates
+the Pfaffian cofactors once, reverse-contracts them into a compact local
+`F20` field, applies canonical heavy-ball updates, and evaluates only scalar
+overlaps during backtracking. This is the overlap analogue of the energy
+`H20` solver and replaces the previous finite-difference L-BFGS-B search.
+
+Every closest-Gaussian calculation now runs both the finite-Thouless
+Bogoliubov search and the number-conserving HF/Slater-boundary search, then
+returns the larger intrinsic fidelity. The JSON records the selected family
+and the convergence data for both searches. `--gaussian-starts` and
+`--gaussian-maxiter` control the Bogoliubov search; use
+`--gaussian-hf-starts` and `--gaussian-hf-maxiter` to override those values for
+the HF overlap search. This HF boundary fixes the target's total particle
+number but permits neutron-proton orbital mixing; it does not impose separate
+intrinsic neutron and proton numbers.
 
 A step-by-step Neon tutorial, including the distinction between intrinsic and
 rotationally projected fidelities, is available

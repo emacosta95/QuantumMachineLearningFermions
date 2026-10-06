@@ -13,12 +13,15 @@ searched. The implementation handles two parts of the even Gaussian manifold:
 
 - `maximize_gaussian_fidelity`: unrestricted Thouless vacua with nonzero vacuum
   overlap. It uses Pfaffian sector amplitudes, exact full-Gaussian normalization,
-  finite-difference optimization and multiple ordinary/large-norm starts.
+  a compact analytic local `F20` field, and multiple ordinary/large-norm starts.
 - `maximize_slater_fidelity`: the singular number-conserving Slater boundary.
-  It optimizes four complex occupied orbitals on the Stiefel manifold, permits
-  proton-neutron orbital mixing, and uses analytic determinant gradients.
+  It optimizes the target number of occupied orbitals on a real or complex
+  Stiefel manifold, permits
+  proton-neutron orbital mixing, and uses analytic determinant gradients. It
+  fixes total particle number, not the two species numbers separately.
 
-The reported best-found Gaussian is the better of both searches. This addresses
+`maximize_best_gaussian_fidelity` runs both searches and reports their larger
+fidelity. This addresses
 a practical coordinate issue: a non-vacuum Slater determinant lies at infinite
 Thouless norm and cannot be represented as a finite Z matrix.
 
@@ -44,11 +47,15 @@ that the closest Gaussian belongs to the Slater boundary.
 
 ```python
 from NSMFermions.gaussian_fidelity import (
-    maximize_gaussian_fidelity, maximize_slater_fidelity)
+    maximize_best_gaussian_fidelity)
 
-interior = maximize_gaussian_fidelity(fermionic_hamiltonian, target, starts=16)
-boundary = maximize_slater_fidelity(fermionic_hamiltonian, target, starts=10)
-best_fidelity = max(interior.fidelity, boundary.fidelity)
+best = maximize_best_gaussian_fidelity(
+    fermionic_hamiltonian,
+    target,
+    bogoliubov_starts=16,
+    hartree_fock_starts=10,
+)
+best_fidelity = best.fidelity
 non_gaussianity = 1 - best_fidelity
 ```
 

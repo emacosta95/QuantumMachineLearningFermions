@@ -55,6 +55,8 @@ FAF_ORDER="${FAF_ORDER:-2}"
 ISOTOPES="${ISOTOPES:-}"
 GAUSSIAN_STARTS="${GAUSSIAN_STARTS:-4}"
 GAUSSIAN_MAXITER="${GAUSSIAN_MAXITER:-1000}"
+GAUSSIAN_HF_STARTS="${GAUSSIAN_HF_STARTS:-$GAUSSIAN_STARTS}"
+GAUSSIAN_HF_MAXITER="${GAUSSIAN_HF_MAXITER:-$GAUSSIAN_MAXITER}"
 COMPLEX_BOGOLIUBOV="${COMPLEX_BOGOLIUBOV:-0}"
 VARIATIONAL_ONLY="${VARIATIONAL_ONLY:-0}"
 
@@ -91,6 +93,8 @@ run_fidelity() {
         --maxiter "$MAXITER"
         --gaussian-starts "$GAUSSIAN_STARTS"
         --gaussian-maxiter "$GAUSSIAN_MAXITER"
+        --gaussian-hf-starts "$GAUSSIAN_HF_STARTS"
+        --gaussian-hf-maxiter "$GAUSSIAN_HF_MAXITER"
         --seed "$SEED"
         --output "$OUTDIR/${INTERACTION}_gaussian_fidelity.json"
     )

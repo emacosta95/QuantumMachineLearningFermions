@@ -48,10 +48,34 @@ def plot_gaussian_fidelity(report):
 
     labels = [str(row["nucleus"]) for row in rows]
     x = np.arange(len(rows), dtype=float)
-    width = 0.34
+    has_component_fidelities = all(
+        row.get("closest_bogoliubov_fidelity") is not None
+        and row.get("closest_hartree_fock_fidelity") is not None
+        for row in rows
+    )
+    width = 0.25 if has_component_fidelities else 0.34
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), constrained_layout=True)
 
     fidelity_series = (
+        (
+            "energy-optimized HFB/HF",
+            "variational_ground_state_fidelity",
+            "variational_ground_state_fidelity_raw",
+            "C0",
+        ),
+        (
+            "maximum-overlap Bogoliubov",
+            "closest_bogoliubov_fidelity",
+            None,
+            "C1",
+        ),
+        (
+            "maximum-overlap HF",
+            "closest_hartree_fock_fidelity",
+            None,
+            "C2",
+        ),
+    ) if has_component_fidelities else (
         ("energy-optimized HFB/HF", "variational_ground_state_fidelity",
          "variational_ground_state_fidelity_raw", "C0"),
         ("maximum-overlap Gaussian", "closest_gaussian_ground_state_fidelity",
@@ -59,7 +83,7 @@ def plot_gaussian_fidelity(report):
     )
     for index, (label, key, legacy_key, color) in enumerate(fidelity_series):
         axes[0, 0].bar(
-            x + (index - 0.5) * width,
+            x + (index - (len(fidelity_series) - 1) / 2) * width,
             _values(rows, key, legacy_key),
             width,
             label=label,

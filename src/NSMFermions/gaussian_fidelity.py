@@ -40,6 +40,21 @@ class SlaterFidelityResult:
     attempts: list
 
 
+@dataclass
+class BestGaussianFidelityResult:
+    """Best result from the Bogoliubov interior and Slater boundary."""
+
+    fidelity: float
+    state: object
+    family: str
+    parameters: np.ndarray
+    converged: bool
+    gradient_norm: float
+    attempts: list
+    bogoliubov: object
+    hartree_fock: object
+
+
 def _batch_pfaffian(matrices):
     """Evaluate small antisymmetric Pfaffians with vectorized recursion."""
     matrices=np.asarray(matrices,complex)
@@ -142,64 +157,31 @@ class GaussianFidelityObjective:
         """Negate fidelity for SciPy's minimization interface."""
         return -self.fidelity(x)
 
-    def local_value_gradient(self,state):
-        """Return fidelity and its analytic local quasiparticle gradient.
+    def local_value_field(self,state):
+        """Return fidelity and its compact analytic local ``F20`` field.
 
-        An infinitesimal canonical update obeys ``dU=V* dZ_qp`` and
-        ``dV=U* dZ_qp``. These variations are mapped to the particle-vacuum
-        Thouless matrix, where every fixed-sector coefficient is a normalized
-        Pfaffian. Differentiating those Pfaffians produces the overlap analogue
-        of the HFB ``H20`` field without finite differences over all coordinates.
-
-        This combines the Thouless representation and Pfaffian amplitudes with
-        the local heavy-ball strategy of B. Bally et al., Eur. Phys. J. A 57,
-        69 (2021), doi:10.1140/epja/s10050-021-00369-z.
+        The antisymmetric field satisfies
+        ``dF = 2 Re sum_{a<m} F20[a,m] dZ_qp[a,m]*``.  All Pfaffian
+        derivatives are accumulated once and reverse-contracted into the
+        current quasiparticle frame, just as energy HFB constructs ``H20``.
         """
         z=state.thouless_matrix
         z=.5*(z-z.T)
         modes=self.modes
-        pair_rows,pair_columns=self.ij
-        pair_count=len(pair_rows)
-        parameter_count=(pair_count if self.real_parameters else 2*pair_count)
-
-        dz_qp=np.zeros((parameter_count,modes,modes),complex)
-        directions=np.arange(pair_count)
-        dz_qp[directions,pair_rows,pair_columns]=1.
-        dz_qp[directions,pair_columns,pair_rows]=-1.
-        if not self.real_parameters:
-            dz_qp[pair_count+directions,pair_rows,pair_columns]=1j
-            dz_qp[pair_count+directions,pair_columns,pair_rows]=-1j
-
-        # Z=V* (U*)^-1 and local dU=V* dZ_qp, dV=U* dZ_qp.
-        inverse_u_conjugate=np.linalg.inv(state.U.conj())
-        left=state.U-z@state.V
-        dz_global=np.matmul(
-            np.matmul(left[None,:,:],dz_qp.conj()),
-            inverse_u_conjugate[None,:,:],
-        )
-        dz_global=.5*(dz_global-dz_global.transpose(0,2,1))
-
         metric=np.eye(modes)+z.conj().T@z
         inverse_metric=np.linalg.inv(metric)
         normalization=np.exp(-.25*np.linalg.slogdet(metric)[1])
-        dmetric=(
-            np.matmul(dz_global.conj().transpose(0,2,1),z)
-            +np.matmul(z.conj().T[None,:,:],dz_global)
-        )
-        dlog_norm=-.25*np.einsum(
-            'ij,pji->p',inverse_metric,dmetric,optimize=True
-        ).real
 
         occupations=self.occupation_array
         particles=occupations.shape[1]
         coefficients=self.target.conj()
+        polynomial_derivative=np.zeros((modes,modes),complex)
         if particles:
             submatrices=z[
                 occupations[:,:,None],occupations[:,None,:]
             ]
             pfaffians=_batch_pfaffian(submatrices)
             overlap_polynomial=coefficients@pfaffians
-            polynomial_derivative=np.zeros((modes,modes),complex)
             for row in range(particles-1):
                 for column in range(row+1,particles):
                     retained=[index for index in range(particles)
@@ -212,19 +194,37 @@ class GaussianFidelityObjective:
                         (occupations[:,row],occupations[:,column]),
                         coefficients*cofactors,
                     )
-            derivative_polynomial=np.einsum(
-                'ij,pij->p',polynomial_derivative,dz_global,optimize=True
-            )
         else:
             overlap_polynomial=coefficients.sum()
-            derivative_polynomial=np.zeros(parameter_count,complex)
 
         amplitude=normalization*overlap_polynomial
-        derivative_amplitude=normalization*(
-            derivative_polynomial+overlap_polynomial*dlog_norm
-        )
         fidelity=float(abs(amplitude)**2)
-        gradient=2*np.real(amplitude.conjugate()*derivative_amplitude)
+
+        # For a global particle-chart variation dZ,
+        # dF = 2 Re sum_ij global_field_ij dZ_ij.  The second term is the
+        # derivative of the exact Gaussian normalization.
+        normalization_field=z.conj()@inverse_metric.T
+        global_field=(
+            normalization**2*overlap_polynomial.conj()*polynomial_derivative
+            -.5*fidelity*normalization_field
+        )
+
+        # dZ=(U-ZV) dZ_qp* (U*)^-1.  Reverse-contract this relation once and
+        # antisymmetrize to obtain all independent quasiparticle-pair entries.
+        left=state.U-z@state.V
+        transformed=left.T@global_field
+        local_field=np.linalg.solve(state.U.conj(),transformed.T).T
+        return fidelity,local_field-local_field.T
+
+    def local_value_gradient(self,state):
+        """Return fidelity and real optimizer coordinates of local ``F20``."""
+        fidelity,field=self.local_value_field(state)
+        upper=field[self.ij]
+        gradient=(
+            2*upper.real
+            if self.real_parameters
+            else np.concatenate((2*upper.real,2*upper.imag))
+        )
         return fidelity,gradient
 
 
@@ -272,7 +272,11 @@ def maximize_gaussian_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=1000
             fidelity,gradient=objective.local_value_gradient(state)
             residual=float(np.linalg.norm(gradient))
             if residual<=gradient_tolerance:
-                message='Local overlap gradient converged'
+                message=(
+                    'Local overlap gradient converged'
+                    if fidelity>1e-14
+                    else 'Zero-overlap stationary point'
+                )
                 break
             # Fidelity gradients are dimensionless and become small well before
             # their direction becomes uninformative. Use eta as a tangent-space
@@ -315,12 +319,12 @@ def maximize_gaussian_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=1000
                     break
         fidelity,gradient=objective.local_value_gradient(state)
         residual=float(np.linalg.norm(gradient))
-        ok=bool(residual<=gradient_tolerance)
+        ok=bool(residual<=gradient_tolerance and fidelity>1e-14)
         parameters=objective.pack(state.thouless_matrix)
         attempts.append({'fidelity':fidelity,'converged':ok,
                          'gradient_norm':residual,'iterations':iteration+1,
                          'message':message,
-                         'solver':'analytic local-overlap heavy ball',
+                         'solver':'compact analytic F20 heavy ball',
                          'step_size':eta,'momentum':float(momentum)})
         candidates.append((fidelity,ok,residual,parameters,state))
     # Report the largest-fidelity point found, even if no attempt met the strict
@@ -345,8 +349,8 @@ def _slater_value_gradient(orbitals,occupations,target):
     determinants=np.linalg.det(sub)
     coefficients=target.conj()
     amplitude=coefficients@determinants
-    derivative=np.zeros_like(orbitals)
-    cofactors=np.empty_like(sub)
+    derivative=np.zeros(orbitals.shape,complex)
+    cofactors=np.empty(sub.shape,complex)
     # For nonsingular minors, det derivative = det(C) C^{-T}.  Near a singular
     # minor, form cofactors explicitly so the derivative remains defined.
     regular=abs(determinants)>1e-11
@@ -369,13 +373,16 @@ def _slater_value_gradient(orbitals,occupations,target):
 
 
 def maximize_slater_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=2000,
-                             gradient_tolerance=1e-7,initial_orbitals=None):
+                             gradient_tolerance=1e-7,initial_orbitals=None,
+                             real_parameters=False):
     """Optimize the number-conserving Slater boundary of Gaussian states.
 
-    Uses Riemannian steepest ascent with QR retraction on the complex Stiefel
-    manifold. Orbitals may mix neutron and proton modes; only total particle
-    number equals the target sector's total number.
+    Uses Riemannian steepest ascent with QR retraction on a real or complex
+    Stiefel manifold. Orbitals may mix neutron and proton modes; only total
+    particle number equals the target sector's total number.
     """
+    if starts<1 or maxiter<1 or gradient_tolerance<=0:
+        raise ValueError('Positive Slater optimizer settings required')
     # Reuse the exact basis owned by FermiHubbardHamiltonian.
     occupations,_,_=fermionic_basis_data(hamiltonian)
     target=np.asarray(target,complex)
@@ -385,24 +392,34 @@ def maximize_slater_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=2000,
     particles=len(occupations[0]); modes=hamiltonian.modes
     rng=np.random.default_rng(seed)
     seeds=[]
+    # The determinant with largest target coefficient has rigorously nonzero
+    # overlap. Put it first so even starts=1 cannot select the flat F=0 point
+    # where the gradient of the squared overlap vanishes.
+    dominant=occupations[int(np.argmax(abs(target)))]
+    c=np.zeros((modes,particles),complex); c[list(dominant),range(particles)]=1
+    seeds.append(c)
     if initial_orbitals is not None:
         c=np.asarray(initial_orbitals,complex)
         if c.shape!=(modes,particles):
             raise ValueError('Initial orbitals have wrong shape')
+        if real_parameters and np.max(np.abs(c.imag),initial=0.)>1e-12:
+            raise ValueError('Real Slater optimization needs real initial orbitals')
+        if real_parameters:
+            c=c.real
         seeds.append(np.linalg.qr(c)[0])
-    # Include the determinant with largest target coefficient as a deterministic
-    # physically meaningful seed, then fill remaining starts randomly.
-    dominant=occupations[int(np.argmax(abs(target)))]
-    c=np.zeros((modes,particles),complex); c[list(dominant),range(particles)]=1
-    seeds.append(c)
     while len(seeds)<starts:
-        seeds.append(np.linalg.qr(rng.normal(size=(modes,particles))+
-                                  1j*rng.normal(size=(modes,particles)))[0])
+        random_orbitals=rng.normal(size=(modes,particles))
+        if not real_parameters:
+            random_orbitals=(random_orbitals+
+                             1j*rng.normal(size=(modes,particles)))
+        seeds.append(np.linalg.qr(random_orbitals)[0])
     attempts=[]; candidates=[]
     for c in seeds[:starts]:
         value=0.; residual=np.inf
         for iteration in range(maxiter):
             value,g=_slater_value_gradient(c,occupations,target)
+            if real_parameters:
+                g=g.real
 
             # Project the Euclidean gradient onto the tangent space of the
             # complex Stiefel manifold C^dagger C=I.
@@ -424,11 +441,75 @@ def maximize_slater_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=2000,
             if not accepted:
                 break
         value,g=_slater_value_gradient(c,occupations,target)
+        if real_parameters:
+            g=g.real
         ctg=c.conj().T@g
         residual=float(np.linalg.norm(g-c@((ctg+ctg.conj().T)/2)))
-        ok=bool(residual<=gradient_tolerance)
+        ok=bool(residual<=gradient_tolerance and value>1e-14)
         attempts.append({'fidelity':value,'converged':ok,
-                         'gradient_norm':residual,'iterations':iteration+1})
+                         'gradient_norm':residual,'iterations':iteration+1,
+                         'message':('Converged' if ok else
+                                    'Zero-overlap stationary point'
+                                    if value<=1e-14 else
+                                    'Iteration or line-search limit')})
         candidates.append((value,ok,residual,c.copy()))
     value,ok,residual,c=max(candidates,key=lambda item:item[0])
     return SlaterFidelityResult(value,c,ok,residual,attempts)
+
+
+def maximize_best_gaussian_fidelity(
+    hamiltonian,target,*,bogoliubov_starts=8,hartree_fock_starts=None,
+    seed=0,bogoliubov_maxiter=1000,hartree_fock_maxiter=None,
+    gradient_tolerance=1e-6,real_parameters=False,
+    initial_bogoliubov_parameters=None,initial_hartree_fock_orbitals=None,
+):
+    """Optimize both Gaussian components and return the larger fidelity.
+
+    Finite particle-vacuum Thouless charts do not contain nonempty Slater
+    determinants because those states have singular ``U``.  A complete
+    best-found pure-Gaussian search therefore needs both the paired
+    Bogoliubov interior and the number-conserving Hartree-Fock boundary.
+    """
+    if hartree_fock_starts is None:
+        hartree_fock_starts=bogoliubov_starts
+    if hartree_fock_maxiter is None:
+        hartree_fock_maxiter=bogoliubov_maxiter
+
+    bogoliubov=maximize_gaussian_fidelity(
+        hamiltonian,target,starts=bogoliubov_starts,seed=seed,
+        maxiter=bogoliubov_maxiter,
+        gradient_tolerance=gradient_tolerance,
+        real_parameters=real_parameters,
+        initial_parameters=initial_bogoliubov_parameters,
+    )
+    hartree_fock=maximize_slater_fidelity(
+        hamiltonian,target,starts=hartree_fock_starts,seed=seed+1000003,
+        maxiter=hartree_fock_maxiter,
+        gradient_tolerance=gradient_tolerance,
+        real_parameters=real_parameters,
+        initial_orbitals=initial_hartree_fock_orbitals,
+    )
+
+    if hartree_fock.fidelity>bogoliubov.fidelity:
+        return BestGaussianFidelityResult(
+            fidelity=hartree_fock.fidelity,
+            state=HFBState.from_slater(hartree_fock.orbitals),
+            family='hartree_fock',
+            parameters=hartree_fock.orbitals,
+            converged=hartree_fock.converged,
+            gradient_norm=hartree_fock.gradient_norm,
+            attempts=hartree_fock.attempts,
+            bogoliubov=bogoliubov,
+            hartree_fock=hartree_fock,
+        )
+    return BestGaussianFidelityResult(
+        fidelity=bogoliubov.fidelity,
+        state=bogoliubov.state,
+        family='bogoliubov',
+        parameters=bogoliubov.parameters,
+        converged=bogoliubov.converged,
+        gradient_norm=bogoliubov.gradient_norm,
+        attempts=bogoliubov.attempts,
+        bogoliubov=bogoliubov,
+        hartree_fock=hartree_fock,
+    )

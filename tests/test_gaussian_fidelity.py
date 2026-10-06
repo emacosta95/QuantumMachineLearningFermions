@@ -3,8 +3,9 @@ import numpy as np
 from test_number_projection import fermionic_pairing_model
 from hfb import HFBState, apply_thouless_step
 from gaussian_fidelity import (GaussianFidelityObjective, maximize_gaussian_fidelity,
-                               maximize_slater_fidelity, _slater_value_gradient,
-                               _batch_pfaffian)
+                               maximize_slater_fidelity,
+                               maximize_best_gaussian_fidelity,
+                               _slater_value_gradient, _batch_pfaffian)
 
 
 class TestGaussianFidelity(unittest.TestCase):
@@ -42,6 +43,18 @@ class TestGaussianFidelity(unittest.TestCase):
         self.assertGreaterEqual(result.fidelity,0)
         self.assertLessEqual(result.fidelity,1+1e-10)
 
+    def test_zero_overlap_stationary_point_is_not_convergence(self):
+        _,hamiltonian=fermionic_pairing_model()
+        target=np.array([1.,0.,0.,0.])
+        result=maximize_gaussian_fidelity(
+            hamiltonian,target,starts=1,maxiter=3,
+            initial_parameters=np.zeros(12),
+        )
+        self.assertFalse(result.converged)
+        self.assertEqual(
+            result.attempts[0]['message'],'Zero-overlap stationary point'
+        )
+
     def test_real_gaussian_chart_uses_half_the_coordinates(self):
         _,hamiltonian=fermionic_pairing_model()
         target=np.array([1., .2, -.3, .1])
@@ -72,6 +85,13 @@ class TestGaussianFidelity(unittest.TestCase):
             parameters=rng.normal(scale=.3,size=coordinate_count)
             state=HFBState.from_thouless(objective.unpack(parameters))
             value,gradient=objective.local_value_gradient(state)
+            field_value,field=objective.local_value_field(state)
+            self.assertAlmostEqual(value,field_value,places=13)
+            np.testing.assert_allclose(field,-field.T,atol=1e-13)
+            upper=field[objective.ij]
+            field_gradient=(2*upper.real if real_parameters else
+                            np.r_[2*upper.real,2*upper.imag])
+            np.testing.assert_allclose(gradient,field_gradient,atol=1e-13)
             direction=rng.normal(size=coordinate_count)
             direction/=np.linalg.norm(direction)
             step=2e-6
@@ -104,6 +124,31 @@ class TestGaussianFidelity(unittest.TestCase):
         result=maximize_slater_fidelity(hamiltonian,target,starts=3,seed=2)
         self.assertTrue(result.converged,result.attempts)
         self.assertAlmostEqual(result.fidelity,1.,places=10)
+
+    def test_real_slater_and_combined_search(self):
+        _,hamiltonian=fermionic_pairing_model()
+        target=np.array([1.,.2,-.3,.1])
+        real_slater=maximize_slater_fidelity(
+            hamiltonian,target,starts=2,seed=4,maxiter=100,
+            real_parameters=True,
+        )
+        self.assertLess(np.linalg.norm(real_slater.orbitals.imag),1e-14)
+
+        best=maximize_best_gaussian_fidelity(
+            hamiltonian,target,bogoliubov_starts=1,
+            hartree_fock_starts=2,seed=4,bogoliubov_maxiter=30,
+            hartree_fock_maxiter=100,real_parameters=True,
+        )
+        expected=max(best.bogoliubov.fidelity,best.hartree_fock.fidelity)
+        self.assertAlmostEqual(best.fidelity,expected,places=12)
+        self.assertIn(best.family,('bogoliubov','hartree_fock'))
+        self.assertAlmostEqual(
+            best.state.fixed_sector_fidelity(
+                target,hamiltonian.occupations
+            ),
+            best.fidelity,
+            places=10,
+        )
 
 
 if __name__=='__main__':

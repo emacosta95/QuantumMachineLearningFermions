@@ -22,7 +22,7 @@ for directory in (ROOT / "src" / "NSMFermions", ROOT / "benchmarks"):
         sys.path.insert(0, str(directory))
 
 from cki_be8 import build_fermionic_hamiltonian  # noqa: E402
-from gaussian_fidelity import maximize_gaussian_fidelity  # noqa: E402
+from gaussian_fidelity import maximize_best_gaussian_fidelity  # noqa: E402
 from hfb import HFBHamiltonian, HFBState, solve_hfb  # noqa: E402
 from number_projection import exact_ground_state  # noqa: E402
 from projection_grid_convergence import _load_interaction, _nucleus  # noqa: E402
@@ -72,6 +72,8 @@ def run_study(
     maxiter=500,
     gaussian_starts=4,
     gaussian_maxiter=1000,
+    gaussian_hf_starts=None,
+    gaussian_hf_maxiter=None,
     real_bogoliubov=True,
     variational_only=False,
     seed=8,
@@ -194,23 +196,61 @@ def run_study(
         )
 
         print(
-            f"[{label}] optimizing closest Gaussian with "
-            f"{gaussian_starts} starts",
+            f"[{label}] optimizing closest Gaussian in both Bogoliubov and "
+            f"HF families ({gaussian_starts} and "
+            f"{gaussian_hf_starts or gaussian_starts} starts)",
             flush=True,
         )
-        closest = maximize_gaussian_fidelity(
+        initial_bogoliubov_parameters = None
+        try:
+            initial_z = variational.state.thouless_matrix
+            initial_upper = initial_z[np.triu_indices(modes, 1)]
+            if not real_bogoliubov:
+                initial_bogoliubov_parameters = np.concatenate((
+                    initial_upper.real, initial_upper.imag
+                ))
+            elif np.max(np.abs(initial_upper.imag), initial=0.0) < 1e-10:
+                initial_bogoliubov_parameters = initial_upper.real
+        except ValueError:
+            # A collapsed Slater determinant is a singular boundary state and
+            # has no finite particle-vacuum Thouless coordinates.
+            pass
+        natural_occupations, natural_orbitals = np.linalg.eigh(
+            (variational.state.rho + variational.state.rho.conj().T) / 2
+        )
+        initial_hartree_fock_orbitals = natural_orbitals[
+            :, np.argsort(natural_occupations)[-sum(targets):]
+        ]
+        if real_bogoliubov:
+            initial_hartree_fock_orbitals = (
+                initial_hartree_fock_orbitals.real
+            )
+        closest = maximize_best_gaussian_fidelity(
             fermionic,
             target,
-            starts=gaussian_starts,
+            bogoliubov_starts=gaussian_starts,
+            hartree_fock_starts=gaussian_hf_starts,
             seed=seed + 1000 + int(mass),
-            maxiter=gaussian_maxiter,
+            bogoliubov_maxiter=gaussian_maxiter,
+            hartree_fock_maxiter=gaussian_hf_maxiter,
             gradient_tolerance=2e-6,
             real_parameters=real_bogoliubov,
+            initial_bogoliubov_parameters=initial_bogoliubov_parameters,
+            initial_hartree_fock_orbitals=initial_hartree_fock_orbitals,
         )
         gauss_fidelity = _state_overlap(
             closest.state, fermionic.occupations, target
         )
         closest_energy = float(intrinsic_hamiltonian.energy(closest.state))
+        closest_bogoliubov_energy = float(
+            intrinsic_hamiltonian.energy(closest.bogoliubov.state)
+        )
+        closest_hartree_fock_state = HFBState.from_slater(
+            closest.hartree_fock.orbitals
+        )
+        closest_hartree_fock_energy = float(
+            intrinsic_hamiltonian.energy(closest_hartree_fock_state)
+        )
 
         row = {
             "nucleus": label,
@@ -247,10 +287,15 @@ def run_study(
             ),
             "variational_attempts": variational.attempts,
             "closest_gaussian_converged": bool(closest.converged),
-            "closest_gaussian_solver": "analytic local-overlap heavy ball",
-            "closest_gaussian_real_bogoliubov": bool(real_bogoliubov),
+            "closest_gaussian_family": closest.family,
+            "closest_gaussian_solver": (
+                "compact analytic F20 heavy ball"
+                if closest.family == "bogoliubov"
+                else "analytic Slater Stiefel ascent"
+            ),
+            "closest_gaussian_real_parameters": bool(real_bogoliubov),
             "closest_gaussian_parameter_count": int(
-                closest.parameters.size
+                np.asarray(closest.parameters).size
             ),
             "closest_gaussian_ground_state_fidelity": gauss_fidelity,
             "closest_gaussian_energy": closest_energy,
@@ -259,6 +304,30 @@ def run_study(
             ),
             "closest_gaussian_gradient_norm": closest.gradient_norm,
             "closest_gaussian_attempts": closest.attempts,
+            "closest_bogoliubov_fidelity": closest.bogoliubov.fidelity,
+            "closest_bogoliubov_converged": bool(
+                closest.bogoliubov.converged
+            ),
+            "closest_bogoliubov_gradient_norm": (
+                closest.bogoliubov.gradient_norm
+            ),
+            "closest_bogoliubov_energy": closest_bogoliubov_energy,
+            "closest_bogoliubov_energy_relative_error": _relative_error(
+                closest_bogoliubov_energy, exact_energy
+            ),
+            "closest_bogoliubov_attempts": closest.bogoliubov.attempts,
+            "closest_hartree_fock_fidelity": closest.hartree_fock.fidelity,
+            "closest_hartree_fock_converged": bool(
+                closest.hartree_fock.converged
+            ),
+            "closest_hartree_fock_gradient_norm": (
+                closest.hartree_fock.gradient_norm
+            ),
+            "closest_hartree_fock_energy": closest_hartree_fock_energy,
+            "closest_hartree_fock_energy_relative_error": _relative_error(
+                closest_hartree_fock_energy, exact_energy
+            ),
+            "closest_hartree_fock_attempts": closest.hartree_fock.attempts,
             "elapsed_seconds": time.perf_counter() - isotope_started,
         }
         results.append(row)
@@ -314,6 +383,14 @@ if __name__ == "__main__":
     parser.add_argument("--gaussian-starts", type=int, default=4)
     parser.add_argument("--gaussian-maxiter", type=int, default=1000)
     parser.add_argument(
+        "--gaussian-hf-starts", type=int,
+        help="HF maximum-overlap starts; defaults to --gaussian-starts.",
+    )
+    parser.add_argument(
+        "--gaussian-hf-maxiter", type=int,
+        help="HF maximum-overlap iterations; defaults to --gaussian-maxiter.",
+    )
+    parser.add_argument(
         "--real-bogoliubov",
         dest="real_bogoliubov",
         action="store_true",
@@ -342,6 +419,8 @@ if __name__ == "__main__":
         maxiter=args.maxiter,
         gaussian_starts=args.gaussian_starts,
         gaussian_maxiter=args.gaussian_maxiter,
+        gaussian_hf_starts=args.gaussian_hf_starts,
+        gaussian_hf_maxiter=args.gaussian_hf_maxiter,
         real_bogoliubov=args.real_bogoliubov,
         variational_only=args.variational_only,
         seed=args.seed,
