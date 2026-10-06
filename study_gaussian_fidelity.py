@@ -23,7 +23,7 @@ for directory in (ROOT / "src" / "NSMFermions", ROOT / "benchmarks"):
 
 from cki_be8 import build_fermionic_hamiltonian  # noqa: E402
 from gaussian_fidelity import maximize_gaussian_fidelity  # noqa: E402
-from hfb import HFBHamiltonian, solve_hfb  # noqa: E402
+from hfb import HFBHamiltonian, HFBState, solve_hfb  # noqa: E402
 from number_projection import exact_ground_state  # noqa: E402
 from projection_grid_convergence import _load_interaction, _nucleus  # noqa: E402
 
@@ -44,6 +44,25 @@ def _state_overlap(state, occupations, target):
         raw_fidelity / sector_weight if sector_weight > 1e-14 else None
     )
     return raw_fidelity, sector_weight, conditional
+
+
+def _stable_variational_fidelity_state(state, particles):
+    """Replace a pairing-collapsed vacuum by its stable Slater boundary.
+
+    The particle-vacuum Thouless chart requires an invertible ``U``.  Near an
+    HF solution ``U`` becomes singular, so recovering ``V* (U*)^-1`` can lose
+    antisymmetry even though the physical Bogoliubov state remains canonical.
+    In that limit the occupied natural orbitals provide the exact boundary
+    representation and determinant amplitudes remain numerically stable.
+    """
+    rho = (state.rho + state.rho.conj().T) / 2
+    pairing_norm = float(np.linalg.norm(state.kappa))
+    idempotency = float(np.linalg.norm(rho @ rho - rho))
+    if pairing_norm < 1e-3 and idempotency < 1e-6:
+        _, natural_orbitals = np.linalg.eigh(rho)
+        stable = HFBState.from_slater(natural_orbitals[:, -int(particles):])
+        return stable, "Slater (pairing-collapsed HFB)"
+    return state, "finite particle-vacuum Thouless chart"
 
 
 def run_study(
@@ -166,8 +185,13 @@ def run_study(
         exact_energy, target = exact_ground_state(fermionic)
         target = np.asarray(target, complex) / np.linalg.norm(target)
 
+        variational_fidelity_state, variational_fidelity_chart = (
+            _stable_variational_fidelity_state(
+                variational.state, sum(targets)
+            )
+        )
         var_raw, var_weight, var_conditional = _state_overlap(
-            variational.state, fermionic.occupations, target
+            variational_fidelity_state, fermionic.occupations, target
         )
 
         print(
@@ -217,6 +241,7 @@ def run_study(
             "variational_pairing_norm": float(
                 np.linalg.norm(variational.state.kappa)
             ),
+            "variational_fidelity_state_chart": variational_fidelity_chart,
             "variational_stationarity_error": (
                 variational.stationarity_error
             ),
