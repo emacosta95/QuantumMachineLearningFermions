@@ -55,6 +55,20 @@ A step-by-step Neon tutorial, including the distinction between raw,
 target-sector-conditioned, and rotationally projected fidelities, is available
 in [`NeonGaussianFidelityTutorial.ipynb`](NeonGaussianFidelityTutorial.ipynb).
 
+Visualize any JSON report from either study script with:
+
+```bash
+python plot_study_results.py results/usdb_gaussian_fidelity.json
+python plot_study_results.py \
+  results/usdb_ne20_projection_grid_convergence.json \
+  --output results/ne20_projection.png
+```
+
+The first format produces fidelity, sector-weight, energy-error, and optimizer
+residual panels. The projection format produces heat maps against the two Euler
+grid sizes. The image defaults to the JSON filename with a `.png` extension;
+`--output figure.pdf` or `--output figure.svg` creates a vector figure instead.
+
 ## Projected non-Gaussianity
 
 Increase the Euler quadrature from one point through `(M_MAX,J_MAX,M_MAX)`:

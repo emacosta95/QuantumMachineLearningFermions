@@ -13,6 +13,7 @@ dependencies = [
     "numpy",
     "scipy",
     "pfapack>=0.3.1",
+    "matplotlib",
 ]
 requires-python = ">=3.8"
 
