@@ -121,6 +121,13 @@ def run_study(
                 "variational_pairing_norm": float(
                     np.linalg.norm(variational.state.kappa)
                 ),
+                "variational_stationarity_error": (
+                    variational.stationarity_error
+                ),
+                "variational_chemical_potentials": (
+                    variational.chemical_potentials.tolist()
+                ),
+                "variational_attempts": variational.attempts,
                 "stationarity_error": variational.stationarity_error,
                 "attempts": variational.attempts,
                 "elapsed_seconds": time.perf_counter() - isotope_started,
@@ -210,6 +217,13 @@ def run_study(
             "variational_pairing_norm": float(
                 np.linalg.norm(variational.state.kappa)
             ),
+            "variational_stationarity_error": (
+                variational.stationarity_error
+            ),
+            "variational_chemical_potentials": (
+                variational.chemical_potentials.tolist()
+            ),
+            "variational_attempts": variational.attempts,
             "closest_gaussian_converged": bool(closest.converged),
             "closest_gaussian_solver": "analytic local-overlap heavy ball",
             "closest_gaussian_real_bogoliubov": bool(real_bogoliubov),

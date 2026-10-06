@@ -51,6 +51,10 @@ differentiates the normalized Pfaffian overlap, applies canonical heavy-ball
 updates, and evaluates only scalar overlaps during backtracking. This replaces
 the previous finite-difference L-BFGS-B search over every Gaussian coordinate.
 
+A step-by-step Neon tutorial, including the distinction between raw,
+target-sector-conditioned, and rotationally projected fidelities, is available
+in [`NeonGaussianFidelityTutorial.ipynb`](NeonGaussianFidelityTutorial.ipynb).
+
 ## Projected non-Gaussianity
 
 Increase the Euler quadrature from one point through `(M_MAX,J_MAX,M_MAX)`:
