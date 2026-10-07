@@ -169,7 +169,11 @@ class FermiHubbardHamiltonian(FemionicBasis):
         # Final sparse matrix build
         self.twobody_operator = coo_matrix((data, (rows, cols)), shape=(N, N)).tocsr()
 
-        print(f"✅ Two-body operator built: shape={self.twobody_operator.shape}, nnz={self.twobody_operator.nnz}")
+        print(
+            "Two-body operator built: "
+            f"shape={self.twobody_operator.shape}, "
+            f"nnz={self.twobody_operator.nnz}"
+        )
 
     
     def get_hamiltonian(

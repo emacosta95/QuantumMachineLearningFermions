@@ -22,6 +22,85 @@ sys.path.insert(0, str(ROOT / 'src/NSMFermions'))
 from hfb import HFBHamiltonian, HFBState, solve_hfb
 
 
+def _optimized_two_body_kernel(
+    basis, i1, i2, j1, j2, masks, mask2index
+):
+    """Vectorized bitmask fallback for the optimized two-body code path.
+
+    The installed library normally supplies a Numba kernel for this operation.
+    Benchmarks load the legacy Hamiltonian class in isolation, however, so that
+    optional ML/Numba dependencies do not become requirements of the study
+    scripts.  This kernel preserves the optimized contract: it applies
+    ``a^dag_i1 a^dag_i2 a_j1 a_j2`` to all determinants at once and performs
+    O(1) bitmask lookups in the final, possibly symmetry-reduced, basis.
+    """
+    masks = np.asarray(masks, dtype=np.uint64)
+    empty_int = np.empty(0, dtype=np.int64)
+    empty_float = np.empty(0, dtype=float)
+    # Repeated creation or annihilation operators vanish identically.
+    if i1 == i2 or j1 == j2 or not len(masks):
+        return empty_int, empty_int.copy(), empty_float
+
+    bits = [np.uint64(1) << np.uint64(index)
+            for index in (i1, i2, j1, j2)]
+    bit_i1, bit_i2, bit_j1, bit_j2 = bits
+
+    # Apply operators from right to left.  Keeping the intermediate masks makes
+    # coincident creation/annihilation indices behave exactly like the legacy
+    # occupation-vector implementation.
+    valid = (masks & bit_j2) != 0
+    transformed = masks & ~bit_j2
+    valid &= (transformed & bit_j1) != 0
+    transformed &= ~bit_j1
+    valid &= (transformed & bit_i2) == 0
+    transformed |= bit_i2
+    valid &= (transformed & bit_i1) == 0
+    transformed |= bit_i1
+
+    columns = np.flatnonzero(valid).astype(np.int64, copy=False)
+    if not len(columns):
+        return empty_int, empty_int.copy(), empty_float
+
+    # A symmetry-reduced basis may omit a transformed determinant.  Physical
+    # symmetry-conserving TBMEs remain inside the sector, but filtering here
+    # keeps the helper correct for arbitrary user-provided dictionaries.
+    candidate_rows = np.fromiter(
+        (mask2index.get(int(mask), -1) for mask in transformed[columns]),
+        dtype=np.int64,
+        count=len(columns),
+    )
+    retained = candidate_rows >= 0
+    rows = candidate_rows[retained]
+    columns = columns[retained]
+    if not len(columns):
+        return empty_int, empty_int.copy(), empty_float
+
+    # Fermionic signs are prefix occupation parities evaluated after each
+    # preceding annihilation/creation.  This vectorized expression is the exact
+    # counterpart of the four sequential phase calculations in the old loop.
+    selected = np.asarray(basis[columns], dtype=np.int8)
+    phase = np.sum(selected[:, :j2], axis=1, dtype=np.int64)
+    phase += np.sum(selected[:, :j1], axis=1, dtype=np.int64)
+    phase -= int(j2 < j1)
+    phase += np.sum(selected[:, :i2], axis=1, dtype=np.int64)
+    phase -= int(j2 < i2) + int(j1 < i2)
+    phase += np.sum(selected[:, :i1], axis=1, dtype=np.int64)
+    phase -= int(j2 < i1) + int(j1 < i1)
+    phase += int(i2 < i1)
+    data = np.where(phase & 1, -1.0, 1.0)
+    return rows, columns, data
+
+
+def _progress(iterable):
+    """Dependency-free progress reporting for long exact-sector assemblies."""
+    total = len(iterable)
+    stride = max(1, total // 10)
+    for index, item in enumerate(iterable, 1):
+        if index == 1 or index == total or index % stride == 0:
+            print(f"  two-body terms: {index}/{total}", flush=True)
+        yield item
+
+
 def legacy_definitions(filename, names, namespace):
     tree = ast.parse((ROOT/'src/NSMFermions'/filename).read_text(encoding='utf-8'))
     nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))
@@ -41,8 +120,8 @@ def build_fermionic_hamiltonian(
     executed. The class implementation itself is otherwise unchanged.
     """
     # Supply the names referenced by the extracted class bodies. A lightweight
-    # Python mask map is sufficient for this small benchmark and avoids loading
-    # the optional Numba dictionary implementation.
+    # Python mask map keeps the study scripts independent of optional Numba
+    # imports while retaining the optimized bitmask assembly path.
     namespace = dict(globals())
 
     def build_mask_mapping(basis):
@@ -55,6 +134,10 @@ def build_fermionic_hamiltonian(
         return masks, {int(mask): index for index, mask in enumerate(masks)}
 
     namespace['build_mask_mapping'] = build_mask_mapping
+    namespace['_adag_adag_a_a_loop_numba_with_dict'] = (
+        _optimized_two_body_kernel
+    )
+    namespace['tqdm'] = _progress
     # Class annotations and sparse constructors refer to these names directly.
     namespace['lil_matrix'] = sparse.lil_matrix
     namespace['coo_matrix'] = sparse.coo_matrix
@@ -83,15 +166,10 @@ def build_fermionic_hamiltonian(
     # The one-body CKI contribution is diagonal in the supplied spherical basis.
     fermionic.get_external_potential(np.asarray(eps))
 
-    # Assemble the antisymmetrized two-body operator with the same 1/4 factor and
-    # operator order used by FermiHubbardHamiltonian.get_twobody_interaction.
-    two_body = sparse.csr_matrix((len(fermionic.basis),) * 2)
-    for (i1, i2, i3, i4), value in interaction.items():
-        term = fermionic.adag_adag_a_a_matrix(
-            i1=i1, i2=i2, j1=i4, j2=i3
-        )
-        two_body = two_body + (value / 4) * term
-    fermionic.twobody_operator = two_body
+    # Use the repository's optimized assembly route.  It calls the bitmask
+    # kernel above for each operator string, accumulates COO triplets, and makes
+    # a single CSR matrix instead of adding thousands of sparse matrices.
+    fermionic.get_twobody_interaction_optimized(interaction)
 
     # Combine one- and two-body pieces into the matrix consumed by PAV.
     fermionic.get_hamiltonian()

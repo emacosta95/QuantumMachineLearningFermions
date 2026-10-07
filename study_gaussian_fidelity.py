@@ -168,7 +168,7 @@ def run_study(
             )
             continue
 
-        print(f"[{label}] building and diagonalizing the exact sector", flush=True)
+        print(f"[{label}] building the optimized exact sector", flush=True)
         symmetries = None
         exact_sector = "fixed (N,Z)"
         if interaction_name == "usdb":
@@ -180,10 +180,28 @@ def run_study(
             symmetries = [m_zero]
             exact_sector = "fixed (N,Z,M=0)"
 
+        exact_build_started = time.perf_counter()
         fermionic = build_fermionic_hamiltonian(
             interaction, eps, particles=targets, symmetries=symmetries
         )
+        exact_build_seconds = time.perf_counter() - exact_build_started
+        print(
+            f"[{label}] exact matrix built: dimension="
+            f"{len(fermionic.occupations)}, nnz={fermionic.matrix.nnz}, "
+            f"elapsed={exact_build_seconds:.3f} s",
+            flush=True,
+        )
+        print(f"[{label}] diagonalizing the exact sector", flush=True)
+        exact_diagonalization_started = time.perf_counter()
         exact_energy, target = exact_ground_state(fermionic)
+        exact_diagonalization_seconds = (
+            time.perf_counter() - exact_diagonalization_started
+        )
+        print(
+            f"[{label}] exact ground state found: E={exact_energy:.10f}, "
+            f"elapsed={exact_diagonalization_seconds:.3f} s",
+            flush=True,
+        )
         target = np.asarray(target, complex) / np.linalg.norm(target)
 
         variational_fidelity_state, variational_fidelity_chart = (
@@ -260,6 +278,8 @@ def run_study(
             "exact_diagonalization_sector": exact_sector,
             "exact_dimension": len(fermionic.occupations),
             "exact_energy": exact_energy,
+            "exact_build_seconds": exact_build_seconds,
+            "exact_diagonalization_seconds": exact_diagonalization_seconds,
             "variational_method": variational_method,
             "variational_solver": "constrained manifold gradient",
             "variational_real_bogoliubov": bool(
