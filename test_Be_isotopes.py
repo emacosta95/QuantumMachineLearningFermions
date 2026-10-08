@@ -35,9 +35,10 @@ from fermionic_antiflatness import (
     vacuum_series_antiflatness,
 )
 
-interaction, eps, state_encoding, _ = load_nuclear_interaction(
+interaction, eps, single_particle, _ = load_nuclear_interaction(
     "cki", repository_root=ROOT
 )
+state_encoding = single_particle.state_encoding
 ham = HFBHamiltonian(np.diag(eps), interaction)
 neutron_modes = list(range(6, 12))
 proton_modes = list(range(6))

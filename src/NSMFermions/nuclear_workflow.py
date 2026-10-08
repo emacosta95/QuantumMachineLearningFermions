@@ -103,7 +103,9 @@ def _legacy_definitions(filename, names, namespace):
 def load_nuclear_interaction(name, *, repository_root=None):
     """Load CKI or USDB in the single-particle basis.
 
-    Returns ``(interaction, one_body_energies, encoding, path)``.
+    Returns ``(interaction, one_body_energies, single_particle_space, path)``.
+    The returned ``SingleParticleState`` object exposes the mode encoding and
+    symmetry predicates such as :meth:`total_M_zero`.
     """
     normalized = str(name).lower()
     if normalized not in {"cki", "usdb"}:
@@ -144,8 +146,8 @@ def load_nuclear_interaction(name, *, repository_root=None):
     interaction, energies = namespace["get_twobody_nuclearshell_model"](
         str(path)
     )
-    encoding = namespace["SingleParticleState"](str(path)).state_encoding
-    return interaction, np.asarray(energies), encoding, path
+    single_particle = namespace["SingleParticleState"](str(path))
+    return interaction, np.asarray(energies), single_particle, path
 
 
 def nucleus_from_mass(interaction_name, mass, species_modes):

@@ -83,15 +83,14 @@ def run_study(
     output=None,
 ):
     interaction_name = interaction_name.lower()
-    interaction, eps, encoding, interaction_path = load_nuclear_interaction(
-        interaction_name, repository_root=ROOT
+    interaction, eps, single_particle, interaction_path = (
+        load_nuclear_interaction(interaction_name, repository_root=ROOT)
     )
     modes = len(eps)
     species_modes = modes // 2
     neutron_modes = list(range(species_modes, modes))
     intrinsic_hamiltonian = HFBHamiltonian(np.diag(eps), interaction)
     masses = tuple(isotopes or DEFAULT_ISOTOPES[interaction_name])
-    magnetic_projections = np.asarray([float(state[3]) for state in encoding])
     results = []
     started = time.perf_counter()
     output_path = (
@@ -177,12 +176,7 @@ def run_study(
         symmetries = None
         exact_sector = "fixed (N,Z)"
         if interaction_name == "usdb":
-            def m_zero(occupied):
-                return abs(float(np.sum(
-                    magnetic_projections[list(occupied)]
-                ))) < 1e-10
-
-            symmetries = [m_zero]
+            symmetries = [single_particle.total_M_zero]
             exact_sector = "fixed (N,Z,M=0)"
 
         exact_build_started = time.perf_counter()
