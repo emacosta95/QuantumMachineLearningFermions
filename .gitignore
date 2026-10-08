@@ -5,3 +5,4 @@ data/quantum_chemistry
 __pycache__/
 logs/*
 !logs/.gitkeep
+results/*.pkl

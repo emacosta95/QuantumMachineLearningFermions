@@ -20,6 +20,24 @@ calculation, then repeat the same cells for $^{22}$Ne and $^{24}$Ne.
 The reusable numerical implementation is in `src/NSMFermions`. The batch
 command-line equivalent remains available as `study_gaussian_fidelity.py`.
 
+## Simple saved-data study
+
+Edit the configuration block at the top of `simple_hfb_gaussian_study.py` to
+choose the interaction and lists of valence proton and neutron numbers, then
+run:
+
+```bash
+python simple_hfb_gaussian_study.py
+```
+
+The script performs HFB energy minimization, exact diagonalization, and the
+best-of-HFB/HF Gaussian-overlap search for every selected particle-number
+pair. It saves a checkpointed pickle dictionary indexed by
+`data["results"][valence_protons][valence_neutrons]`. Each entry contains the
+exact state and basis, both variational `HFBState` objects, their family labels,
+energies, overlaps, fidelities, and convergence diagnostics. Only load pickle
+files that you trust.
+
 ## Installation
 
 Python 3.8 or newer is required.
