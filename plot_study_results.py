@@ -3,7 +3,7 @@
 The report type is detected automatically:
 
 * ``study_gaussian_fidelity.py`` -> isotope comparison (four bar panels);
-* ``study_projected_nongaussianity.py`` -> Euler-grid convergence (heat maps).
+* legacy Euler-grid reports -> projection-convergence heat maps.
 
 The plotting code deliberately depends only on NumPy and Matplotlib so it also
 works in a headless Slurm job.

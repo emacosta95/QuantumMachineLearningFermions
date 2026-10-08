@@ -110,6 +110,7 @@ be an eigenstate of both N and Z, but it is not a general particle-number
 projector: other sectors congruent modulo the grid size can alias into the sum.
 Without the explicit opt-in, undersized grids continue to raise `ValueError`.
 
-The CKI Be8 workflow is in `benchmarks/cki_be8_pav.py`. It performs intrinsic
-variation, exact fixed-sector PAV, optional gauge-kernel validation, and saves
-the intrinsic `U,V` together with the projected vector and determinant masks.
+An explicit particle-number-projection example is included in
+`NeonHFHFBStepByStep.ipynb`. It constructs the complete fixed-$(N,Z)$ basis,
+reports the sector weight and projected fidelity, and checks their product
+against the direct intrinsic fidelity.

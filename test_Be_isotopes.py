@@ -12,9 +12,11 @@ ROOT = Path.cwd()
 if not (ROOT / "src" / "NSMFermions").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src" / "NSMFermions"))
-sys.path.insert(0, str(ROOT / "benchmarks"))
 
-from cki_be8 import legacy_definitions, build_fermionic_hamiltonian
+from nuclear_workflow import (
+    build_fermionic_hamiltonian,
+    load_nuclear_interaction,
+)
 from hfb import HFBHamiltonian, HFBState, BogoliubovVacuumSeries, solve_hfb
 from number_projection import (
     exact_ground_state,
@@ -33,38 +35,9 @@ from fermionic_antiflatness import (
     vacuum_series_antiflatness,
 )
 
-namespace = dict(globals(), trange=range)
-
-legacy_definitions(
-    "cg_utils.py",
-    [
-        "CG",
-        "ClebschGordan",
-        "SelectCG",
-        "CreateInitialCGList",
-        "CalcInitialValues",
-        "DivCalc",
-        "CgJM",
-    ],
-    namespace,
+interaction, eps, state_encoding, _ = load_nuclear_interaction(
+    "cki", repository_root=ROOT
 )
-legacy_definitions(
-    "nuclear_physics_utils.py",
-    [
-        "SingleParticleState",
-        "krond",
-        "scattering_matrix_reader",
-        "compute_nuclear_twobody_matrix",
-        "get_twobody_nuclearshell_model",
-    ],
-    namespace,
-)
-
-interaction, eps = namespace["get_twobody_nuclearshell_model"](
-    str(ROOT / "data" / "cki")
-)
-single_particle = namespace["SingleParticleState"](str(ROOT / "data" / "cki"))
-state_encoding = single_particle.state_encoding
 ham = HFBHamiltonian(np.diag(eps), interaction)
 neutron_modes = list(range(6, 12))
 proton_modes = list(range(6))

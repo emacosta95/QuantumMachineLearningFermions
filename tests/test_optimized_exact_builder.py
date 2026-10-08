@@ -6,11 +6,11 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[1]
-for directory in (ROOT / "src" / "NSMFermions", ROOT / "benchmarks"):
+for directory in (ROOT / "src" / "NSMFermions",):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
-from cki_be8 import build_fermionic_hamiltonian  # noqa: E402
+from nuclear_workflow import build_fermionic_hamiltonian  # noqa: E402
 
 
 class OptimizedExactBuilderTests(unittest.TestCase):

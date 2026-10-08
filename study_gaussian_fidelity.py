@@ -17,15 +17,18 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parent
-for directory in (ROOT / "src" / "NSMFermions", ROOT / "benchmarks"):
+for directory in (ROOT / "src" / "NSMFermions",):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
-from cki_be8 import build_fermionic_hamiltonian  # noqa: E402
 from gaussian_fidelity import maximize_best_gaussian_fidelity  # noqa: E402
 from hfb import HFBHamiltonian, HFBState, solve_hfb  # noqa: E402
+from nuclear_workflow import (  # noqa: E402
+    build_fermionic_hamiltonian,
+    load_nuclear_interaction,
+    nucleus_from_mass,
+)
 from number_projection import exact_ground_state  # noqa: E402
-from projection_grid_convergence import _load_interaction, _nucleus  # noqa: E402
 
 
 DEFAULT_ISOTOPES = {"cki": (8, 10, 12), "usdb": (20, 22, 24)}
@@ -80,8 +83,8 @@ def run_study(
     output=None,
 ):
     interaction_name = interaction_name.lower()
-    interaction, eps, encoding, interaction_path = _load_interaction(
-        interaction_name
+    interaction, eps, encoding, interaction_path = load_nuclear_interaction(
+        interaction_name, repository_root=ROOT
     )
     modes = len(eps)
     species_modes = modes // 2
@@ -104,7 +107,9 @@ def run_study(
 
     for mass in masses:
         isotope_started = time.perf_counter()
-        label, targets = _nucleus(interaction_name, int(mass), species_modes)
+        label, targets = nucleus_from_mass(
+            interaction_name, int(mass), species_modes
+        )
         print(
             f"[{label}] optimizing {variational_method.upper()} with "
             f"the constrained-gradient solver and {starts} starts",

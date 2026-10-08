@@ -103,23 +103,11 @@ For an exact kernel calculation initialized from occupied HF orbitals, use
 ordered in consecutive same-species pairs when neutron and proton numbers are
 projected separately.
 
-## CKI command line
+## Historical CKI result
 
-```text
-python benchmarks/cki_be_vap.py --mass 10 --number-grid 1 1 \
-  --euler-grid 3 3 3 --allow-inexact-number-grid \
-  --allow-inexact-euler-grid --backend fixed_sector_basis --optimizer SPSA
-```
-
-The exact Be10 full-series calculation can be reproduced from a saved HF
-orbital file with:
-
-```text
-python benchmarks/cki_be_vap.py --mass 10 --number-grid 7 7 \
-  --euler-grid 9 5 9 --backend analytic_fixed_sector \
-  --optimizer L-BFGS-B --gradient-tolerance 2e-6 \
-  --initial-state benchmarks/results/cki_be10_hf_pav_state.npz
-```
+An exact Be10 full-series calculation used a `7 x 7` number grid, a `9 x 5 x
+9` Euler grid, the `analytic_fixed_sector` backend, and L-BFGS-B with a
+`2e-6` gradient tolerance.
 
 For Be10 this deterministic route lowers the HF-PAV energy from
 `-38.6565430722` to `-39.4357813571` MeV and raises the exact-ground-state
@@ -136,16 +124,9 @@ stochastic, so repeat several seeds and compare exact-grid validations.
 ## Metropolis-projected variation
 
 Euler projection can be importance sampled while the particle-number Fourier
-sum remains exact:
-
-```text
-python benchmarks/cki_be_vap.py --mass 10 --number-grid 7 7 \
-  --euler-grid 9 5 9 --backend fixed_sector_basis \
-  --projection-sampling metropolis --metropolis-samples 256 \
-  --metropolis-burn-in 500 --metropolis-thinning 2 \
-  --optimizer SPSA --initial-state \
-  benchmarks/results/cki_be10_hf_pav_state.npz
-```
+sum remains exact. The historical calculation used the `fixed_sector_basis`
+backend, 256 Metropolis samples after 500 burn-in steps, thinning by two, and
+SPSA optimization.
 
 The Markov chain samples Euler rotations with probability proportional to the
 vacuum-overlap magnitude and stores the reciprocal-importance weights in the

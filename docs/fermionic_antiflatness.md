@@ -52,14 +52,8 @@ projected sector.  Supplying only part of an unprojected vacuum's support would
 instead measure the normalized truncation and is not the anti-flatness of the
 original vacuum.
 
-The reproducible CKI example is:
-
-```powershell
-python benchmarks/cki_be10_antiflatness.py --order 2
-```
-
-It compares the Be10 exact ground state with the committed exact-grid VAP
-Bogoliubov-vacuum series.  The full projector contains
+The historical CKI Be10 calculation compared the exact ground state with an
+exact-grid VAP Bogoliubov-vacuum series. The full projector contains
 `7*7*9*5*9 = 19,845` vacua.  Because the final determinant basis has fixed N,Z,
 the benchmark analytically sums its 49 identical gauge-phase copies and performs
 the amplitude calculation using 405 Euler-rotated vacua without changing the
@@ -91,14 +85,9 @@ rotations are different: after analytically collapsing the exact number-gauge
 sum, their fixed-sector components remain distinct and their convergence can be
 studied directly.
 
-The isotope benchmark
-
-```powershell
-python benchmarks/cki_be_pav_faf_components.py
-```
-
-computes exact-state and `P_N P_Z P_J=0` PAV fidelity/FAF for Be6, Be8, Be10,
-and Be12. It also records deterministic Euler-prefix trajectories. Those
+The historical isotope calculation evaluated exact-state and
+`P_N P_Z P_J=0` PAV fidelity/FAF for Be6, Be8, Be10, and Be12. It also recorded
+deterministic Euler-prefix trajectories. Those
 prefixes are quadrature convergence diagnostics rather than optimized
 multi-reference ansatzes, so neither fidelity nor FAF is required to change
 monotonically with the number of retained components.
