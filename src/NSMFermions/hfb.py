@@ -789,6 +789,33 @@ def _antisymmetric_matrix(coordinates, modes, *, real_parameters=False):
     return matrix
 
 
+def _thouless_rotation(z):
+    """Exponentiate a quasiparticle Thouless generator through one SVD.
+
+    For ``z = L s R^dagger`` the Nambu generator has the block form
+    ``[[0,-z^dagger],[z,0]]``.  In the singular-vector basis it is a direct
+    sum of two-dimensional rotations, so its exponential follows from
+    ``cos(s)`` and ``sin(s)``.  This is equivalent to a generic ``2m`` square
+    matrix exponential but only factorizes the ``m`` square Thouless matrix.
+    """
+    left,singular_values,right_adjoint=np.linalg.svd(
+        np.asarray(z,complex),full_matrices=True
+    )
+    right=right_adjoint.conj().T
+    cosine=np.cos(singular_values)
+    sine=np.sin(singular_values)
+    return np.block([
+        [
+            (right*cosine)@right.conj().T,
+            -(right*sine)@left.conj().T,
+        ],
+        [
+            (left*sine)@right.conj().T,
+            (left*cosine)@left.conj().T,
+        ],
+    ])
+
+
 def apply_thouless_step(state, coordinates, *, real_parameters=False):
     """Apply one canonical quasiparticle Thouless rotation to ``state``.
 
@@ -800,8 +827,7 @@ def apply_thouless_step(state, coordinates, *, real_parameters=False):
     z = _antisymmetric_matrix(
         coordinates, modes, real_parameters=real_parameters
     )
-    zero = np.zeros_like(z)
-    local = expm(np.block([[zero, z.conj()], [z, zero]]))
+    local = _thouless_rotation(z)
     transformation = np.block([
         [state.U, state.V.conj()],
         [state.V, state.U.conj()],

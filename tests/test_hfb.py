@@ -26,6 +26,19 @@ def annihilators(m):
 
 
 class TestHFB(unittest.TestCase):
+    def test_svd_thouless_rotation_matches_nambu_exponential(self):
+        rng = np.random.default_rng(210)
+        for real_parameters in (True, False):
+            z = rng.normal(scale=0.2, size=(6, 6))
+            if not real_parameters:
+                z = z + 1j * rng.normal(scale=0.2, size=(6, 6))
+            z = z - z.T
+            zero = np.zeros_like(z)
+            expected = expm(np.block([[zero, z.conj()], [z, zero]]))
+            np.testing.assert_allclose(
+                hfb._thouless_rotation(z), expected, atol=2e-14
+            )
+
     def test_complex_energy_against_full_fock_space(self):
         m = 4
         rng = np.random.default_rng(19)

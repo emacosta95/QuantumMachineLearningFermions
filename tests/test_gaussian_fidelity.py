@@ -5,7 +5,10 @@ from hfb import HFBState, apply_thouless_step
 from gaussian_fidelity import (GaussianFidelityObjective, maximize_gaussian_fidelity,
                                maximize_slater_fidelity,
                                maximize_best_gaussian_fidelity,
-                               _slater_value_gradient, _batch_pfaffian)
+                               _slater_value, _slater_value_gradient,
+                               _batch_pfaffian,
+                               _batch_pfaffian_cofactors)
+from pfapack import pfaffian as pf
 
 
 class TestGaussianFidelity(unittest.TestCase):
@@ -17,6 +20,63 @@ class TestGaussianFidelity(unittest.TestCase):
                   -matrices[:,0,2]*matrices[:,1,3]
                   +matrices[:,0,3]*matrices[:,1,2])
         np.testing.assert_allclose(_batch_pfaffian(matrices),expected,atol=1e-12)
+
+    def test_hybrid_pfaffian_matches_pfapack(self):
+        rng=np.random.default_rng(52)
+        for size in (0,2,4,6,8,10,12):
+            matrices=(rng.normal(size=(5,size,size))+
+                      1j*rng.normal(size=(5,size,size)))
+            matrices-=matrices.transpose(0,2,1)
+            expected=np.asarray([
+                pf.pfaffian(matrix,overwrite_a=False,method='P')
+                if size else 1.
+                for matrix in matrices
+            ])
+            np.testing.assert_allclose(
+                _batch_pfaffian(matrices),expected,rtol=2e-11,atol=2e-11
+            )
+
+    def test_pfaffian_cofactors_match_direct_minors(self):
+        rng=np.random.default_rng(53)
+        for size in (4,8,10):
+            matrices=(rng.normal(size=(4,size,size))+
+                      1j*rng.normal(size=(4,size,size)))
+            matrices-=matrices.transpose(0,2,1)
+            values,cofactors=_batch_pfaffian_cofactors(matrices)
+            np.testing.assert_allclose(
+                values,_batch_pfaffian(matrices),rtol=2e-10,atol=2e-10
+            )
+            rows,columns=np.triu_indices(size,1)
+            expected=np.empty_like(cofactors)
+            for pair_index,(row,column) in enumerate(zip(rows,columns)):
+                retained=[index for index in range(size)
+                          if index not in (row,column)]
+                expected[:,pair_index]=(
+                    (-1)**(row+column+1)
+                    *_batch_pfaffian(
+                        matrices[:,retained,:][:,:,retained]
+                    )
+                )
+            np.testing.assert_allclose(
+                cofactors,expected,rtol=2e-9,atol=2e-9
+            )
+
+    def test_pfaffian_cofactors_remain_defined_at_singular_matrix(self):
+        matrix=np.zeros((1,8,8),complex)
+        matrix[0,0,1]=2.; matrix[0,1,0]=-2.
+        matrix[0,2,3]=3.; matrix[0,3,2]=-3.
+        matrix[0,4,5]=5.; matrix[0,5,4]=-5.
+        values,cofactors=_batch_pfaffian_cofactors(matrix)
+        rows,columns=np.triu_indices(8,1)
+        final_pair=np.flatnonzero((rows==6)&(columns==7))[0]
+        self.assertEqual(values[0],0.)
+        self.assertAlmostEqual(cofactors[0,final_pair],30.)
+
+        odd_values,odd_cofactors=_batch_pfaffian_cofactors(
+            np.zeros((2,3,3),complex)
+        )
+        np.testing.assert_array_equal(odd_values,np.zeros(2))
+        np.testing.assert_array_equal(odd_cofactors,np.zeros((2,3)))
 
     def test_objective_matches_state_api(self):
         _,hamiltonian=fermionic_pairing_model()
@@ -112,6 +172,9 @@ class TestGaussianFidelity(unittest.TestCase):
         rng=np.random.default_rng(12)
         c=np.linalg.qr(rng.normal(size=(4,2))+1j*rng.normal(size=(4,2)))[0]
         value,gradient=_slater_value_gradient(c,hamiltonian.occupations,target)
+        self.assertAlmostEqual(
+            value,_slater_value(c,hamiltonian.occupations,target),places=14
+        )
         direction=rng.normal(size=c.shape)+1j*rng.normal(size=c.shape)
         direction-=c@((c.conj().T@direction+direction.conj().T@c)/2)
         eps=1e-6

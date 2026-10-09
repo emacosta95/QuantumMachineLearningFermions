@@ -7,6 +7,7 @@ such as exact non-vacuum Slater determinants are approached as limits.
 """
 from dataclasses import dataclass
 import numpy as np
+from pfapack import pfaffian as pf
 
 if __package__:
     from .hfb import HFBState, apply_thouless_step
@@ -56,7 +57,14 @@ class BestGaussianFidelityResult:
 
 
 def _batch_pfaffian(matrices):
-    """Evaluate small antisymmetric Pfaffians with vectorized recursion."""
+    """Evaluate a batch of antisymmetric Pfaffians with a hybrid kernel.
+
+    Vectorized expansion is faster than calling PFAPACK separately for the
+    small occupation minors common near the bottom of a shell.  Its
+    double-factorial operation count becomes prohibitive for larger particle
+    numbers, so matrices of order ten and above use PFAPACK's cubic
+    Parlett--Reid implementation instead.
+    """
     matrices=np.asarray(matrices,complex)
     if matrices.ndim!=3 or matrices.shape[1]!=matrices.shape[2]:
         raise ValueError('Expected a batch of square matrices')
@@ -67,12 +75,104 @@ def _batch_pfaffian(matrices):
         return np.ones(len(matrices),complex)
     if size==2:
         return matrices[:,0,1]
+    if size>=10:
+        return np.asarray([
+            pf.pfaffian(matrix,overwrite_a=False,method='P')
+            for matrix in matrices
+        ],complex)
     result=np.zeros(len(matrices),complex)
     for column in range(1,size):
         retained=[index for index in range(1,size) if index!=column]
         minor=matrices[:,retained,:][:,:,retained]
         result+=((-1)**(column+1))*matrices[:,0,column]*_batch_pfaffian(minor)
     return result
+
+
+def _batch_pfaffian_cofactors(matrices):
+    """Return Pfaffians and every independent-entry derivative in one pass.
+
+    Cofactors are ordered like ``np.triu_indices(size, 1)``.  For a regular
+    antisymmetric matrix ``A`` they obey
+
+    ``d Pf(A) / d A[i,j] = Pf(A) * inv(A)[j,i]``.
+
+    This obtains all derivatives from one factorization instead of evaluating
+    one Pfaffian minor per occupied pair.  Near a singular matrix the inverse
+    identity is ill-conditioned, so those batch elements fall back to direct
+    minor Pfaffians and retain the exact derivative at Pfaffian zeros.
+    """
+    matrices=np.asarray(matrices,complex)
+    if matrices.ndim!=3 or matrices.shape[1]!=matrices.shape[2]:
+        raise ValueError('Expected a batch of square matrices')
+    size=matrices.shape[1]
+    if size%2:
+        return (np.zeros(len(matrices),complex),
+                np.zeros((len(matrices),size*(size-1)//2),complex))
+
+    values=_batch_pfaffian(matrices)
+    rows,columns=np.triu_indices(size,1)
+    cofactors=np.empty((len(matrices),len(rows)),complex)
+    if not len(rows) or not len(matrices):
+        return values,cofactors
+
+    # For very small matrices, one vectorized minor expansion remains faster
+    # than a Python loop through PFAPACK followed by a batched inverse.
+    if size<=6:
+        for pair_index,(row,column) in enumerate(zip(rows,columns)):
+            retained=[index for index in range(size)
+                      if index not in (row,column)]
+            cofactors[:,pair_index]=(
+                (-1)**(row+column+1)
+                *_batch_pfaffian(
+                    matrices[:,retained,:][:,:,retained]
+                )
+            )
+        return values,cofactors
+
+    fallback=np.ones(len(matrices),bool)
+    maximum=np.max(np.abs(matrices),axis=(1,2))
+    with np.errstate(divide='ignore',invalid='ignore'):
+        relative_log=(
+            np.log(np.abs(values))-(size/2)*np.log(maximum)
+        )
+    regular=np.isfinite(relative_log) & (relative_log>np.log(1e-9))
+
+    if np.any(regular):
+        regular_indices=np.flatnonzero(regular)
+        try:
+            inverses=np.linalg.inv(matrices[regular_indices])
+            identity=np.eye(size)
+            residuals=np.max(
+                np.abs(matrices[regular_indices]@inverses-identity),
+                axis=(1,2),
+            )
+            valid=(
+                np.isfinite(inverses).all(axis=(1,2))
+                & np.isfinite(residuals)
+                & (residuals<1e-7)
+            )
+            valid_indices=regular_indices[valid]
+            cofactors[valid_indices]=(
+                values[valid_indices,None]
+                *inverses[valid][:,columns,rows]
+            )
+            fallback[valid_indices]=False
+        except np.linalg.LinAlgError:
+            # Direct minors below remain valid for exactly singular matrices.
+            pass
+
+    if np.any(fallback):
+        singular_matrices=matrices[fallback]
+        for pair_index,(row,column) in enumerate(zip(rows,columns)):
+            retained=[index for index in range(size)
+                      if index not in (row,column)]
+            cofactors[fallback,pair_index]=(
+                (-1)**(row+column+1)
+                *_batch_pfaffian(
+                    singular_matrices[:,retained,:][:,:,retained]
+                )
+            )
+    return values,cofactors
 
 
 class GaussianFidelityObjective:
@@ -107,6 +207,10 @@ class GaussianFidelityObjective:
         # consecutive real and imaginary blocks in the optimizer vector.
         self.ij=np.triu_indices(self.modes,1)
         self.pairs=list(zip(*self.ij))
+        particles=self.occupation_array.shape[1]
+        self.occupation_pair_rows,self.occupation_pair_columns=(
+            np.triu_indices(particles,1)
+        )
 
     def unpack(self,x):
         """Convert real optimizer coordinates into antisymmetric complex Z."""
@@ -180,20 +284,23 @@ class GaussianFidelityObjective:
             submatrices=z[
                 occupations[:,:,None],occupations[:,None,:]
             ]
-            pfaffians=_batch_pfaffian(submatrices)
+            pfaffians,cofactors=_batch_pfaffian_cofactors(submatrices)
             overlap_polynomial=coefficients@pfaffians
-            for row in range(particles-1):
-                for column in range(row+1,particles):
-                    retained=[index for index in range(particles)
-                              if index not in (row,column)]
-                    cofactors=((-1)**(row+column+1))*_batch_pfaffian(
-                        submatrices[:,retained,:][:,:,retained]
-                    )
-                    np.add.at(
-                        polynomial_derivative,
-                        (occupations[:,row],occupations[:,column]),
-                        coefficients*cofactors,
-                    )
+            if cofactors.shape[1]:
+                source_rows=occupations[
+                    :,self.occupation_pair_rows
+                ].reshape(-1)
+                source_columns=occupations[
+                    :,self.occupation_pair_columns
+                ].reshape(-1)
+                contributions=(
+                    coefficients[:,None]*cofactors
+                ).reshape(-1)
+                np.add.at(
+                    polynomial_derivative,
+                    (source_rows,source_columns),
+                    contributions,
+                )
         else:
             overlap_polynomial=coefficients.sum()
 
@@ -338,6 +445,14 @@ def maximize_gaussian_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=1000
     )
 
 
+def _slater_value(orbitals,occupations,target):
+    """Fidelity of an orthonormal-orbital determinant without its gradient."""
+    sub=orbitals[np.asarray(occupations,int)]
+    determinants=np.linalg.det(sub)
+    amplitude=np.asarray(target,complex).conj()@determinants
+    return float(abs(amplitude)**2)
+
+
 def _slater_value_gradient(orbitals,occupations,target):
     """Fidelity and Euclidean gradient for an orthonormal-orbital determinant."""
     n=orbitals.shape[1]
@@ -361,12 +476,16 @@ def _slater_value_gradient(orbitals,occupations,target):
             for column in range(n):
                 minor=np.delete(np.delete(sub[index],row,axis=0),column,axis=1)
                 cofactors[index,row,column]=((-1)**(row+column))*np.linalg.det(minor)
-    for row in range(n):
-        for column in range(n):
-            # Accumulate each submatrix cofactor back into the corresponding
-            # entry of the full orbital matrix.
-            np.add.at(derivative[:,column],occupations[:,row],
-                      coefficients*cofactors[:,row,column])
+    # Accumulate each submatrix cofactor back into the corresponding full
+    # orbital column. Flattening the determinant and occupied-row axes reduces
+    # n^2 separate indexed updates to only n updates.
+    occupied_rows=occupations.reshape(-1)
+    for column in range(n):
+        np.add.at(
+            derivative[:,column],
+            occupied_rows,
+            (coefficients[:,None]*cofactors[:,:,column]).reshape(-1),
+        )
     value=float(abs(amplitude)**2)
     gradient=2*amplitude*derivative.conj()
     return value,gradient
@@ -434,7 +553,9 @@ def maximize_slater_fidelity(hamiltonian,target,*,starts=8,seed=0,maxiter=2000,
             # orbital orthonormality after every trial step.
             for _ in range(30):
                 trial=np.linalg.qr(c+step*tangent)[0]
-                trial_value,_=_slater_value_gradient(trial,occupations,target)
+                # Armijo backtracking needs only the objective value.  Avoid
+                # rebuilding every determinant cofactor at each rejected step.
+                trial_value=_slater_value(trial,occupations,target)
                 if trial_value>=value+1e-4*step*residual**2:
                     c=trial; accepted=True; break
                 step*=.5
