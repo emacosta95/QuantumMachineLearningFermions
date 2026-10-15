@@ -17,21 +17,20 @@ from pathlib import Path
 
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # Configuration: these are the only values normally changed by the user.
 # ---------------------------------------------------------------------------
 
-INTERACTION = "usdb"              # "usdb" or "cki"
+INTERACTION = "cki"  # "usdb" or "cki"
 VALENCE_PROTONS = [2]
-VALENCE_NEUTRONS = [2]             # for example [2, 4, 6] for Ne20,22,24
+VALENCE_NEUTRONS = [0, 2, 4, 6]  # for example [2, 4, 6] for Ne20,22,24
 # Each species has capacity 12 for USDB and 6 for CKI. For an even-even grid,
 # use range(0, 13, 2) for USDB or range(0, 7, 2) for CKI.
 
-HFB_STARTS = 3                     # use at least 8 for production
-HFB_MAXITER = 500
-GAUSSIAN_STARTS = 3                # use at least 8 for production
-GAUSSIAN_MAXITER = 1000
+HFB_STARTS = 8  # use at least 8 for production
+HFB_MAXITER = 200
+GAUSSIAN_STARTS = 8  # use at least 8 for production
+GAUSSIAN_MAXITER = 200
 REAL_BOGOLIUBOV = True
 SEED = 8
 
@@ -95,9 +94,7 @@ def particle_number_expectations(state, neutron_modes):
     neutron_mask = np.zeros(len(state.U), dtype=bool)
     neutron_mask[np.asarray(neutron_modes, dtype=int)] = True
     diagonal = np.diag(state.rho).real
-    return np.array(
-        [diagonal[neutron_mask].sum(), diagonal[~neutron_mask].sum()]
-    )
+    return np.array([diagonal[neutron_mask].sum(), diagonal[~neutron_mask].sum()])
 
 
 def validate_particle_lists(protons, neutrons, capacity):
@@ -135,8 +132,8 @@ def save_checkpoint(data, output):
 
 
 def run_study():
-    interaction, eps, single_particle, interaction_path = (
-        load_nuclear_interaction(INTERACTION, repository_root=ROOT)
+    interaction, eps, single_particle, interaction_path = load_nuclear_interaction(
+        INTERACTION, repository_root=ROOT
     )
     modes = len(eps)
     species_capacity = modes // 2
@@ -170,9 +167,7 @@ def run_study():
             targets = (valence_neutrons, valence_protons)  # solver order: N,Z
             particles = valence_neutrons + valence_protons
             nucleus_seed = (
-                SEED
-                + valence_protons * (species_capacity + 1)
-                + valence_neutrons
+                SEED + valence_protons * (species_capacity + 1) + valence_neutrons
             )
             print(
                 f"\n[Zval={valence_protons}, Nval={valence_neutrons}]",
@@ -226,9 +221,7 @@ def run_study():
             )
             overlap_state = closest.state  # always an HFBState, also for HF
             overlap_family = (
-                "hartree_fock"
-                if closest.family == "hartree_fock"
-                else "hfb"
+                "hartree_fock" if closest.family == "hartree_fock" else "hfb"
             )
             gaussian_overlap, gaussian_fidelity = overlap_and_fidelity(
                 overlap_state, occupations, exact_state
@@ -257,9 +250,7 @@ def run_study():
                     "numbers_N_Z": np.asarray(variational.numbers),
                     "pairing_norm": pairing_norm,
                     "density_idempotency_error": idempotency_error,
-                    "stationarity_error": float(
-                        variational.stationarity_error
-                    ),
+                    "stationarity_error": float(variational.stationarity_error),
                 },
                 "maximum_overlap_solution": {
                     "state": overlap_state,
@@ -270,12 +261,8 @@ def run_study():
                     "ground_state_fidelity": gaussian_fidelity,
                     "converged": bool(closest.converged),
                     "gradient_norm": float(closest.gradient_norm),
-                    "bogoliubov_fidelity": float(
-                        closest.bogoliubov.fidelity
-                    ),
-                    "hartree_fock_fidelity": float(
-                        closest.hartree_fock.fidelity
-                    ),
+                    "bogoliubov_fidelity": float(closest.bogoliubov.fidelity),
+                    "hartree_fock_fidelity": float(closest.hartree_fock.fidelity),
                 },
             }
             save_checkpoint(data, OUTPUT)

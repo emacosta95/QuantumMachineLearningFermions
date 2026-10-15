@@ -1,0 +1,41 @@
+{
+  "study": "energy-optimized versus closest pure Gaussian state",
+  "interaction": "usdb",
+  "interaction_path": "data/usdb.nat",
+  "isotopes": [
+    20
+  ],
+  "results": [
+    {
+      "nucleus": "Ne20",
+      "interaction": "usdb",
+      "valence_neutrons": 2,
+      "valence_protons": 2,
+      "exact_diagonalization_sector": "fixed (N,Z,M=0)",
+      "exact_dimension": 640,
+      "exact_energy": -41.39649007256998,
+      "variational_method": "hf",
+      "variational_converged": true,
+      "variational_energy": -37.18378246586616,
+      "variational_energy_relative_error": 0.1017648500952315,
+      "variational_ground_state_fidelity_raw": 0.10208539262697647,
+      "variational_target_sector_weight": 0.1620260010296659,
+      "variational_ground_state_fidelity_conditioned": 0.630055620568487,
+      "variational_numbers": [
+        2.0,
+        2.0
+      ],
+      "variational_pairing_norm": 0.0,
+      "closest_gaussian_converged": true,
+      "closest_gaussian_ground_state_fidelity_raw": 8.772457283401005e-10,
+      "closest_gaussian_target_sector_weight": 2.142457581541739e-06,
+      "closest_gaussian_ground_state_fidelity_conditioned": 0.0004094576881698744,
+      "closest_gaussian_energy": -154.23011637599143,
+      "closest_gaussian_energy_relative_error": 2.7256809962781587,
+      "closest_gaussian_gradient_norm": 1.1061781873332946e-08,
+      "elapsed_seconds": 103.40940447199682
+    }
+  ],
+  "elapsed_seconds": 103.40989634899597,
+  "status": "complete"
+}

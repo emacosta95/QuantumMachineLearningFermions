@@ -1,0 +1,41 @@
+{
+  "study": "energy-optimized versus closest pure Gaussian state",
+  "interaction": "cki",
+  "interaction_path": "data/cki",
+  "isotopes": [
+    8
+  ],
+  "results": [
+    {
+      "nucleus": "Be8",
+      "interaction": "cki",
+      "valence_neutrons": 2,
+      "valence_protons": 2,
+      "exact_diagonalization_sector": "fixed (N,Z)",
+      "exact_dimension": 225,
+      "exact_energy": -30.29539461360554,
+      "variational_method": "hf",
+      "variational_converged": true,
+      "variational_energy": -25.689032357578437,
+      "variational_energy_relative_error": 0.15204826722931694,
+      "variational_ground_state_fidelity_raw": 0.20181360727567754,
+      "variational_target_sector_weight": 1.0000000000000004,
+      "variational_ground_state_fidelity_conditioned": 0.20181360727567746,
+      "variational_numbers": [
+        2.0,
+        2.0
+      ],
+      "variational_pairing_norm": 0.0,
+      "closest_gaussian_converged": false,
+      "closest_gaussian_ground_state_fidelity_raw": 0.201642166117944,
+      "closest_gaussian_target_sector_weight": 0.9958995427786419,
+      "closest_gaussian_ground_state_fidelity_conditioned": 0.2024723955142561,
+      "closest_gaussian_energy": -25.58563734896637,
+      "closest_gaussian_energy_relative_error": 0.15546116248718672,
+      "closest_gaussian_gradient_norm": 0.00035715477510366955,
+      "elapsed_seconds": 359.31467373399937
+    }
+  ],
+  "elapsed_seconds": 359.31538529299723,
+  "status": "complete"
+}

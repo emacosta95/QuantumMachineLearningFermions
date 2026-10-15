@@ -1,0 +1,857 @@
+{
+  "study": "energy-optimized versus closest pure Gaussian state",
+  "interaction": "usdb",
+  "interaction_path": "data/usdb.nat",
+  "isotopes": [
+    18,
+    20,
+    22,
+    24,
+    26,
+    28
+  ],
+  "results": [
+    {
+      "nucleus": "Ne18",
+      "interaction": "usdb",
+      "valence_neutrons": 0,
+      "valence_protons": 2,
+      "exact_diagonalization_sector": "fixed (N,Z,M=0)",
+      "exact_dimension": 14,
+      "exact_energy": -11.931788251561526,
+      "exact_build_seconds": 0.48980472299444955,
+      "exact_diagonalization_seconds": 0.0013914779992774129,
+      "variational_method": "hfb",
+      "variational_solver": "constrained manifold gradient",
+      "variational_real_bogoliubov": true,
+      "variational_parameter_count": 276,
+      "variational_converged": true,
+      "variational_energy": -11.669821394846107,
+      "variational_energy_relative_error": 0.021955372588944137,
+      "variational_ground_state_fidelity": 0.41760774549636176,
+      "variational_numbers": [
+        4.0564756985179144e-20,
+        2.0000000877842368
+      ],
+      "variational_pairing_norm": 1.225166119945178,
+      "variational_fidelity_state_chart": "finite particle-vacuum Thouless chart",
+      "variational_stationarity_error": 0.0007208174418362411,
+      "variational_chemical_potentials": [
+        -8.41009046028727,
+        -5.711853016669807
+      ],
+      "variational_attempts": [
+        {
+          "converged": true,
+          "energy": -8.40458777171062,
+          "number_error": 6.661338147750939e-16,
+          "gradient_norm": 1.5669978020493858e-05,
+          "gradient_tolerance": 0.001,
+          "iterations": 8,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.09743585500000004,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": true,
+          "energy": -11.669821394846107,
+          "number_error": 8.778423676858438e-08,
+          "gradient_norm": 0.0007208174418362411,
+          "gradient_tolerance": 0.001,
+          "iterations": 20,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 61,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        }
+      ],
+      "closest_gaussian_converged": true,
+      "closest_gaussian_family": "bogoliubov",
+      "closest_gaussian_solver": "compact analytic F20 heavy ball",
+      "closest_gaussian_real_parameters": true,
+      "closest_gaussian_parameter_count": 276,
+      "closest_gaussian_ground_state_fidelity": 0.4188581546645522,
+      "closest_gaussian_energy": -11.65267771087999,
+      "closest_gaussian_energy_relative_error": 0.023392180182631776,
+      "closest_gaussian_gradient_norm": 2.246633176811196e-07,
+      "closest_gaussian_attempts": [
+        {
+          "fidelity": 0.4188581546645522,
+          "converged": true,
+          "gradient_norm": 2.246633176811196e-07,
+          "iterations": 13,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.3,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 9.133581714858564e-18,
+          "converged": false,
+          "gradient_norm": 1.0201752098427692e-15,
+          "iterations": 1,
+          "message": "Zero-overlap stationary point",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_bogoliubov_fidelity": 0.4188581546645522,
+      "closest_bogoliubov_converged": true,
+      "closest_bogoliubov_gradient_norm": 2.246633176811196e-07,
+      "closest_bogoliubov_energy": -11.65267771087999,
+      "closest_bogoliubov_energy_relative_error": 0.023392180182631776,
+      "closest_bogoliubov_attempts": [
+        {
+          "fidelity": 0.4188581546645522,
+          "converged": true,
+          "gradient_norm": 2.246633176811196e-07,
+          "iterations": 13,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.3,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 9.133581714858564e-18,
+          "converged": false,
+          "gradient_norm": 1.0201752098427692e-15,
+          "iterations": 1,
+          "message": "Zero-overlap stationary point",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_hartree_fock_fidelity": 0.2586973384968389,
+      "closest_hartree_fock_converged": true,
+      "closest_hartree_fock_gradient_norm": 3.540556600412944e-16,
+      "closest_hartree_fock_energy": -8.8615,
+      "closest_hartree_fock_energy_relative_error": 0.2573200417933762,
+      "closest_hartree_fock_attempts": [
+        {
+          "fidelity": 0.2586973384968389,
+          "converged": true,
+          "gradient_norm": 3.540556600412944e-16,
+          "iterations": 1,
+          "message": "Converged"
+        },
+        {
+          "fidelity": 0.25869733847832604,
+          "converged": true,
+          "gradient_norm": 1.8459207210900746e-06,
+          "iterations": 31,
+          "message": "Converged"
+        }
+      ],
+      "elapsed_seconds": 14.158525948005263
+    },
+    {
+      "nucleus": "Ne20",
+      "interaction": "usdb",
+      "valence_neutrons": 2,
+      "valence_protons": 2,
+      "exact_diagonalization_sector": "fixed (N,Z,M=0)",
+      "exact_dimension": 640,
+      "exact_energy": -41.396490072569954,
+      "exact_build_seconds": 1.174636677998933,
+      "exact_diagonalization_seconds": 0.1950418579945108,
+      "variational_method": "hfb",
+      "variational_solver": "constrained manifold gradient",
+      "variational_real_bogoliubov": true,
+      "variational_parameter_count": 276,
+      "variational_converged": true,
+      "variational_energy": -37.18378452335163,
+      "variational_energy_relative_error": 0.10176480039330034,
+      "variational_ground_state_fidelity": 0.10208539261360347,
+      "variational_numbers": [
+        2.0000000999233025,
+        2.0000000996125857
+      ],
+      "variational_pairing_norm": 0.0004554783799038316,
+      "variational_fidelity_state_chart": "Slater (pairing-collapsed HFB)",
+      "variational_stationarity_error": 0.00022885027530152328,
+      "variational_chemical_potentials": [
+        -10.236919101587837,
+        -10.378522564480496
+      ],
+      "variational_attempts": [
+        {
+          "converged": true,
+          "energy": -29.34974631724929,
+          "number_error": 0.0,
+          "gradient_norm": 0.00033326135663306017,
+          "gradient_tolerance": 0.001,
+          "iterations": 8,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.09743585500000004,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": true,
+          "energy": -37.18378452335163,
+          "number_error": 9.992330252117654e-08,
+          "gradient_norm": 0.00022885027530152328,
+          "gradient_tolerance": 0.001,
+          "iterations": 44,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 128,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        }
+      ],
+      "closest_gaussian_converged": true,
+      "closest_gaussian_family": "hartree_fock",
+      "closest_gaussian_solver": "analytic Slater Stiefel ascent",
+      "closest_gaussian_real_parameters": true,
+      "closest_gaussian_parameter_count": 96,
+      "closest_gaussian_ground_state_fidelity": 0.10535475966347356,
+      "closest_gaussian_energy": -36.82645290875079,
+      "closest_gaussian_energy_relative_error": 0.11039673063604377,
+      "closest_gaussian_gradient_norm": 1.8312754685653882e-06,
+      "closest_gaussian_attempts": [
+        {
+          "fidelity": 0.04380240584121613,
+          "converged": true,
+          "gradient_norm": 0.0,
+          "iterations": 1,
+          "message": "Converged"
+        },
+        {
+          "fidelity": 0.10535475966347359,
+          "converged": true,
+          "gradient_norm": 1.8312754685653882e-06,
+          "iterations": 72,
+          "message": "Converged"
+        }
+      ],
+      "closest_bogoliubov_fidelity": 0.10535459048638254,
+      "closest_bogoliubov_converged": false,
+      "closest_bogoliubov_gradient_norm": 0.00021636056612677843,
+      "closest_bogoliubov_energy": -36.82918823109078,
+      "closest_bogoliubov_energy_relative_error": 0.11033065444612529,
+      "closest_bogoliubov_attempts": [
+        {
+          "fidelity": 0.10535459048638254,
+          "converged": false,
+          "gradient_norm": 0.00021636056612677843,
+          "iterations": 100,
+          "message": "Iteration limit reached",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 3.3299000573513756e-09,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 1.9470601565582842e-17,
+          "converged": false,
+          "gradient_norm": 6.6644512566452856e-15,
+          "iterations": 1,
+          "message": "Zero-overlap stationary point",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_hartree_fock_fidelity": 0.10535475966347359,
+      "closest_hartree_fock_converged": true,
+      "closest_hartree_fock_gradient_norm": 1.8312754685653882e-06,
+      "closest_hartree_fock_energy": -36.82645290875079,
+      "closest_hartree_fock_energy_relative_error": 0.11039673063604377,
+      "closest_hartree_fock_attempts": [
+        {
+          "fidelity": 0.04380240584121613,
+          "converged": true,
+          "gradient_norm": 0.0,
+          "iterations": 1,
+          "message": "Converged"
+        },
+        {
+          "fidelity": 0.10535475966347359,
+          "converged": true,
+          "gradient_norm": 1.8312754685653882e-06,
+          "iterations": 72,
+          "message": "Converged"
+        }
+      ],
+      "elapsed_seconds": 28.483741755000665
+    },
+    {
+      "nucleus": "Ne22",
+      "interaction": "usdb",
+      "valence_neutrons": 4,
+      "valence_protons": 2,
+      "exact_diagonalization_sector": "fixed (N,Z,M=0)",
+      "exact_dimension": 4206,
+      "exact_energy": -59.93848562837637,
+      "exact_build_seconds": 2.783616290995269,
+      "exact_diagonalization_seconds": 0.09383588899800088,
+      "variational_method": "hfb",
+      "variational_solver": "constrained manifold gradient",
+      "variational_real_bogoliubov": true,
+      "variational_parameter_count": 276,
+      "variational_converged": true,
+      "variational_energy": -55.548829795262094,
+      "variational_energy_relative_error": 0.07323601500929652,
+      "variational_ground_state_fidelity": 0.09054805833140667,
+      "variational_numbers": [
+        3.999999962948501,
+        2.0000001
+      ],
+      "variational_pairing_norm": 0.0012301315275474584,
+      "variational_fidelity_state_chart": "finite particle-vacuum Thouless chart",
+      "variational_stationarity_error": 0.00099988166316716,
+      "variational_chemical_potentials": [
+        -8.20637232222077,
+        -14.355367839599229
+      ],
+      "variational_attempts": [
+        {
+          "converged": true,
+          "energy": -46.546731390312125,
+          "number_error": 1.7763568394002505e-15,
+          "gradient_norm": 0.0009936987980353027,
+          "gradient_tolerance": 0.001,
+          "iterations": 494,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": true,
+          "energy": -55.548829795262094,
+          "number_error": 9.999999983634211e-08,
+          "gradient_norm": 0.00099988166316716,
+          "gradient_tolerance": 0.001,
+          "iterations": 149,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.0062512213579879105,
+          "momentum": 0.3,
+          "constraint_corrections": 1242,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        }
+      ],
+      "closest_gaussian_converged": true,
+      "closest_gaussian_family": "hartree_fock",
+      "closest_gaussian_solver": "analytic Slater Stiefel ascent",
+      "closest_gaussian_real_parameters": true,
+      "closest_gaussian_parameter_count": 144,
+      "closest_gaussian_ground_state_fidelity": 0.09735856734861364,
+      "closest_gaussian_energy": -54.64888202951522,
+      "closest_gaussian_energy_relative_error": 0.08825053792077989,
+      "closest_gaussian_gradient_norm": 1.7512112048219553e-06,
+      "closest_gaussian_attempts": [
+        {
+          "fidelity": 0.09735856734846056,
+          "converged": true,
+          "gradient_norm": 1.7613680276380963e-06,
+          "iterations": 89,
+          "message": "Converged"
+        },
+        {
+          "fidelity": 0.09735856734861364,
+          "converged": true,
+          "gradient_norm": 1.7512112048219553e-06,
+          "iterations": 74,
+          "message": "Converged"
+        }
+      ],
+      "closest_bogoliubov_fidelity": 5.700623434810266e-09,
+      "closest_bogoliubov_converged": true,
+      "closest_bogoliubov_gradient_norm": 4.864359578342011e-07,
+      "closest_bogoliubov_energy": -120.65515911319568,
+      "closest_bogoliubov_energy_relative_error": 1.0129831084033014,
+      "closest_bogoliubov_attempts": [
+        {
+          "fidelity": 5.700623434810266e-09,
+          "converged": true,
+          "gradient_norm": 4.864359578342011e-07,
+          "iterations": 1,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 5.484218234922426e-16,
+          "converged": false,
+          "gradient_norm": 6.139042988348316e-14,
+          "iterations": 1,
+          "message": "Zero-overlap stationary point",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_hartree_fock_fidelity": 0.09735856734861364,
+      "closest_hartree_fock_converged": true,
+      "closest_hartree_fock_gradient_norm": 1.7512112048219553e-06,
+      "closest_hartree_fock_energy": -54.64888202951522,
+      "closest_hartree_fock_energy_relative_error": 0.08825053792077989,
+      "closest_hartree_fock_attempts": [
+        {
+          "fidelity": 0.09735856734846056,
+          "converged": true,
+          "gradient_norm": 1.7613680276380963e-06,
+          "iterations": 89,
+          "message": "Converged"
+        },
+        {
+          "fidelity": 0.09735856734861364,
+          "converged": true,
+          "gradient_norm": 1.7512112048219553e-06,
+          "iterations": 74,
+          "message": "Converged"
+        }
+      ],
+      "elapsed_seconds": 244.90519861498615
+    },
+    {
+      "nucleus": "Ne24",
+      "interaction": "usdb",
+      "valence_neutrons": 6,
+      "valence_protons": 2,
+      "exact_diagonalization_sector": "fixed (N,Z,M=0)",
+      "exact_dimension": 7562,
+      "exact_energy": -75.70058626697721,
+      "exact_build_seconds": 4.216837628002395,
+      "exact_diagonalization_seconds": 0.24357588299608324,
+      "variational_method": "hfb",
+      "variational_solver": "constrained manifold gradient",
+      "variational_real_bogoliubov": true,
+      "variational_parameter_count": 276,
+      "variational_converged": false,
+      "variational_energy": -69.75799292168062,
+      "variational_energy_relative_error": 0.07850128563520674,
+      "variational_ground_state_fidelity": 0.11781129382167974,
+      "variational_numbers": [
+        5.999999999999995,
+        2.000000099999997
+      ],
+      "variational_pairing_norm": 0.8475489066743246,
+      "variational_fidelity_state_chart": "finite particle-vacuum Thouless chart",
+      "variational_stationarity_error": 0.0025085998146928,
+      "variational_chemical_potentials": [
+        -8.805206284086989,
+        -18.76724181644586
+      ],
+      "variational_attempts": [
+        {
+          "converged": false,
+          "energy": -66.9047086282059,
+          "number_error": 7.105427357601002e-15,
+          "gradient_norm": 0.02062803997560003,
+          "gradient_tolerance": 0.001,
+          "iterations": 500,
+          "message": "Iteration limit reached",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": false,
+          "energy": -69.75799292168062,
+          "number_error": 9.999999717180685e-08,
+          "gradient_norm": 0.0025085998146928,
+          "gradient_tolerance": 0.001,
+          "iterations": 500,
+          "message": "Iteration limit reached",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 6.472480688090532e-07,
+          "momentum": 0.3,
+          "constraint_corrections": 1904,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        }
+      ],
+      "closest_gaussian_converged": false,
+      "closest_gaussian_family": "bogoliubov",
+      "closest_gaussian_solver": "compact analytic F20 heavy ball",
+      "closest_gaussian_real_parameters": true,
+      "closest_gaussian_parameter_count": 276,
+      "closest_gaussian_ground_state_fidelity": 0.19940233727516887,
+      "closest_gaussian_energy": -68.42768671940772,
+      "closest_gaussian_energy_relative_error": 0.09607454718936759,
+      "closest_gaussian_gradient_norm": 0.00315673479821139,
+      "closest_gaussian_attempts": [
+        {
+          "fidelity": 0.19940233727516884,
+          "converged": false,
+          "gradient_norm": 0.00315673479821139,
+          "iterations": 100,
+          "message": "Iteration limit reached",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.3,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 8.038003606690769e-14,
+          "converged": true,
+          "gradient_norm": 1.1232692835862247e-11,
+          "iterations": 1,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_bogoliubov_fidelity": 0.19940233727516884,
+      "closest_bogoliubov_converged": false,
+      "closest_bogoliubov_gradient_norm": 0.00315673479821139,
+      "closest_bogoliubov_energy": -68.42768671940772,
+      "closest_bogoliubov_energy_relative_error": 0.09607454718936759,
+      "closest_bogoliubov_attempts": [
+        {
+          "fidelity": 0.19940233727516884,
+          "converged": false,
+          "gradient_norm": 0.00315673479821139,
+          "iterations": 100,
+          "message": "Iteration limit reached",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.3,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 8.038003606690769e-14,
+          "converged": true,
+          "gradient_norm": 1.1232692835862247e-11,
+          "iterations": 1,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_hartree_fock_fidelity": 0.15961814331821902,
+      "closest_hartree_fock_converged": false,
+      "closest_hartree_fock_gradient_norm": 2.3631033782689965e-05,
+      "closest_hartree_fock_energy": -68.45589913956852,
+      "closest_hartree_fock_energy_relative_error": 0.09570186288727646,
+      "closest_hartree_fock_attempts": [
+        {
+          "fidelity": 0.15089304435573722,
+          "converged": true,
+          "gradient_norm": 1.8145571675364233e-06,
+          "iterations": 65,
+          "message": "Converged"
+        },
+        {
+          "fidelity": 0.15961814331821902,
+          "converged": false,
+          "gradient_norm": 2.3631033782689965e-05,
+          "iterations": 100,
+          "message": "Iteration or line-search limit"
+        }
+      ],
+      "elapsed_seconds": 702.6124345709977
+    },
+    {
+      "nucleus": "Ne26",
+      "interaction": "usdb",
+      "valence_neutrons": 8,
+      "valence_protons": 2,
+      "exact_diagonalization_sector": "fixed (N,Z,M=0)",
+      "exact_dimension": 4206,
+      "exact_energy": -87.14199175221255,
+      "exact_build_seconds": 2.859106034011347,
+      "exact_diagonalization_seconds": 0.14498578500933945,
+      "variational_method": "hfb",
+      "variational_solver": "constrained manifold gradient",
+      "variational_real_bogoliubov": true,
+      "variational_parameter_count": 276,
+      "variational_converged": false,
+      "variational_energy": -82.4750843489474,
+      "variational_energy_relative_error": 0.05355520696078936,
+      "variational_ground_state_fidelity": 0.14438255106594106,
+      "variational_numbers": [
+        7.999999900000001,
+        2.0000000986308524
+      ],
+      "variational_pairing_norm": 1.0171238018879531,
+      "variational_fidelity_state_chart": "finite particle-vacuum Thouless chart",
+      "variational_stationarity_error": 0.0052283482275492085,
+      "variational_chemical_potentials": [
+        -5.446567921137677,
+        -21.52873820393127
+      ],
+      "variational_attempts": [
+        {
+          "converged": true,
+          "energy": -79.16606017810439,
+          "number_error": 1.7763568394002505e-15,
+          "gradient_norm": 0.0009654043899721664,
+          "gradient_tolerance": 0.001,
+          "iterations": 23,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": false,
+          "energy": -82.4750843489474,
+          "number_error": 9.99999993922529e-08,
+          "gradient_norm": 0.0052283482275492085,
+          "gradient_tolerance": 0.001,
+          "iterations": 500,
+          "message": "Iteration limit reached",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.0025178974202493096,
+          "momentum": 0.3,
+          "constraint_corrections": 3853,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        }
+      ],
+      "closest_gaussian_converged": false,
+      "closest_gaussian_family": "bogoliubov",
+      "closest_gaussian_solver": "compact analytic F20 heavy ball",
+      "closest_gaussian_real_parameters": true,
+      "closest_gaussian_parameter_count": 276,
+      "closest_gaussian_ground_state_fidelity": 0.2661413975510764,
+      "closest_gaussian_energy": -81.90426595634528,
+      "closest_gaussian_energy_relative_error": 0.06010564700839852,
+      "closest_gaussian_gradient_norm": 0.0050692994317991695,
+      "closest_gaussian_attempts": [
+        {
+          "fidelity": 0.2661413975510767,
+          "converged": false,
+          "gradient_norm": 0.0050692994317991695,
+          "iterations": 49,
+          "message": "Local overlap line search stalled",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 6.028458966861543e-11,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 1.4632189610373802e-12,
+          "converged": true,
+          "gradient_norm": 1.3575164535311672e-10,
+          "iterations": 1,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_bogoliubov_fidelity": 0.2661413975510767,
+      "closest_bogoliubov_converged": false,
+      "closest_bogoliubov_gradient_norm": 0.0050692994317991695,
+      "closest_bogoliubov_energy": -81.90426595634528,
+      "closest_bogoliubov_energy_relative_error": 0.06010564700839852,
+      "closest_bogoliubov_attempts": [
+        {
+          "fidelity": 0.2661413975510767,
+          "converged": false,
+          "gradient_norm": 0.0050692994317991695,
+          "iterations": 49,
+          "message": "Local overlap line search stalled",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 6.028458966861543e-11,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 1.4632189610373802e-12,
+          "converged": true,
+          "gradient_norm": 1.3575164535311672e-10,
+          "iterations": 1,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_hartree_fock_fidelity": 0.1839450053913004,
+      "closest_hartree_fock_converged": true,
+      "closest_hartree_fock_gradient_norm": 1.6254920654189265e-06,
+      "closest_hartree_fock_energy": -80.47498836957998,
+      "closest_hartree_fock_energy_relative_error": 0.07650735596668636,
+      "closest_hartree_fock_attempts": [
+        {
+          "fidelity": 0.1839450053913004,
+          "converged": true,
+          "gradient_norm": 1.6254920654189265e-06,
+          "iterations": 33,
+          "message": "Converged"
+        },
+        {
+          "fidelity": 0.1821723800913366,
+          "converged": true,
+          "gradient_norm": 1.7751290256866622e-06,
+          "iterations": 91,
+          "message": "Converged"
+        }
+      ],
+      "elapsed_seconds": 653.4252284239919
+    },
+    {
+      "nucleus": "Ne28",
+      "interaction": "usdb",
+      "valence_neutrons": 10,
+      "valence_protons": 2,
+      "exact_diagonalization_sector": "fixed (N,Z,M=0)",
+      "exact_dimension": 640,
+      "exact_energy": -94.26427432070355,
+      "exact_build_seconds": 1.273543987001176,
+      "exact_diagonalization_seconds": 0.05576142300560605,
+      "variational_method": "hfb",
+      "variational_solver": "constrained manifold gradient",
+      "variational_real_bogoliubov": true,
+      "variational_parameter_count": 276,
+      "variational_converged": false,
+      "variational_energy": -91.24556540006174,
+      "variational_energy_relative_error": 0.032023891791408035,
+      "variational_ground_state_fidelity": 0.15124315818660392,
+      "variational_numbers": [
+        9.999999903643017,
+        2.0000001
+      ],
+      "variational_pairing_norm": 1.2234332699657804,
+      "variational_fidelity_state_chart": "finite particle-vacuum Thouless chart",
+      "variational_stationarity_error": 0.003153278906466946,
+      "variational_chemical_potentials": [
+        -3.6350116695953076,
+        -24.943500799748733
+      ],
+      "variational_attempts": [
+        {
+          "converged": true,
+          "energy": -87.05679632755997,
+          "number_error": 8.881784197001252e-16,
+          "gradient_norm": 0.00044125993588617774,
+          "gradient_tolerance": 0.001,
+          "iterations": 18,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": false,
+          "energy": -91.24556540006174,
+          "number_error": 9.999999983634211e-08,
+          "gradient_norm": 0.003153278906466946,
+          "gradient_tolerance": 0.001,
+          "iterations": 500,
+          "message": "Iteration limit reached",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.004781789893391093,
+          "momentum": 0.3,
+          "constraint_corrections": 4041,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        }
+      ],
+      "closest_gaussian_converged": false,
+      "closest_gaussian_family": "bogoliubov",
+      "closest_gaussian_solver": "compact analytic F20 heavy ball",
+      "closest_gaussian_real_parameters": true,
+      "closest_gaussian_parameter_count": 276,
+      "closest_gaussian_ground_state_fidelity": 0.17823520023735598,
+      "closest_gaussian_energy": -91.14589191017282,
+      "closest_gaussian_energy_relative_error": 0.03308127530819837,
+      "closest_gaussian_gradient_norm": 0.008247821177905505,
+      "closest_gaussian_attempts": [
+        {
+          "fidelity": 0.17823520023735592,
+          "converged": false,
+          "gradient_norm": 0.008247821177905505,
+          "iterations": 100,
+          "message": "Iteration limit reached",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.3,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 9.653548800279219e-11,
+          "converged": true,
+          "gradient_norm": 4.1350199962927064e-09,
+          "iterations": 1,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_bogoliubov_fidelity": 0.17823520023735592,
+      "closest_bogoliubov_converged": false,
+      "closest_bogoliubov_gradient_norm": 0.008247821177905505,
+      "closest_bogoliubov_energy": -91.14589191017282,
+      "closest_bogoliubov_energy_relative_error": 0.03308127530819837,
+      "closest_bogoliubov_attempts": [
+        {
+          "fidelity": 0.17823520023735592,
+          "converged": false,
+          "gradient_norm": 0.008247821177905505,
+          "iterations": 100,
+          "message": "Iteration limit reached",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.3,
+          "momentum": 0.3
+        },
+        {
+          "fidelity": 9.653548800279219e-11,
+          "converged": true,
+          "gradient_norm": 4.1350199962927064e-09,
+          "iterations": 1,
+          "message": "Local overlap gradient converged",
+          "solver": "compact analytic F20 heavy ball",
+          "step_size": 0.1,
+          "momentum": 0.3
+        }
+      ],
+      "closest_hartree_fock_fidelity": 0.17523229665505835,
+      "closest_hartree_fock_converged": true,
+      "closest_hartree_fock_gradient_norm": 1.912262574026245e-06,
+      "closest_hartree_fock_energy": -90.3294652995494,
+      "closest_hartree_fock_energy_relative_error": 0.04174231488556569,
+      "closest_hartree_fock_attempts": [
+        {
+          "fidelity": 0.17523229665505835,
+          "converged": true,
+          "gradient_norm": 1.912262574026245e-06,
+          "iterations": 32,
+          "message": "Converged"
+        },
+        {
+          "fidelity": 0.16492239611378406,
+          "converged": false,
+          "gradient_norm": 0.0036556983705297785,
+          "iterations": 100,
+          "message": "Iteration or line-search limit"
+        }
+      ],
+      "elapsed_seconds": 412.00069575301313
+    }
+  ],
+  "elapsed_seconds": 2055.6057992060087,
+  "status": "complete"
+}
