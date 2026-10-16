@@ -1,0 +1,30 @@
+[
+  {
+    "mass": 18,
+    "infidelity_from_pdf": 0.5823924689346087
+  },
+  {
+    "mass": 20,
+    "infidelity_from_pdf": 0.8973873913973431
+  },
+  {
+    "mass": 22,
+    "infidelity_from_pdf": 0.9081322978911447
+  },
+  {
+    "mass": 24,
+    "infidelity_from_pdf": 0.8716969678982944
+  },
+  {
+    "mass": 26,
+    "infidelity_from_pdf": 0.8086556564467866
+  },
+  {
+    "mass": 28,
+    "infidelity_from_pdf": 0.8401318532956706
+  },
+  {
+    "mass": 30,
+    "infidelity_from_pdf": 0.5644678108893733
+  }
+]

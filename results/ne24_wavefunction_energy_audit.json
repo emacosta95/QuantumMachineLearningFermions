@@ -1,0 +1,10 @@
+{
+  "canonical_configurations": 4096,
+  "wavefunction_norm": 0.9999999999999998,
+  "variational_energy": -69.8866827712064,
+  "direct_wavefunction_energy": -69.88668277120581,
+  "imaginary_energy": 0.0,
+  "energy_difference": 5.826450433232822e-13,
+  "gradient_norm": 6.776541846048019e-06,
+  "variational_converged": true
+}

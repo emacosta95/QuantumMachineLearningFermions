@@ -1,0 +1,567 @@
+{
+  "interaction": "usdb",
+  "starts": 8,
+  "maxiter": 2000,
+  "results": [
+    {
+      "mass": 18,
+      "valence_neutrons": 0,
+      "intrinsic_energy": -9.826029066204685,
+      "exact_energy": -11.931788251561523,
+      "converged": true,
+      "stationarity_error": 5.086512806079562e-07,
+      "fidelity": 0.2325650655321095,
+      "infidelity": 0.7674349344678905,
+      "determinant_fidelity": 0.2325650655321095,
+      "M0_weight": 0.2735896096869227,
+      "fidelity_after_M0_normalization": 0.8500507961477087,
+      "negative_log_fidelity": 1.4585852413549145,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -8.404587771721769,
+          "number_error": 0.0,
+          "gradient_norm": 8.271136154338205e-07,
+          "iterations": 14,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -9.826029066204685,
+          "number_error": 0.0,
+          "gradient_norm": 5.086512806079562e-07,
+          "iterations": 40,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -9.826029066204612,
+          "number_error": 0.0,
+          "gradient_norm": 6.875853236942985e-07,
+          "iterations": 46,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -9.826029066204637,
+          "number_error": 0.0,
+          "gradient_norm": 7.854487478566882e-07,
+          "iterations": 39,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -9.826029066204676,
+          "number_error": 0.0,
+          "gradient_norm": 7.14927218865664e-07,
+          "iterations": 37,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -9.826029066204658,
+          "number_error": 0.0,
+          "gradient_norm": 5.477466307620164e-07,
+          "iterations": 40,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -9.826029066204658,
+          "number_error": 0.0,
+          "gradient_norm": 5.521080356606648e-07,
+          "iterations": 46,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -9.82602906620466,
+          "number_error": 0.0,
+          "gradient_norm": 9.289174515114324e-07,
+          "iterations": 43,
+          "message": "Grassmann gradient converged"
+        }
+      ]
+    },
+    {
+      "mass": 20,
+      "valence_neutrons": 2,
+      "intrinsic_energy": -37.18378246586617,
+      "exact_energy": -41.396490072569975,
+      "converged": true,
+      "stationarity_error": 1.2744647262790857e-07,
+      "fidelity": 0.10208539246252331,
+      "infidelity": 0.8979146075374767,
+      "determinant_fidelity": 0.10208539246252331,
+      "M0_weight": 0.16801668554560964,
+      "fidelity_after_M0_normalization": 0.6075908004673221,
+      "negative_log_fidelity": 2.2819456349332903,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -29.349746325332205,
+          "number_error": 0.0,
+          "gradient_norm": 4.212845126978706e-07,
+          "iterations": 15,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -37.183782465866145,
+          "number_error": 0.0,
+          "gradient_norm": 8.849573061077743e-07,
+          "iterations": 36,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -37.183782465866166,
+          "number_error": 0.0,
+          "gradient_norm": 7.576882925818682e-07,
+          "iterations": 26,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -37.18378246586617,
+          "number_error": 0.0,
+          "gradient_norm": 1.7847455264741346e-07,
+          "iterations": 33,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -37.18378246586617,
+          "number_error": 0.0,
+          "gradient_norm": 1.2744647262790857e-07,
+          "iterations": 31,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -37.18378246586616,
+          "number_error": 0.0,
+          "gradient_norm": 4.429307724026411e-07,
+          "iterations": 26,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -37.18378246586616,
+          "number_error": 0.0,
+          "gradient_norm": 4.804782002014265e-07,
+          "iterations": 28,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -37.18378246586615,
+          "number_error": 0.0,
+          "gradient_norm": 9.139713999223197e-07,
+          "iterations": 32,
+          "message": "Grassmann gradient converged"
+        }
+      ]
+    },
+    {
+      "mass": 22,
+      "valence_neutrons": 4,
+      "intrinsic_energy": -55.54882892785511,
+      "exact_energy": -59.93848562837666,
+      "converged": true,
+      "stationarity_error": 4.198381545482552e-07,
+      "fidelity": 0.09054808779516768,
+      "infidelity": 0.9094519122048323,
+      "determinant_fidelity": 0.09054808779516768,
+      "M0_weight": 0.5096406187490434,
+      "fidelity_after_M0_normalization": 0.1776704690796148,
+      "negative_log_fidelity": 2.4018742125436394,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -46.546735243870586,
+          "number_error": 0.0,
+          "gradient_norm": 4.6420746517679945e-07,
+          "iterations": 41,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.54882892785511,
+          "number_error": 0.0,
+          "gradient_norm": 4.198381545482552e-07,
+          "iterations": 45,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": false,
+          "energy": -55.54882892785491,
+          "number_error": 0.0,
+          "gradient_norm": 3.2525490264486356e-06,
+          "iterations": 40,
+          "message": "Line search failed"
+        },
+        {
+          "converged": true,
+          "energy": -55.5488289278551,
+          "number_error": 0.0,
+          "gradient_norm": 5.855003806590918e-07,
+          "iterations": 52,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.548828927855055,
+          "number_error": 0.0,
+          "gradient_norm": 9.864475496563398e-07,
+          "iterations": 54,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.548828927855084,
+          "number_error": 0.0,
+          "gradient_norm": 8.999613486739128e-07,
+          "iterations": 42,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.548828927855084,
+          "number_error": 0.0,
+          "gradient_norm": 7.543848293795714e-07,
+          "iterations": 47,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -55.54882892785507,
+          "number_error": 0.0,
+          "gradient_norm": 7.321265025569451e-07,
+          "iterations": 47,
+          "message": "Grassmann gradient converged"
+        }
+      ]
+    },
+    {
+      "mass": 24,
+      "valence_neutrons": 6,
+      "intrinsic_energy": -69.61420440215176,
+      "exact_energy": -75.70058626697667,
+      "converged": true,
+      "stationarity_error": 4.963342027122632e-07,
+      "fidelity": 0.10996410050107354,
+      "infidelity": 0.8900358994989265,
+      "determinant_fidelity": 0.10996410050107354,
+      "M0_weight": 0.26626425281500987,
+      "fidelity_after_M0_normalization": 0.4129885981257587,
+      "negative_log_fidelity": 2.2076013255375853,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -66.9400866461925,
+          "number_error": 0.0,
+          "gradient_norm": 9.27385880501452e-07,
+          "iterations": 44,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215157,
+          "number_error": 0.0,
+          "gradient_norm": 6.089496306554261e-07,
+          "iterations": 123,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215176,
+          "number_error": 0.0,
+          "gradient_norm": 4.963342027122632e-07,
+          "iterations": 85,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215171,
+          "number_error": 0.0,
+          "gradient_norm": 9.462752300724437e-07,
+          "iterations": 85,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215173,
+          "number_error": 0.0,
+          "gradient_norm": 7.390223948586063e-07,
+          "iterations": 66,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215151,
+          "number_error": 0.0,
+          "gradient_norm": 8.693035138123192e-07,
+          "iterations": 83,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215166,
+          "number_error": 0.0,
+          "gradient_norm": 9.148475998013326e-07,
+          "iterations": 71,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -69.61420440215157,
+          "number_error": 0.0,
+          "gradient_norm": 8.633593337998781e-07,
+          "iterations": 90,
+          "message": "Grassmann gradient converged"
+        }
+      ]
+    },
+    {
+      "mass": 26,
+      "valence_neutrons": 8,
+      "intrinsic_energy": -82.19916610065792,
+      "exact_energy": -87.14199175221215,
+      "converged": true,
+      "stationarity_error": 2.5589218540838845e-07,
+      "fidelity": 0.1360166096699522,
+      "infidelity": 0.8639833903300478,
+      "determinant_fidelity": 0.1360166096699522,
+      "M0_weight": 0.5538554308085856,
+      "fidelity_after_M0_normalization": 0.24558143173098182,
+      "negative_log_fidelity": 1.9949782707772183,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -79.16606076328131,
+          "number_error": 0.0,
+          "gradient_norm": 9.159051419064372e-07,
+          "iterations": 29,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -82.19916610065789,
+          "number_error": 0.0,
+          "gradient_norm": 9.83241473337154e-07,
+          "iterations": 58,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -82.19916610065786,
+          "number_error": 0.0,
+          "gradient_norm": 8.412064498152848e-07,
+          "iterations": 60,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -82.19916610065789,
+          "number_error": 0.0,
+          "gradient_norm": 7.974529691940138e-07,
+          "iterations": 51,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -82.19916610065789,
+          "number_error": 0.0,
+          "gradient_norm": 6.416904621450524e-07,
+          "iterations": 58,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -82.19916610065789,
+          "number_error": 0.0,
+          "gradient_norm": 7.758813901740425e-07,
+          "iterations": 48,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -82.19916610065792,
+          "number_error": 0.0,
+          "gradient_norm": 2.5589218540838845e-07,
+          "iterations": 45,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -82.19916610065785,
+          "number_error": 0.0,
+          "gradient_norm": 3.4055615841988314e-07,
+          "iterations": 53,
+          "message": "Grassmann gradient converged"
+        }
+      ]
+    },
+    {
+      "mass": 28,
+      "valence_neutrons": 10,
+      "intrinsic_energy": -90.59785778993026,
+      "exact_energy": -94.26427432070345,
+      "converged": true,
+      "stationarity_error": 5.746538891039323e-07,
+      "fidelity": 0.1525651303021089,
+      "infidelity": 0.8474348696978911,
+      "determinant_fidelity": 0.1525651303021089,
+      "M0_weight": 0.2476832532205797,
+      "fidelity_after_M0_normalization": 0.6159686951714846,
+      "negative_log_fidelity": 1.8801636901608068,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -87.0567963395361,
+          "number_error": 0.0,
+          "gradient_norm": 4.1058018712536644e-07,
+          "iterations": 19,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -90.45465346136484,
+          "number_error": 0.0,
+          "gradient_norm": 9.721183991972216e-07,
+          "iterations": 118,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -90.45465346136501,
+          "number_error": 0.0,
+          "gradient_norm": 9.062032052092509e-07,
+          "iterations": 134,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -90.45465346136498,
+          "number_error": 0.0,
+          "gradient_norm": 4.976998965736215e-07,
+          "iterations": 121,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -90.59785778993026,
+          "number_error": 0.0,
+          "gradient_norm": 5.746538891039323e-07,
+          "iterations": 92,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -90.59785778993015,
+          "number_error": 0.0,
+          "gradient_norm": 7.684166374201447e-07,
+          "iterations": 94,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -90.5978577899302,
+          "number_error": 0.0,
+          "gradient_norm": 8.060308886452888e-07,
+          "iterations": 66,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -90.45465346136501,
+          "number_error": 0.0,
+          "gradient_norm": 7.135069375843979e-07,
+          "iterations": 111,
+          "message": "Grassmann gradient converged"
+        }
+      ]
+    },
+    {
+      "mass": 30,
+      "valence_neutrons": 12,
+      "intrinsic_energy": -96.01101198348385,
+      "exact_energy": -98.00106238961949,
+      "converged": true,
+      "stationarity_error": 6.469553495240446e-07,
+      "fidelity": 0.29747634406407875,
+      "infidelity": 0.7025236559359213,
+      "determinant_fidelity": 0.29747634406407875,
+      "M0_weight": 0.39179607802176236,
+      "fidelity_after_M0_normalization": 0.7592632003007325,
+      "negative_log_fidelity": 1.2124205729089934,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -95.00359490051407,
+          "number_error": 0.0,
+          "gradient_norm": 3.2965085646921377e-07,
+          "iterations": 13,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -96.01101198348385,
+          "number_error": 0.0,
+          "gradient_norm": 8.761438543613242e-07,
+          "iterations": 98,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -96.01101198348334,
+          "number_error": 0.0,
+          "gradient_norm": 9.66198098328629e-07,
+          "iterations": 90,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -96.01101198348378,
+          "number_error": 0.0,
+          "gradient_norm": 7.371680485069114e-07,
+          "iterations": 101,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -96.01101198348385,
+          "number_error": 0.0,
+          "gradient_norm": 6.469553495240446e-07,
+          "iterations": 108,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -96.01101198348309,
+          "number_error": 0.0,
+          "gradient_norm": 8.654042433946269e-07,
+          "iterations": 82,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -96.01101198348384,
+          "number_error": 0.0,
+          "gradient_norm": 8.578501462477224e-07,
+          "iterations": 90,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -96.01101198348377,
+          "number_error": 0.0,
+          "gradient_norm": 7.182967167740376e-07,
+          "iterations": 120,
+          "message": "Grassmann gradient converged"
+        }
+      ]
+    }
+  ]
+}

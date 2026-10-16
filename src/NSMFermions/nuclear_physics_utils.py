@@ -356,7 +356,8 @@ def scattering_matrix_reader(file_name: str) -> Tuple[Dict]:
 
 
 def compute_nuclear_twobody_matrix(
-    spg:ClassVar, j_tot_i_tot: Dict, scattering_values: Dict
+    spg:ClassVar, j_tot_i_tot: Dict, scattering_values: Dict,
+    *, mass_number=None, reference_mass=18.0, mass_exponent=0.3,
 ) -> Dict:
     """Compute the nuclear interaction matrix from the coupled to the uncoupled basis (or single particle basis)
 
@@ -364,10 +365,29 @@ def compute_nuclear_twobody_matrix(
         spg (SingleParticleState): single particle state class
         j_tot_i_tot (Dict): J/I dictionary related to the single particle state class in the coupled basis
         scattering_values (Dict): interaction dictionary related to the single particle state class (and interation file) in the coupled basis
+        mass_number: Total nuclear mass A, including the inert core. If supplied,
+            multiply two-body elements by (reference_mass / A)**mass_exponent.
+            None (default) leaves them unchanged. Input elements must not already
+            include this scaling; interaction-file mass metadata is not applied.
+        reference_mass: Reference mass for the input elements (USDB default: 18).
+        mass_exponent: Mass-scaling exponent (USDB default: 0.3).
 
     Returns:
         Dict: dictionary of the nuclear interaction in the single particle basis
     """
+
+    mass_factor = 1.0
+    if mass_number is not None:
+        mass_number = float(mass_number)
+        reference_mass = float(reference_mass)
+        mass_exponent = float(mass_exponent)
+        if not np.isfinite(mass_number) or mass_number <= 0:
+            raise ValueError("mass_number must be finite and positive")
+        if not np.isfinite(reference_mass) or reference_mass <= 0:
+            raise ValueError("reference_mass must be finite and positive")
+        if not np.isfinite(mass_exponent):
+            raise ValueError("mass_exponent must be finite")
+        mass_factor = (reference_mass / mass_number) ** mass_exponent
 
     matrix: Dict = {}
     print('Computing the matrix, pls wait... (u_u) \n')
@@ -530,15 +550,24 @@ def compute_nuclear_twobody_matrix(
 
 
 
+    if mass_factor != 1.0:
+        matrix = {key: mass_factor * value for key, value in matrix.items()}
     return matrix
 
 
-def get_twobody_nuclearshell_model(file_name: str)->Tuple[Dict]:
+def get_twobody_nuclearshell_model(
+    file_name: str, *, mass_number=None, reference_mass=18.0, mass_exponent=0.3,
+)->Tuple[Dict]:
     """provides the nuclear interaction dictionary in the single particle basis and the single particle class with respect to
     the .txt file of the nuclear interaction
 
     Args:
         file_name (str): .txt file of the nuclear interaction
+        mass_number: Optional total nuclear mass A (including the core). Applies
+            (reference_mass / A)**mass_exponent only to the two-body interaction.
+            None preserves the unscaled input. Single-particle energies are unchanged.
+        reference_mass: Reference mass for the input elements (USDB default: 18).
+        mass_exponent: Mass-scaling exponent (USDB default: 0.3).
 
     Returns:
         Tuple[Dict]: dict of the nuclear shell model interaction with respect to the single particle basis and the single particle class
@@ -551,7 +580,9 @@ def get_twobody_nuclearshell_model(file_name: str)->Tuple[Dict]:
 
     # get the dict interaction with respect to the single particle basis
     twobody_matrix= compute_nuclear_twobody_matrix(
-        spg=SPG, j_tot_i_tot=j_tot_i_tot, scattering_values=scattering_values
+        spg=SPG, j_tot_i_tot=j_tot_i_tot, scattering_values=scattering_values,
+        mass_number=mass_number, reference_mass=reference_mass,
+        mass_exponent=mass_exponent,
     )
 
     return twobody_matrix, SPG.energies

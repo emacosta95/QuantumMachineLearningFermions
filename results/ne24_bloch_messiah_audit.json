@@ -1,0 +1,8 @@
+{
+  "canonical_pair_terms": 288,
+  "rho_reconstruction_error": 5.710402460517116e-14,
+  "kappa_reconstruction_error": 1.3011114694982182e-09,
+  "amplitude_max_error": 2.749189764728044e-14,
+  "bloch_messiah_fidelity": 0.08033142632958673,
+  "library_fidelity": 0.08033142632959077
+}

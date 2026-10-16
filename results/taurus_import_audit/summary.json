@@ -1,0 +1,160 @@
+[
+  {
+    "mass": 24,
+    "mass_factor": 0.9173147546424016,
+    "binary_label": 663278138729420160,
+    "imported_energy": -66.32781358780946,
+    "taurus_logs": {
+      "out.txt": {
+        "label": 663278161197822720,
+        "energy": -66.327816
+      },
+      "out2.txt": {
+        "label": 663278138729420160,
+        "energy": -66.327814
+      }
+    },
+    "protons": 2.0000001459512458,
+    "neutrons": 6.00000000000005,
+    "proton_pairing_norm": 0.8293087715465524,
+    "neutron_pairing_norm": 4.6270228242349053e-07,
+    "exact_energy": -71.72515829589886,
+    "raw_fidelity": 0.12844176598003076,
+    "raw_infidelity": 0.8715582340199692,
+    "number_sector_weight": 0.6801657437400916,
+    "number_projected_fidelity": 0.18883892222174536,
+    "number_m0_projected_fidelity": 0.19482407222009365
+  },
+  {
+    "mass": 22,
+    "mass_factor": 0.9415750614868724,
+    "binary_label": 534735844619991040,
+    "imported_energy": -53.47358426836547,
+    "taurus_logs": {
+      "out.txt": {
+        "label": 534735844619991040,
+        "energy": -53.473584
+      }
+    },
+    "protons": 2.0000000061604366,
+    "neutrons": 4.000000134855354,
+    "proton_pairing_norm": 8.038968468087522e-05,
+    "neutron_pairing_norm": 0.0011521182269740417,
+    "exact_energy": -57.57816422145845,
+    "raw_fidelity": 0.09186770278852026,
+    "raw_infidelity": 0.9081322972114797,
+    "number_sector_weight": 0.9999993328359691,
+    "number_projected_fidelity": 0.09186776407938806,
+    "number_m0_projected_fidelity": 0.09186776408108681
+  },
+  {
+    "mass": 20,
+    "mass_factor": 0.9688861611972633,
+    "binary_label": 364040502585442944,
+    "imported_energy": -36.404050148076855,
+    "taurus_logs": {
+      "out.txt": {
+        "label": 364040502585442944,
+        "energy": -36.40405
+      }
+    },
+    "protons": 2.0000005106160716,
+    "neutrons": 2.000000510673339,
+    "proton_pairing_norm": 1.9938532783888874e-06,
+    "neutron_pairing_norm": 7.876915173497173e-06,
+    "exact_energy": -40.47233079984384,
+    "raw_fidelity": 0.10261260877502842,
+    "raw_infidelity": 0.8973873912249716,
+    "number_sector_weight": 0.9999994890202457,
+    "number_projected_fidelity": 0.10261266120802083,
+    "number_m0_projected_fidelity": 0.3756412260805595
+  },
+  {
+    "mass": 26,
+    "mass_factor": 0.8955498121792504,
+    "binary_label": 775182646625533440,
+    "imported_energy": -77.51826446081898,
+    "taurus_logs": {
+      "out.txt": {
+        "label": 775182646625533440,
+        "energy": -77.518265
+      }
+    },
+    "protons": 2.0000009520496387,
+    "neutrons": 7.999999999999986,
+    "proton_pairing_norm": 0.9358555848841273,
+    "neutron_pairing_norm": 0.00018320269925238225,
+    "exact_energy": -81.56409012373896,
+    "raw_fidelity": 0.19134434440894463,
+    "raw_infidelity": 0.8086556555910553,
+    "number_sector_weight": 0.5878888356011058,
+    "number_projected_fidelity": 0.3254770848187625,
+    "number_m0_projected_fidelity": 0.3254770848187646
+  },
+  {
+    "mass": 28,
+    "mass_factor": 0.8758592927308859,
+    "binary_label": 839491894737560448,
+    "imported_energy": -83.94918936231642,
+    "taurus_logs": {
+      "out.txt": {
+        "label": 839491894737560448,
+        "energy": -83.949189
+      }
+    },
+    "protons": 1.999999764587397,
+    "neutrons": 10.00000007188465,
+    "proton_pairing_norm": 0.981049875318497,
+    "neutron_pairing_norm": 0.5832486844382168,
+    "exact_energy": -86.5426306879044,
+    "raw_fidelity": 0.15986814615766454,
+    "raw_infidelity": 0.8401318538423355,
+    "number_sector_weight": 0.4556165658448439,
+    "number_projected_fidelity": 0.350883084905447,
+    "number_m0_projected_fidelity": 0.6732089335233091
+  },
+  {
+    "mass": 30,
+    "mass_factor": 0.8579172004440949,
+    "binary_label": 881223589864188416,
+    "imported_energy": -88.12235928923144,
+    "taurus_logs": {
+      "out.txt": {
+        "label": 881223589864188416,
+        "energy": -88.122359
+      }
+    },
+    "protons": 1.9999997731919863,
+    "neutrons": 12.000000000000004,
+    "proton_pairing_norm": 1.179194813834298,
+    "neutron_pairing_norm": 1.2117971685394924e-12,
+    "exact_energy": -88.18158767614621,
+    "raw_fidelity": 0.4355321906176685,
+    "raw_infidelity": 0.5644678093823314,
+    "number_sector_weight": 0.4379275420537956,
+    "number_projected_fidelity": 0.9945302562499418,
+    "number_m0_projected_fidelity": 0.9945302634690906
+  },
+  {
+    "mass": 18,
+    "mass_factor": 1.0,
+    "binary_label": 116698211852044656,
+    "imported_energy": -11.669821185422975,
+    "taurus_logs": {
+      "out.txt": {
+        "label": 116698211852044656,
+        "energy": -11.669821
+      }
+    },
+    "protons": 2.0000000449829414,
+    "neutrons": 4.208860461159165e-18,
+    "proton_pairing_norm": 1.2251648414947232,
+    "neutron_pairing_norm": 3.1042535691388266e-15,
+    "exact_energy": -11.931788251561526,
+    "raw_fidelity": 0.4176075950235875,
+    "raw_infidelity": 0.5823924049764124,
+    "number_sector_weight": 0.4237183765970812,
+    "number_projected_fidelity": 0.9855782002598756,
+    "number_m0_projected_fidelity": 0.9855782021363285
+  }
+]

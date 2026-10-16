@@ -1,0 +1,116 @@
+[
+  {
+    "mass": 24,
+    "energy": -69.88668395022188,
+    "fidelity": 0.0803314389014021,
+    "infidelity": 0.919668561098598,
+    "negative_log_fidelity": 2.5215942165778777,
+    "pairing_norm": 0.9745815135750693,
+    "converged": true,
+    "gradient_norm": 0.0009501197255613762,
+    "attempts": [
+      {
+        "converged": true,
+        "energy": -69.75806615356393,
+        "number_error": 9.006877332851104e-08,
+        "gradient_norm": 0.0006425810440616251,
+        "gradient_tolerance": 0.001,
+        "iterations": 175,
+        "message": "Constrained H20 gradient converged",
+        "solver": "TAURUS-style constrained H20 heavy ball",
+        "step_size": 0.2,
+        "momentum": 0.3,
+        "constraint_corrections": 718,
+        "real_bogoliubov": true,
+        "parameter_count": 276
+      },
+      {
+        "converged": false,
+        "energy": -69.75799572231962,
+        "number_error": 9.999999983634211e-08,
+        "gradient_norm": 0.002426637078393758,
+        "gradient_tolerance": 0.001,
+        "iterations": 476,
+        "message": "Heavy-ball line search stalled",
+        "solver": "TAURUS-style constrained H20 heavy ball",
+        "step_size": 5.1222741603851325e-11,
+        "momentum": 0.3,
+        "constraint_corrections": 1736,
+        "real_bogoliubov": true,
+        "parameter_count": 276
+      },
+      {
+        "converged": true,
+        "energy": -69.88668395022188,
+        "number_error": 9.999276073813235e-08,
+        "gradient_norm": 0.0009501197255613762,
+        "gradient_tolerance": 0.001,
+        "iterations": 71,
+        "message": "Constrained H20 gradient converged",
+        "solver": "TAURUS-style constrained H20 heavy ball",
+        "step_size": 0.2,
+        "momentum": 0.3,
+        "constraint_corrections": 179,
+        "real_bogoliubov": true,
+        "parameter_count": 276
+      }
+    ]
+  },
+  {
+    "mass": 26,
+    "energy": -82.47508462501301,
+    "fidelity": 0.14439335406960568,
+    "infidelity": 0.8556066459303944,
+    "negative_log_fidelity": 1.9352140780312828,
+    "pairing_norm": 1.0169850763428587,
+    "converged": false,
+    "gradient_norm": 0.0012364056341610087,
+    "attempts": [
+      {
+        "converged": false,
+        "energy": -82.47508462501301,
+        "number_error": 9.999999761589606e-08,
+        "gradient_norm": 0.0012364056341610087,
+        "gradient_tolerance": 0.001,
+        "iterations": 313,
+        "message": "Heavy-ball line search stalled",
+        "solver": "TAURUS-style constrained H20 heavy ball",
+        "step_size": 4.656612873077393e-11,
+        "momentum": 0.3,
+        "constraint_corrections": 1413,
+        "real_bogoliubov": true,
+        "parameter_count": 276
+      },
+      {
+        "converged": false,
+        "energy": -82.47508248556683,
+        "number_error": 9.99999993922529e-08,
+        "gradient_norm": 0.0026785982992123007,
+        "gradient_tolerance": 0.001,
+        "iterations": 161,
+        "message": "Heavy-ball line search stalled",
+        "solver": "TAURUS-style constrained H20 heavy ball",
+        "step_size": 5.884177848921323e-11,
+        "momentum": 0.3,
+        "constraint_corrections": 835,
+        "real_bogoliubov": true,
+        "parameter_count": 276
+      },
+      {
+        "converged": false,
+        "energy": -82.47508424929934,
+        "number_error": 9.99999993922529e-08,
+        "gradient_norm": 0.005362205690219756,
+        "gradient_tolerance": 0.001,
+        "iterations": 146,
+        "message": "Heavy-ball line search stalled",
+        "solver": "TAURUS-style constrained H20 heavy ball",
+        "step_size": 6.817746907472612e-11,
+        "momentum": 0.3,
+        "constraint_corrections": 714,
+        "real_bogoliubov": true,
+        "parameter_count": 276
+      }
+    ]
+  }
+]

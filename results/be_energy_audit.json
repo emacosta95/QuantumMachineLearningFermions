@@ -1,0 +1,1152 @@
+{
+  "interaction": "C:\\Users\\ecosta\\Desktop\\BogoliubovHF for NSM and Non Gaussianity\\data\\cki",
+  "settings": {
+    "starts": 8,
+    "maxiter": 2000,
+    "seed": 8,
+    "gradient_tolerance": 1e-06,
+    "masses": [
+      6,
+      8,
+      10,
+      12
+    ],
+    "methods": [
+      "hf",
+      "hfb"
+    ],
+    "output": "results/be_energy_audit.json",
+    "reuse_states": true
+  },
+  "energy_convention": "MeV relative to inert He4 core",
+  "projection": "P_N P_Z P_J=0 after intrinsic variation",
+  "hfb_manifold": "real Bogoliubov",
+  "results": [
+    {
+      "nucleus": "Be6",
+      "method": "hf",
+      "targets_N_Z": [
+        0,
+        2
+      ],
+      "converged": true,
+      "stationarity_error": 2.612413462247644e-07,
+      "numbers_N_Z": [
+        0.0,
+        2.0
+      ],
+      "pairing_norm": 0.0,
+      "idempotency_error": 3.7190403123166707e-16,
+      "slater_boundary_conversion": true,
+      "intrinsic_energy_raw": -0.6356989116158474,
+      "intrinsic_energy_working": -0.6356989116158478,
+      "exact_energy": -3.0487979838460726,
+      "ground_J2_residual": 1.4941452956051994e-15,
+      "euler_grid": [
+        5,
+        2,
+        5
+      ],
+      "enlarged_euler_grid": [
+        7,
+        4,
+        7
+      ],
+      "attempts": [
+        {
+          "converged": true,
+          "energy": 0.4783555517233151,
+          "number_error": 0.0,
+          "gradient_norm": 3.680509727304155e-07,
+          "iterations": 16,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -0.6356989116158229,
+          "number_error": 0.0,
+          "gradient_norm": 9.586052474551554e-07,
+          "iterations": 27,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -0.6356989116158096,
+          "number_error": 0.0,
+          "gradient_norm": 5.829569915774285e-07,
+          "iterations": 36,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -0.6356989116157878,
+          "number_error": 0.0,
+          "gradient_norm": 7.576796889672059e-07,
+          "iterations": 31,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -0.6356989116158203,
+          "number_error": 0.0,
+          "gradient_norm": 8.063474396910706e-07,
+          "iterations": 28,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -0.6356989116158402,
+          "number_error": 0.0,
+          "gradient_norm": 4.602645997825638e-07,
+          "iterations": 28,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -0.635698911615838,
+          "number_error": 0.0,
+          "gradient_norm": 3.859530583296642e-07,
+          "iterations": 31,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -0.6356989116158474,
+          "number_error": 0.0,
+          "gradient_norm": 2.612413462247644e-07,
+          "iterations": 31,
+          "message": "Grassmann gradient converged"
+        }
+      ],
+      "spectral_check_energy": -2.956945148074049,
+      "spectral_check_weight": 0.3376811512659765,
+      "projected_energy": -2.956945148074049,
+      "projected_weight": 0.3376811512659765,
+      "projected_fidelity": 0.9920142523562641,
+      "projected_J2_residual": 2.7421776349388256e-16,
+      "projected_spectral_infidelity": -4.440892098500626e-16,
+      "enlarged_energy": -2.9569451480740496,
+      "enlarged_weight": 0.3376811512659765,
+      "enlarged_fidelity": 0.9920142523562643,
+      "enlarged_J2_residual": 1.6485891838824815e-15,
+      "enlarged_spectral_infidelity": -4.440892098500626e-16,
+      "delta_intrinsic_vs_quoted": 8.838415266332333e-08,
+      "delta_projected_vs_quoted": 4.851925950788427e-06,
+      "delta_exact_vs_quoted": 2.016153927364428e-06
+    },
+    {
+      "nucleus": "Be6",
+      "method": "hfb",
+      "targets_N_Z": [
+        0,
+        2
+      ],
+      "converged": true,
+      "stationarity_error": 9.570164236785645e-07,
+      "numbers_N_Z": [
+        9.000913909170255e-20,
+        2.000000009999549
+      ],
+      "pairing_norm": 1.1426751087385218,
+      "idempotency_error": 0.5368070947459014,
+      "slater_boundary_conversion": false,
+      "intrinsic_energy_raw": -1.908835802753781,
+      "intrinsic_energy_working": -1.908835802753781,
+      "exact_energy": -3.0487979838460726,
+      "ground_J2_residual": 1.4941452956051994e-15,
+      "euler_grid": [
+        5,
+        2,
+        5
+      ],
+      "enlarged_euler_grid": [
+        7,
+        4,
+        7
+      ],
+      "attempts": [
+        {
+          "converged": true,
+          "energy": 0.47835555172334177,
+          "number_error": 4.440892098500626e-16,
+          "gradient_norm": 7.735790140683818e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 17,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -1.9088358020655862,
+          "number_error": 8.325099720707385e-09,
+          "gradient_norm": 9.724995946120635e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 65,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 118,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -1.908835801749298,
+          "number_error": 7.555374104128987e-09,
+          "gradient_norm": 8.295858295867465e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 33,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 54,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -1.9088358006625255,
+          "number_error": 4.910899686905168e-09,
+          "gradient_norm": 6.738142492463659e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 56,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 106,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -1.9088358011552247,
+          "number_error": 6.109727834768819e-09,
+          "gradient_norm": 3.43065954100293e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 53,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 98,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -1.9088358019953873,
+          "number_error": 8.15406897558546e-09,
+          "gradient_norm": 8.292458659856488e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 56,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 105,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -1.908835800932045,
+          "number_error": 5.566536120937826e-09,
+          "gradient_norm": 9.80677853552864e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 52,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 100,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -1.908835802753781,
+          "number_error": 9.999549188677292e-09,
+          "gradient_norm": 9.570164236785645e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 34,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 76,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        }
+      ],
+      "spectral_check_energy": -2.868290573508685,
+      "spectral_check_weight": 0.4506883838280993,
+      "projected_energy": -2.868290573508682,
+      "projected_weight": 0.4506883838281028,
+      "projected_fidelity": 0.9843065637041799,
+      "projected_J2_residual": 2.199974750868269e-15,
+      "projected_spectral_infidelity": -4.440892098500626e-16,
+      "enlarged_energy": -2.8682905735086788,
+      "enlarged_weight": 0.45068838382810217,
+      "enlarged_fidelity": 0.9843065637041795,
+      "enlarged_J2_residual": 6.52221649706723e-17,
+      "enlarged_spectral_infidelity": 0.0,
+      "delta_intrinsic_vs_quoted": -1.273136802753781,
+      "delta_projected_vs_quoted": 0.08865942649131808,
+      "delta_exact_vs_quoted": 2.016153927364428e-06
+    },
+    {
+      "nucleus": "Be8",
+      "method": "hf",
+      "targets_N_Z": [
+        2,
+        2
+      ],
+      "converged": true,
+      "stationarity_error": 3.867152527608038e-07,
+      "numbers_N_Z": [
+        2.0,
+        2.0
+      ],
+      "pairing_norm": 0.0,
+      "idempotency_error": 4.890868763027062e-16,
+      "slater_boundary_conversion": true,
+      "intrinsic_energy_raw": -25.68903235757845,
+      "intrinsic_energy_working": -25.689032357578444,
+      "exact_energy": -30.29539461360555,
+      "ground_J2_residual": 7.934714573385356e-15,
+      "euler_grid": [
+        9,
+        4,
+        9
+      ],
+      "enlarged_euler_grid": [
+        11,
+        6,
+        11
+      ],
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -18.992543692886073,
+          "number_error": 0.0,
+          "gradient_norm": 8.306042103063809e-07,
+          "iterations": 14,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -25.68903235757844,
+          "number_error": 0.0,
+          "gradient_norm": 8.053337871695326e-07,
+          "iterations": 25,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -25.689032357578427,
+          "number_error": 0.0,
+          "gradient_norm": 5.682462675489827e-07,
+          "iterations": 28,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -25.68903235757845,
+          "number_error": 0.0,
+          "gradient_norm": 3.867152527608038e-07,
+          "iterations": 30,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -25.689032357578423,
+          "number_error": 0.0,
+          "gradient_norm": 6.190090833561649e-07,
+          "iterations": 26,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -25.68903235757842,
+          "number_error": 0.0,
+          "gradient_norm": 6.892519677625771e-07,
+          "iterations": 28,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -25.689032357578448,
+          "number_error": 0.0,
+          "gradient_norm": 1.066415293103323e-07,
+          "iterations": 34,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -25.689032357578448,
+          "number_error": 0.0,
+          "gradient_norm": 4.797010644447626e-07,
+          "iterations": 26,
+          "message": "Grassmann gradient converged"
+        }
+      ],
+      "spectral_check_energy": -30.193003726675748,
+      "spectral_check_weight": 0.20272949347439667,
+      "projected_energy": -30.19300372667576,
+      "projected_weight": 0.20272949347439673,
+      "projected_fidelity": 0.9954822251905843,
+      "projected_J2_residual": 5.501799794824528e-15,
+      "projected_spectral_infidelity": 2.220446049250313e-16,
+      "enlarged_energy": -30.19300372667576,
+      "enlarged_weight": 0.20272949347439698,
+      "enlarged_fidelity": 0.9954822251905845,
+      "enlarged_J2_residual": 7.446232853838773e-15,
+      "enlarged_spectral_infidelity": 0.0,
+      "delta_intrinsic_vs_quoted": 3.6424215501540402e-06,
+      "delta_projected_vs_quoted": -3.7266757573206633e-06,
+      "delta_exact_vs_quoted": -4.613605547376665e-06
+    },
+    {
+      "nucleus": "Be8",
+      "method": "hfb",
+      "targets_N_Z": [
+        2,
+        2
+      ],
+      "converged": true,
+      "stationarity_error": 1.2594477035298912e-07,
+      "numbers_N_Z": [
+        2.0000000050459015,
+        2.0000000049767435
+      ],
+      "pairing_norm": 0.00010011921277809542,
+      "idempotency_error": 5.0323467945639995e-09,
+      "slater_boundary_conversion": true,
+      "intrinsic_energy_raw": -25.689032420307065,
+      "intrinsic_energy_working": -25.689032357578466,
+      "exact_energy": -30.29539461360555,
+      "ground_J2_residual": 7.934714573385356e-15,
+      "euler_grid": [
+        9,
+        4,
+        9
+      ],
+      "enlarged_euler_grid": [
+        11,
+        6,
+        11
+      ],
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -18.991115908000197,
+          "number_error": 2.220446049250313e-16,
+          "gradient_norm": 8.039707923845896e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 18,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.057437162329465254,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -25.689032420307065,
+          "number_error": 5.0459014744319575e-09,
+          "gradient_norm": 1.2594477035298912e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 80,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 61,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -25.689032353252124,
+          "number_error": 5.597753371944236e-10,
+          "gradient_norm": 2.2435704794727838e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 56,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.04096873184843736,
+          "momentum": 0.3,
+          "constraint_corrections": 69,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -25.689032357242127,
+          "number_error": 4.419753452111763e-11,
+          "gradient_norm": 3.4322043168280443e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 73,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.09250312430322713,
+          "momentum": 0.3,
+          "constraint_corrections": 84,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -25.68903235878606,
+          "number_error": 9.663203570653423e-11,
+          "gradient_norm": 5.08441088425603e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 60,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.08857805000000003,
+          "momentum": 0.3,
+          "constraint_corrections": 66,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -25.689032364114833,
+          "number_error": 5.214011444820699e-10,
+          "gradient_norm": 8.766631495861674e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 67,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 66,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -25.689032371291244,
+          "number_error": 1.0937681871325822e-09,
+          "gradient_norm": 5.378025203359035e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 62,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 69,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -25.689032357633735,
+          "number_error": 4.420463994847523e-12,
+          "gradient_norm": 6.594222491491969e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 57,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.018301250000000005,
+          "momentum": 0.3,
+          "constraint_corrections": 76,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        }
+      ],
+      "spectral_check_energy": -30.193003725034394,
+      "spectral_check_weight": 0.20272949350172767,
+      "projected_energy": -30.193003725034398,
+      "projected_weight": 0.2027294935017276,
+      "projected_fidelity": 0.9954822251045791,
+      "projected_J2_residual": 4.984038453914826e-15,
+      "projected_spectral_infidelity": 0.0,
+      "enlarged_energy": -30.193003725034387,
+      "enlarged_weight": 0.20272949350172798,
+      "enlarged_fidelity": 0.9954822251045791,
+      "enlarged_J2_residual": 7.3451932171499e-15,
+      "enlarged_spectral_infidelity": 2.220446049250313e-16,
+      "delta_intrinsic_vs_quoted": 3.5796929367393204e-06,
+      "delta_projected_vs_quoted": -3.72503439649563e-06,
+      "delta_exact_vs_quoted": -4.613605547376665e-06
+    },
+    {
+      "nucleus": "Be10",
+      "method": "hf",
+      "targets_N_Z": [
+        4,
+        2
+      ],
+      "converged": true,
+      "stationarity_error": 1.7790532681594435e-07,
+      "numbers_N_Z": [
+        4.0,
+        2.0
+      ],
+      "pairing_norm": 0.0,
+      "idempotency_error": 9.12981158803764e-16,
+      "slater_boundary_conversion": true,
+      "intrinsic_energy_raw": -34.163589932911414,
+      "intrinsic_energy_working": -34.16358993291138,
+      "exact_energy": -39.45341579805709,
+      "ground_J2_residual": 5.859633276901458e-14,
+      "euler_grid": [
+        9,
+        5,
+        9
+      ],
+      "enlarged_euler_grid": [
+        11,
+        7,
+        11
+      ],
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -32.443210306841415,
+          "number_error": 0.0,
+          "gradient_norm": 3.774131364821668e-07,
+          "iterations": 32,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -34.16358993291139,
+          "number_error": 0.0,
+          "gradient_norm": 8.439269761699499e-07,
+          "iterations": 33,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -34.16358993291139,
+          "number_error": 0.0,
+          "gradient_norm": 4.224867291246582e-07,
+          "iterations": 37,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -34.1635899329114,
+          "number_error": 0.0,
+          "gradient_norm": 6.71669527810453e-07,
+          "iterations": 41,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -34.16358993291139,
+          "number_error": 0.0,
+          "gradient_norm": 5.373101076492008e-07,
+          "iterations": 32,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -34.163589932911364,
+          "number_error": 0.0,
+          "gradient_norm": 7.539664405543792e-07,
+          "iterations": 37,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -34.16358993291138,
+          "number_error": 0.0,
+          "gradient_norm": 7.716011808518009e-07,
+          "iterations": 33,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -34.163589932911414,
+          "number_error": 0.0,
+          "gradient_norm": 1.7790532681594435e-07,
+          "iterations": 36,
+          "message": "Grassmann gradient converged"
+        }
+      ],
+      "spectral_check_energy": -38.65654307288594,
+      "spectral_check_weight": 0.20674477948529318,
+      "projected_energy": -38.65654307288594,
+      "projected_weight": 0.20674477948529352,
+      "projected_fidelity": 0.945999033667613,
+      "projected_J2_residual": 4.7044935760817604e-15,
+      "projected_spectral_infidelity": 0.0,
+      "enlarged_energy": -38.65654307288594,
+      "enlarged_weight": 0.20674477948529385,
+      "enlarged_fidelity": 0.9459990336676132,
+      "enlarged_J2_residual": 7.228968020552697e-15,
+      "enlarged_spectral_infidelity": 0.0,
+      "delta_intrinsic_vs_quoted": 6.067088584416069e-06,
+      "delta_projected_vs_quoted": 0.0008069271140627166,
+      "delta_exact_vs_quoted": 4.2019429145057074e-06
+    },
+    {
+      "nucleus": "Be10",
+      "method": "hfb",
+      "targets_N_Z": [
+        4,
+        2
+      ],
+      "converged": false,
+      "stationarity_error": 1.6222189786370482e-05,
+      "numbers_N_Z": [
+        3.999999990266237,
+        2.00000001
+      ],
+      "pairing_norm": 0.8375191550619353,
+      "idempotency_error": 0.34729468082581705,
+      "slater_boundary_conversion": false,
+      "intrinsic_energy_raw": -34.22924519950667,
+      "intrinsic_energy_working": -34.22924519950667,
+      "exact_energy": -39.45341579805709,
+      "ground_J2_residual": 5.859633276901458e-14,
+      "euler_grid": [
+        9,
+        5,
+        9
+      ],
+      "enlarged_euler_grid": [
+        11,
+        7,
+        11
+      ],
+      "attempts": [
+        {
+          "converged": false,
+          "energy": -34.16359016005118,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 0.00044778648695033974,
+          "gradient_tolerance": 1e-06,
+          "iterations": 142,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 5.1222741603851325e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 336,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -34.22924519950667,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 1.6222189786370482e-05,
+          "gradient_tolerance": 1e-06,
+          "iterations": 328,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 4.656612873077393e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 973,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -34.22924519269314,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 1.2343691255041375e-05,
+          "gradient_tolerance": 1e-06,
+          "iterations": 266,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 5.1222741603851325e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 755,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -34.22924513137381,
+          "number_error": 9.99999905104687e-09,
+          "gradient_norm": 0.000125856215987413,
+          "gradient_tolerance": 1e-06,
+          "iterations": 484,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 4.656612873077393e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 1932,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -34.1635902755468,
+          "number_error": 9.99999860695766e-09,
+          "gradient_norm": 0.0005669427519970714,
+          "gradient_tolerance": 1e-06,
+          "iterations": 99,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 9.981863247230654e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 469,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -34.229245188313065,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 1.7188559745515264e-05,
+          "gradient_tolerance": 1e-06,
+          "iterations": 334,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 9.476527267466285e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 1026,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -34.2292451602702,
+          "number_error": 9.99999949513608e-09,
+          "gradient_norm": 4.2959581840225556e-05,
+          "gradient_tolerance": 1e-06,
+          "iterations": 316,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 9.074421133846049e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 1044,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -34.22924512378151,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 2.3347204956791504e-05,
+          "gradient_tolerance": 1e-06,
+          "iterations": 336,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 4.018972644574361e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 983,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        }
+      ],
+      "spectral_check_energy": -38.79945392684863,
+      "spectral_check_weight": 0.1938763084088733,
+      "euler_projection_error": "Recovered Thouless matrix is not antisymmetric",
+      "euler_fallback": "Exact many-body representation of the same Euler grid",
+      "projected_energy": -38.79945392684863,
+      "projected_weight": 0.19387630840887332,
+      "projected_fidelity": 0.9582341110219483,
+      "projected_J2_residual": 1.0797679344149016e-14,
+      "projected_spectral_infidelity": 2.220446049250313e-16,
+      "enlarged_energy": -38.79945392684863,
+      "enlarged_weight": 0.19387630840887332,
+      "enlarged_fidelity": 0.9582341110219481,
+      "enlarged_J2_residual": 1.0411661635020534e-14,
+      "enlarged_spectral_infidelity": 4.440892098500626e-16,
+      "delta_intrinsic_vs_quoted": -0.06564919950667303,
+      "delta_projected_vs_quoted": -0.14210392684862683,
+      "delta_exact_vs_quoted": 4.2019429145057074e-06
+    },
+    {
+      "nucleus": "Be12",
+      "method": "hf",
+      "targets_N_Z": [
+        6,
+        2
+      ],
+      "converged": true,
+      "stationarity_error": 7.396407306021537e-07,
+      "numbers_N_Z": [
+        6.0,
+        2.0
+      ],
+      "pairing_norm": 0.0,
+      "idempotency_error": 8.534779358366444e-16,
+      "slater_boundary_conversion": true,
+      "intrinsic_energy_raw": -39.015345677433785,
+      "intrinsic_energy_working": -39.01534567743375,
+      "exact_energy": -41.221454571302814,
+      "ground_J2_residual": 3.271321265483026e-14,
+      "euler_grid": [
+        5,
+        6,
+        5
+      ],
+      "enlarged_euler_grid": [
+        7,
+        8,
+        7
+      ],
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -38.09806088116824,
+          "number_error": 0.0,
+          "gradient_norm": 5.614963619607896e-07,
+          "iterations": 14,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -39.01534567743374,
+          "number_error": 0.0,
+          "gradient_norm": 9.159712410642532e-07,
+          "iterations": 36,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -39.01534567743376,
+          "number_error": 0.0,
+          "gradient_norm": 4.77543414956846e-07,
+          "iterations": 38,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -39.01534567743375,
+          "number_error": 0.0,
+          "gradient_norm": 8.082672893381794e-07,
+          "iterations": 35,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -39.01534567743376,
+          "number_error": 0.0,
+          "gradient_norm": 6.026776358388968e-07,
+          "iterations": 36,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -39.015345677433785,
+          "number_error": 0.0,
+          "gradient_norm": 7.396407306021537e-07,
+          "iterations": 40,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -39.01534567743374,
+          "number_error": 0.0,
+          "gradient_norm": 9.207193465000216e-07,
+          "iterations": 40,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -39.01534567743374,
+          "number_error": 0.0,
+          "gradient_norm": 9.26435616018644e-07,
+          "iterations": 40,
+          "message": "Grassmann gradient converged"
+        }
+      ],
+      "spectral_check_energy": -40.50485981052044,
+      "spectral_check_weight": 0.4177134192804231,
+      "projected_energy": -40.50485981052046,
+      "projected_weight": 0.41771341928042316,
+      "projected_fidelity": 0.9554013519089152,
+      "projected_J2_residual": 1.6798318559698698e-15,
+      "projected_spectral_infidelity": 0.0,
+      "enlarged_energy": -40.50485981052044,
+      "enlarged_weight": 0.4177134192804237,
+      "enlarged_fidelity": 0.9554013519089147,
+      "enlarged_J2_residual": 3.055020748061031e-15,
+      "enlarged_spectral_infidelity": 0.0,
+      "delta_intrinsic_vs_quoted": 1.4863273225662113,
+      "delta_projected_vs_quoted": -0.003189810520460412,
+      "delta_exact_vs_quoted": -4.5713028171689984e-06
+    },
+    {
+      "nucleus": "Be12",
+      "method": "hfb",
+      "targets_N_Z": [
+        6,
+        2
+      ],
+      "converged": false,
+      "stationarity_error": 8.918926784654188e-05,
+      "numbers_N_Z": [
+        5.999999999999785,
+        2.00000001
+      ],
+      "pairing_norm": 1.0716525268558423,
+      "idempotency_error": 0.5084405302819627,
+      "slater_boundary_conversion": false,
+      "intrinsic_energy_raw": -40.50165344405717,
+      "intrinsic_energy_working": -40.50165344405717,
+      "exact_energy": -41.221454571302814,
+      "ground_J2_residual": 3.271321265483026e-14,
+      "euler_grid": [
+        5,
+        6,
+        5
+      ],
+      "enlarged_euler_grid": [
+        7,
+        8,
+        7
+      ],
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -38.098060881168244,
+          "number_error": 2.220446049250313e-16,
+          "gradient_norm": 4.918373712747837e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 9,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.10717944050000006,
+          "momentum": 0.3,
+          "constraint_corrections": 0,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": true,
+          "energy": -40.50165344291655,
+          "number_error": 9.999934658111442e-09,
+          "gradient_norm": 4.7062801607231483e-07,
+          "gradient_tolerance": 1e-06,
+          "iterations": 173,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 355,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -39.01534587264918,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 0.0005743664762221713,
+          "gradient_tolerance": 1e-06,
+          "iterations": 117,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 5.1222741603851325e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 674,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -40.50165344405717,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 8.918926784654188e-05,
+          "gradient_tolerance": 1e-06,
+          "iterations": 182,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 4.656612873077393e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 763,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -39.01534580485098,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 0.0006330611432109423,
+          "gradient_tolerance": 1e-06,
+          "iterations": 128,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 7.499521598219874e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 652,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -39.01534582250143,
+          "number_error": 9.99999949513608e-09,
+          "gradient_norm": 0.0017402590342773135,
+          "gradient_tolerance": 1e-06,
+          "iterations": 132,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 4.656612873077393e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 787,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -39.01534587431211,
+          "number_error": 9.99999949513608e-09,
+          "gradient_norm": 0.0006790910630512062,
+          "gradient_tolerance": 1e-06,
+          "iterations": 131,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 5.1222741603851325e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 805,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        },
+        {
+          "converged": false,
+          "energy": -40.50165344391116,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 2.258504084051412e-05,
+          "gradient_tolerance": 1e-06,
+          "iterations": 195,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 6.19795173406601e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 640,
+          "real_bogoliubov": true,
+          "parameter_count": 66
+        }
+      ],
+      "spectral_check_energy": -40.94531008916496,
+      "spectral_check_weight": 0.4791926869537417,
+      "euler_projection_error": "Recovered Thouless matrix is not antisymmetric",
+      "euler_fallback": "Exact many-body representation of the same Euler grid",
+      "projected_energy": -40.94531008916496,
+      "projected_weight": 0.4791926869537417,
+      "projected_fidelity": 0.982813619000347,
+      "projected_J2_residual": 6.280369834736917e-16,
+      "projected_spectral_infidelity": 4.440892098500626e-16,
+      "enlarged_energy": -40.94531008916498,
+      "enlarged_weight": 0.47919268695374145,
+      "enlarged_fidelity": 0.9828136190003475,
+      "enlarged_J2_residual": 6.280369834746544e-16,
+      "enlarged_spectral_infidelity": 2.220446049250313e-16,
+      "delta_intrinsic_vs_quoted": 1.955594282776474e-05,
+      "delta_projected_vs_quoted": -0.44364008916496545,
+      "delta_exact_vs_quoted": -4.5713028171689984e-06
+    }
+  ],
+  "elapsed_seconds": 4.1313203000463545,
+  "status": "complete"
+}

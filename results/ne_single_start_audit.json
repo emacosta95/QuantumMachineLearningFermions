@@ -1,0 +1,20 @@
+[
+  {
+    "mass": 24,
+    "energy": -69.75806615356393,
+    "fidelity": 0.11796971873072266,
+    "infidelity": 0.8820302812692773,
+    "pairing_norm": 0.8485949549223781,
+    "converged": true,
+    "gradient_norm": 0.0006425810440616251
+  },
+  {
+    "mass": 26,
+    "energy": -82.47508462501301,
+    "fidelity": 0.14439335406960568,
+    "infidelity": 0.8556066459303944,
+    "pairing_norm": 1.0169850763428587,
+    "converged": false,
+    "gradient_norm": 0.0012364056341610087
+  }
+]

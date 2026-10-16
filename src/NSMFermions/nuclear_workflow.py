@@ -100,12 +100,22 @@ def _legacy_definitions(filename, names, namespace):
     exec(compile(module, filename, "exec"), namespace)
 
 
-def load_nuclear_interaction(name, *, repository_root=None):
+def load_nuclear_interaction(
+    name, *, repository_root=None, mass_number=None,
+    reference_mass=18.0, mass_exponent=0.3,
+):
     """Load CKI or USDB in the single-particle basis.
 
     Returns ``(interaction, one_body_energies, single_particle_space, path)``.
     The returned ``SingleParticleState`` object exposes the mode encoding and
     symmetry predicates such as :meth:`total_M_zero`.
+
+    Set ``mass_number=A`` (total mass including the core) to scale only the
+    two-body elements by ``(reference_mass / A)**mass_exponent``. The defaults
+    18 and 0.3 match the USDB convention; other interactions may need different
+    parameters. With ``mass_number=None``, no scaling is applied. File mass
+    metadata is not applied automatically. Use the same scaled interaction for
+    the variational calculation and exact diagonalization.
     """
     normalized = str(name).lower()
     if normalized not in {"cki", "usdb"}:
@@ -144,7 +154,8 @@ def load_nuclear_interaction(name, *, repository_root=None):
     )
     path = root / ("data/cki" if normalized == "cki" else "data/usdb.nat")
     interaction, energies = namespace["get_twobody_nuclearshell_model"](
-        str(path)
+        str(path), mass_number=mass_number, reference_mass=reference_mass,
+        mass_exponent=mass_exponent,
     )
     single_particle = namespace["SingleParticleState"](str(path))
     return interaction, np.asarray(energies), single_particle, path

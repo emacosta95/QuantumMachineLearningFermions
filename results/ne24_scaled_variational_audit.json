@@ -1,0 +1,224 @@
+{
+  "mass": 24,
+  "mass_factor": 0.9173147546424016,
+  "exact_energy": -71.72515829589886,
+  "results": [
+    {
+      "method": "hf",
+      "energy": -66.22458039339733,
+      "fidelity": 0.11975955825016005,
+      "infidelity": 0.88024044174984,
+      "converged": true,
+      "gradient_norm": 2.8299545025130244e-07,
+      "numbers": [
+        6.0,
+        2.0
+      ],
+      "proton_pairing_norm": 0.0,
+      "neutron_pairing_norm": 0.0,
+      "attempts": [
+        {
+          "converged": true,
+          "energy": -63.71482396343929,
+          "number_error": 0.0,
+          "gradient_norm": 9.331817064028814e-07,
+          "iterations": 43,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -66.22458039339732,
+          "number_error": 0.0,
+          "gradient_norm": 7.686229673973388e-07,
+          "iterations": 83,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -66.22458039339733,
+          "number_error": 0.0,
+          "gradient_norm": 2.8299545025130244e-07,
+          "iterations": 88,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -66.2245803933973,
+          "number_error": 0.0,
+          "gradient_norm": 2.939797682008804e-07,
+          "iterations": 79,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -66.22458039339733,
+          "number_error": 0.0,
+          "gradient_norm": 9.86766248453545e-07,
+          "iterations": 63,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -66.2245803933971,
+          "number_error": 0.0,
+          "gradient_norm": 8.279322768856695e-07,
+          "iterations": 75,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -66.22458039339732,
+          "number_error": 0.0,
+          "gradient_norm": 6.311647681851461e-07,
+          "iterations": 68,
+          "message": "Grassmann gradient converged"
+        },
+        {
+          "converged": true,
+          "energy": -66.22458039339719,
+          "number_error": 0.0,
+          "gradient_norm": 7.515083787360774e-07,
+          "iterations": 90,
+          "message": "Grassmann gradient converged"
+        }
+      ],
+      "determinant_fidelity": 0.11975955825016005
+    },
+    {
+      "method": "hfb",
+      "energy": -66.40234933195298,
+      "fidelity": 0.09014765098303053,
+      "infidelity": 0.9098523490169694,
+      "converged": true,
+      "gradient_norm": 9.941785875230177e-06,
+      "numbers": [
+        5.999999996373023,
+        2.000000009976838
+      ],
+      "proton_pairing_norm": 0.0001546793644544785,
+      "neutron_pairing_norm": 0.9045150008386447,
+      "attempts": [
+        {
+          "converged": false,
+          "energy": -66.32732011149511,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 0.0013100604859048299,
+          "gradient_tolerance": 1e-05,
+          "iterations": 417,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 6.19795173406601e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 1876,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": false,
+          "energy": -66.32781012260646,
+          "number_error": 9.99999949513608e-09,
+          "gradient_norm": 0.0011354123726780973,
+          "gradient_tolerance": 1e-05,
+          "iterations": 520,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 5.634501576423646e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 1948,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": true,
+          "energy": -66.40234927788288,
+          "number_error": 9.999934214022232e-09,
+          "gradient_norm": 8.477419155377205e-06,
+          "gradient_tolerance": 1e-05,
+          "iterations": 113,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 245,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": false,
+          "energy": -66.40234928031583,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 0.0005015847585734034,
+          "gradient_tolerance": 1e-05,
+          "iterations": 146,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 7.499521598219874e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 819,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": false,
+          "energy": -66.32780890232765,
+          "number_error": 9.99999949513608e-09,
+          "gradient_norm": 0.001379756565921389,
+          "gradient_tolerance": 1e-05,
+          "iterations": 459,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 5.1222741603851325e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 1737,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": false,
+          "energy": -66.40234840699794,
+          "number_error": 9.99999993922529e-09,
+          "gradient_norm": 0.0007229791575507386,
+          "gradient_tolerance": 1e-05,
+          "iterations": 268,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 5.634501576423646e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 1137,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": true,
+          "energy": -66.40234933195298,
+          "number_error": 9.97683802239635e-09,
+          "gradient_norm": 9.941785875230177e-06,
+          "gradient_tolerance": 1e-05,
+          "iterations": 487,
+          "message": "Constrained H20 gradient converged",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 0.2,
+          "momentum": 0.3,
+          "constraint_corrections": 1495,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        },
+        {
+          "converged": false,
+          "energy": -66.40234818300033,
+          "number_error": 9.99999905104687e-09,
+          "gradient_norm": 0.0014158563696946302,
+          "gradient_tolerance": 1e-05,
+          "iterations": 278,
+          "message": "Heavy-ball line search stalled",
+          "solver": "TAURUS-style constrained H20 heavy ball",
+          "step_size": 3.6536114950676006e-11,
+          "momentum": 0.3,
+          "constraint_corrections": 1165,
+          "real_bogoliubov": true,
+          "parameter_count": 276
+        }
+      ]
+    }
+  ]
+}
